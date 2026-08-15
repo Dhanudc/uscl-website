@@ -1,0 +1,357 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #121417;
+  --ink-soft: #1a1e24;
+  --ink-card: #22272e;
+  --paper: #121417;
+  --mist: #161a20;
+  --line: rgba(255, 255, 255, 0.1);
+  --text: #f3f4f6;
+  --muted: #9ca3af;
+  --accent: #ff3d2e;
+  --accent-soft: #ff6a4d;
+  --accent-wash: rgba(255, 61, 46, 0.14);
+}
+
+@theme inline {
+  --color-background: var(--ink);
+  --color-foreground: var(--text);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-card: var(--ink-card);
+  --color-paper: var(--paper);
+  --color-mist: var(--mist);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-bg: var(--ink);
+  --color-bg-2: var(--ink-soft);
+  --color-panel: var(--ink-card);
+  --color-navy: var(--ink);
+  --color-night: var(--ink);
+  --color-lime: var(--accent);
+  --color-blue: var(--accent);
+  --color-gold: var(--accent);
+  --color-field: var(--ink-soft);
+  --color-sky: var(--mist);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+.font-display {
+  font-family: var(--font-display), system-ui, sans-serif;
+  letter-spacing: 0.015em;
+  text-transform: uppercase;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes seam {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(1.12);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes scoreboard-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.anim-up {
+  animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.anim-up-d1 {
+  animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+}
+.anim-up-d2 {
+  animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.18s both;
+}
+.anim-up-d3 {
+  animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.26s both;
+}
+
+.arena {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 50% 45% at 80% 30%, rgba(255, 61, 46, 0.28), transparent 58%),
+    radial-gradient(ellipse 40% 35% at 10% 85%, rgba(255, 255, 255, 0.05), transparent 55%),
+    linear-gradient(155deg, #121417 0%, #1a1e24 55%, #2a1310 100%);
+}
+
+.arena-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 75% 65% at 65% 45%, black, transparent 78%);
+  pointer-events: none;
+}
+
+.orbit-wrap {
+  position: absolute;
+  width: min(480px, 68vw);
+  height: min(480px, 68vw);
+  right: -2%;
+  top: 48%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.orbit-ring {
+  position: absolute;
+  inset: 0;
+  border: 1.5px dashed rgba(255, 61, 46, 0.45);
+  border-radius: 50%;
+  animation: orbit 26s linear infinite;
+}
+
+.orbit-ring-2 {
+  position: absolute;
+  inset: 14%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  animation: orbit 38s linear infinite reverse;
+}
+
+.orbit-pulse {
+  position: absolute;
+  inset: 30%;
+  border: 1px solid rgba(255, 61, 46, 0.45);
+  border-radius: 50%;
+  animation: pulse-ring 2.8s ease-out infinite;
+}
+
+.orbit-ball-path {
+  position: absolute;
+  inset: 0;
+  animation: orbit 9s linear infinite;
+}
+
+.orbit-ball-path .ball {
+  position: absolute;
+  top: -11px;
+  left: calc(50% - 11px);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 28%, #fff, #ffe0da 40%, #ff3d2e 90%);
+  box-shadow: 0 0 18px rgba(255, 61, 46, 0.55);
+}
+
+.orbit-ball-path .ball::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  border: 1px dashed rgba(0, 0, 0, 0.4);
+  animation: seam 0.85s linear infinite;
+}
+
+.crease-svg ellipse,
+.crease-svg line,
+.crease-svg path {
+  fill: none;
+  stroke: rgba(255, 61, 46, 0.32);
+  stroke-width: 1.5;
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 26s linear infinite;
+}
+
+.panel {
+  background: var(--ink-card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+  color: var(--text);
+}
+
+.panel-hover {
+  transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.panel-hover:hover {
+  border-color: rgba(255, 61, 46, 0.45);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 34px rgba(255, 61, 46, 0.12);
+}
+
+.scoreboard {
+  background: linear-gradient(180deg, #2a2420 0%, #1c1917 100%);
+  border: 2px solid rgba(255, 61, 46, 0.45);
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.35);
+  color: #f4efe9;
+}
+
+.live-dot {
+  animation: scoreboard-blink 1.2s step-end infinite;
+}
+
+.jersey-num {
+  font-variant-numeric: tabular-nums;
+  line-height: 0.85;
+  color: rgba(255, 61, 46, 0.14);
+}
+
+.input-dark {
+  width: 100%;
+  background: #14181e;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f3f4f6;
+  padding: 0.8rem 0.95rem;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-dark::placeholder {
+  color: rgba(243, 244, 246, 0.35);
+}
+
+.input-dark:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.9rem 1.35rem;
+  border-radius: 999px;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: #e63224;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(255, 61, 46, 0.35);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.9rem 1.35rem;
+  border-radius: 999px;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: #fff;
+}
+
+.btn-ghost-dark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.9rem 1.35rem;
+  border-radius: 999px;
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.btn-ghost-dark:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(255, 61, 46, 0.08);
+}
+
+.noise {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}

@@ -1,0 +1,38 @@
+# Render Blueprint — deploy API free tier
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: uscl-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        value: https://www.usclt20.com
+      - key: CLIENT_URLS
+        value: https://usclt20.com
+      - key: COOKIE_SAME_SITE
+        value: none
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_NAME
+        value: USCL Admin
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: REGISTRATION_FEE_INR
+        value: "999"

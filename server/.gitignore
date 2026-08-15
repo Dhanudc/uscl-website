@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.data/
+uploads/
+public/profile-images/*
+!public/profile-images/.gitkeep
+public/payments/*
+!public/payments/.gitkeep
+*.log
