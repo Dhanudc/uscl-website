@@ -1,7 +1,13 @@
 import { useState } from "react";
 
 /** Thumbnail that opens a larger preview on click. */
-export default function ZoomableImage({ src, alt = "", className = "", sizeClass = "max-h-[80vh] max-w-[90vw]" }) {
+export default function ZoomableImage({
+  src,
+  alt = "",
+  className = "",
+  sizeClass = "max-h-[80vh] max-w-[90vw]",
+  onError,
+}) {
   const [open, setOpen] = useState(false);
   if (!src) return null;
 
@@ -10,10 +16,10 @@ export default function ZoomableImage({ src, alt = "", className = "", sizeClass
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="shrink-0 rounded-lg p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="shrink-0 cursor-zoom-in rounded-lg p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         title="View larger"
       >
-        <img src={src} alt={alt} className={className} />
+        <img src={src} alt={alt} className={className} onError={onError} />
       </button>
       {open ? (
         <div
