@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
+import PasswordInput from "../components/PasswordInput";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
@@ -45,10 +46,7 @@ export default function Login() {
             <span className="text-[color:var(--text-muted)]">Email</span>
             <input name="email" type="email" required className="input-dark mt-1" />
           </label>
-          <label className="block text-sm">
-            <span className="text-[color:var(--text-muted)]">Password</span>
-            <input name="password" type="password" required className="input-dark mt-1" />
-          </label>
+          <PasswordInput label="Password" name="password" required className="input-dark" />
           <div className="text-right">
             <Link to="/forgot-password" className="text-xs font-semibold text-accent-soft">
               Forgot password?

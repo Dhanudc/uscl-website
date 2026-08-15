@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
+import PasswordInput from "../components/PasswordInput";
 import ThemePicker from "../components/ThemePicker";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
@@ -879,8 +880,7 @@ function PasswordResetBox({ userId, busyId, onSave }) {
         </button>
       </div>
       <div className="mt-2 flex flex-wrap gap-2">
-        <input
-          type="password"
+        <PasswordInput
           autoFocus
           value={password}
           onChange={(e) => setPassword(e.target.value)}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import PasswordInput from "../components/PasswordInput";
 import { useAuth } from "../context/AuthContext";
 import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
 import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
@@ -383,7 +384,7 @@ export default function Register() {
             />
             <Field label="Phone" name="phone" defaultValue={user?.phone || ""} required />
             {!user ? (
-              <Field label="Password" name="password" type="password" required minLength={6} />
+              <PasswordInput label="Password" name="password" required minLength={6} className="input-dark" />
             ) : null}
             <Field label="Company" name="company" required />
             <label className="block text-sm">

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
+import PasswordInput from "../components/PasswordInput";
 
 export default function ResetPassword() {
   const [params] = useSearchParams();
@@ -74,14 +75,20 @@ export default function ResetPassword() {
               className="input-dark mt-1"
             />
           </label>
-          <label className="block text-sm">
-            <span className="text-[color:var(--text-muted)]">New password</span>
-            <input name="password" type="password" minLength={6} required className="input-dark mt-1" />
-          </label>
-          <label className="block text-sm">
-            <span className="text-[color:var(--text-muted)]">Confirm password</span>
-            <input name="confirm" type="password" minLength={6} required className="input-dark mt-1" />
-          </label>
+          <PasswordInput
+            label="New password"
+            name="password"
+            minLength={6}
+            required
+            className="input-dark"
+          />
+          <PasswordInput
+            label="Confirm password"
+            name="confirm"
+            minLength={6}
+            required
+            className="input-dark"
+          />
           {error && <p className="text-sm text-accent">{error}</p>}
           {message && <p className="text-sm text-emerald-500">{message}</p>}
           <button type="submit" disabled={loading} className="btn-primary w-full">

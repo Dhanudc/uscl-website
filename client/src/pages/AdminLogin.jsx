@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
+import PasswordInput from "../components/PasswordInput";
 import ThemePicker from "../components/ThemePicker";
 import { useAuth } from "../context/AuthContext";
 
@@ -79,16 +80,13 @@ export default function AdminLogin() {
                 className="input-dark mt-1"
               />
             </label>
-            <label className="block text-sm">
-              <span className="text-[color:var(--text-muted)]">Password</span>
-              <input
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                className="input-dark mt-1"
-              />
-            </label>
+            <PasswordInput
+              label="Password"
+              name="password"
+              required
+              autoComplete="current-password"
+              className="input-dark"
+            />
             {error && <p className="text-sm text-accent">{error}</p>}
             <button type="submit" disabled={submitting} className="btn-primary w-full">
               {submitting ? "Signing in..." : "Enter admin dashboard"}
