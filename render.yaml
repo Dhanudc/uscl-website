@@ -1,5 +1,4 @@
-# Render Blueprint — deploy API free tier
-# https://render.com/docs/blueprint-spec
+# Render Blueprint — API only (server folder)
 services:
   - type: web
     name: uscl-api
@@ -12,18 +11,16 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
-      - key: MONGODB_URI
-        sync: false
-      - key: JWT_SECRET
-        generateValue: true
-      - key: CLIENT_URL
-        value: https://www.usclt20.com
-      - key: CLIENT_URLS
-        value: https://usclt20.com
       - key: COOKIE_SAME_SITE
         value: none
+      - key: CLIENT_URL
+        value: https://uscl-website-opal.vercel.app
+      - key: CLIENT_URLS
+        value: https://www.usclt20.com,https://usclt20.com
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD
