@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
+import ZoomableImage from "../components/ZoomableImage";
 import { useAuth } from "../context/AuthContext";
 import { playerRoleLabel } from "../data/playerRoles";
 import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
@@ -332,7 +333,7 @@ export default function Dashboard() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
                       {imgUrl && !brokenProfileIds.has(String(reg._id)) ? (
-                        <img
+                        <ZoomableImage
                           src={imgUrl}
                           alt={reg.fullName}
                           className="h-14 w-14 shrink-0 rounded-lg border border-[color:var(--border)] object-cover"

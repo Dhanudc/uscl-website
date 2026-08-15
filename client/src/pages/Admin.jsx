@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes, useNavigate, useParams } from "react-rou
 import { api } from "../api";
 import PasswordInput from "../components/PasswordInput";
 import ThemePicker from "../components/ThemePicker";
+import ZoomableImage from "../components/ZoomableImage";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 import { franchises as franchiseCatalog } from "../data/franchises";
@@ -393,15 +394,10 @@ function PlayersPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
                 {profileImageUrl(reg) ? (
-                  <img
+                  <ZoomableImage
                     src={profileImageUrl(reg)}
                     alt={reg.fullName}
                     className="h-14 w-14 shrink-0 rounded-lg border border-[color:var(--border)] object-cover bg-ink-soft"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                      const fallback = e.currentTarget.nextElementSibling;
-                      if (fallback) fallback.style.display = "inline-flex";
-                    }}
                   />
                 ) : null}
                 <span
@@ -1257,7 +1253,7 @@ function AuctionPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-3">
                   {profileImageUrl(reg) ? (
-                    <img
+                    <ZoomableImage
                       src={profileImageUrl(reg)}
                       alt={reg.fullName}
                       className="h-12 w-12 shrink-0 rounded-lg border border-[color:var(--border)] object-cover bg-ink-soft"
@@ -1517,7 +1513,7 @@ function TeamsPage() {
                       className="flex items-center gap-3 rounded-md border border-[color:var(--border)] px-3 py-2.5"
                     >
                       {profileImageUrl(p) ? (
-                        <img
+                        <ZoomableImage
                           src={profileImageUrl(p)}
                           alt={p.fullName}
                           className="h-9 w-9 shrink-0 rounded-full border border-[color:var(--border)] object-cover bg-ink-soft"

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import PasswordInput from "../components/PasswordInput";
+import ZoomableImage from "../components/ZoomableImage";
 import { useAuth } from "../context/AuthContext";
 import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
 import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
@@ -322,7 +323,7 @@ export default function Register() {
             </p>
             <div className="flex flex-wrap items-start gap-4">
               {profileImageUrl(existing) ? (
-                <img
+                <ZoomableImage
                   src={profileImageUrl(existing)}
                   alt={existing.fullName}
                   className="h-24 w-24 rounded-lg border border-[color:var(--border)] object-cover"
