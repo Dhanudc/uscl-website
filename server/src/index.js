@@ -34,8 +34,12 @@ function getAllowedOrigins() {
     "http://127.0.0.1:5174",
   ];
 
-  // Production domain (www + apex)
-  const production = ["https://www.usclt20.com", "https://usclt20.com"];
+  // Production domain (www + apex) + current Vercel frontend
+  const production = [
+    "https://www.usclt20.com",
+    "https://usclt20.com",
+    "https://uscl-website-opal.vercel.app",
+  ];
 
   return new Set([...fromEnv, ...local, ...production]);
 }

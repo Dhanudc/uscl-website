@@ -1,10 +1,6 @@
-const DEFAULT_PROD_API = "https://uscl-website.onrender.com";
-
-const API_BASE = String(
-  import.meta.env.VITE_API_URL ||
-    (import.meta.env.PROD ? DEFAULT_PROD_API : "") ||
-    ""
-)
+// Same-origin in production so Vercel rewrites proxy /api → Render.
+// Calling Render directly breaks the session cookie (third-party blocked).
+const API_BASE = String(import.meta.env.VITE_API_URL || "")
   .trim()
   .replace(/\/$/, "");
 
