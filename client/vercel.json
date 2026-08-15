@@ -4,6 +4,29 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/api/:path*",
+      "destination": "https://uscl-website.onrender.com/api/:path*"
+    },
+    {
+      "source": "/profile-images/:path*",
+      "destination": "https://uscl-website.onrender.com/profile-images/:path*"
+    },
+    {
+      "source": "/payments/:path*",
+      "destination": "https://uscl-website.onrender.com/payments/:path*"
+    },
+    {
+      "source": "/payment-screenshots/:path*",
+      "destination": "https://uscl-website.onrender.com/payment-screenshots/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://uscl-website.onrender.com/uploads/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
