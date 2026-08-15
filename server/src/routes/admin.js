@@ -12,6 +12,7 @@ import { writeAudit } from "../utils/audit.js";
 import { recordPlayerActivity } from "../utils/activity.js";
 import { FRANCHISES, getFranchiseName } from "../utils/franchises.js";
 import { buildPointsTable } from "../utils/points.js";
+import { persistUploadedFile } from "../utils/mediaStore.js";
 
 function statusLabel(status) {
   if (status === "verified") return "accepted";
@@ -292,6 +293,7 @@ router.patch("/registrations/:id/payment-details", adminRequired, (req, res) => 
       }
 
       if (shotChanged) {
+        await persistUploadedFile(req.file, "payment");
         registration.paymentScreenshot = newShot;
       }
 

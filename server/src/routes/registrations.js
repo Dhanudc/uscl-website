@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { approvedRequired } from "../middleware/auth.js";
 import { playerRegistrationUpload, paymentScreenshotUpload, profilePhotoUpload, toProfileImageMeta, withProfileImageUrl, mapWithProfileImageUrl } from "../middleware/upload.js";
+import { persistUploadedFile } from "../utils/mediaStore.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
 import { isValidPlayerRole } from "../constants/playerRoles.js";
 import { recordPlayerActivity } from "../utils/activity.js";
@@ -113,6 +114,9 @@ router.post("/", approvedRequired, (req, res) => {
       if (!photoFile) {
         return res.status(400).json({ error: "Please upload a player photo." });
       }
+
+      await persistUploadedFile(photoFile, "profile");
+      if (screenshotFile) await persistUploadedFile(screenshotFile, "payment");
 
       if (utrNumber) {
         const utrExists = await PlayerRegistration.findOne({ utrNumber }).lean();
@@ -304,6 +308,7 @@ router.patch("/:id/payment-details", approvedRequired, (req, res) => {
       }
 
       if (shotChanged) {
+        await persistUploadedFile(req.file, "payment");
         registration.paymentScreenshot = newShot;
       }
 
@@ -536,6 +541,7 @@ router.patch("/:id/profile-image", approvedRequired, (req, res) => {
       }
 
       const hadPhoto = Boolean(registration.profileImage || registration.photo?.filename);
+      await persistUploadedFile(req.file, "profile");
       const photo = toProfileImageMeta(req.file);
       registration.profileImage = photo.filename;
       registration.photo = photo;

@@ -14,6 +14,7 @@ import liveRoutes from "./routes/live.js";
 import teamsRoutes from "./routes/teams.js";
 import { backfillProfileImageColumn } from "./utils/backfillProfileImage.js";
 import { backfillPaymentStatusColumn } from "./utils/backfillPaymentStatus.js";
+import { serveMediaFromDb } from "./utils/mediaStore.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, "../.env") });
@@ -62,6 +63,12 @@ app.use(
 );
 app.use(express.json({ limit: "2mb" }));
 app.use(cookieParser());
+
+// Prefer Mongo-backed media (survives Render redeploys), then disk fallback
+app.get("/profile-images/:filename", serveMediaFromDb("profile"));
+app.get("/payments/:filename", serveMediaFromDb("payment"));
+app.get("/payment-screenshots/:filename", serveMediaFromDb("payment"));
+
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/profile-images", express.static(path.join(__dirname, "../public/profile-images")));

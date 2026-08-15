@@ -399,13 +399,17 @@ function PlayersPage() {
                     className="h-14 w-14 shrink-0 rounded-lg border border-[color:var(--border)] object-cover bg-ink-soft"
                     onError={(e) => {
                       e.currentTarget.style.display = "none";
+                      const fallback = e.currentTarget.nextElementSibling;
+                      if (fallback) fallback.style.display = "inline-flex";
                     }}
                   />
-                ) : (
-                  <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
-                    <PlayerIcon size={22} />
-                  </span>
-                )}
+                ) : null}
+                <span
+                  className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent"
+                  style={{ display: profileImageUrl(reg) ? "none" : "inline-flex" }}
+                >
+                  <PlayerIcon size={22} />
+                </span>
                 <div className="min-w-0">
                   <p className="font-semibold text-[color:var(--title)]">{reg.fullName}</p>
                   <p className="text-sm text-[color:var(--text-muted)]">
