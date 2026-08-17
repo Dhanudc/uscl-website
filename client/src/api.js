@@ -10,10 +10,16 @@ export async function api(path, options = {}) {
   if (!isForm && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
   }
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/admin")) {
+    headers["X-USCL-Portal"] = "admin";
+  }
+
+  const { portal, ...fetchOptions } = options;
+  if (portal) headers["X-USCL-Portal"] = portal;
 
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: "include",
-    ...options,
+    ...fetchOptions,
     headers,
   });
 

@@ -1,9 +1,24 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { api } from "../api";
 import PageShell from "../components/PageShell";
 import { franchiseOffer } from "../data/siteContent";
 import { franchises } from "../data/franchises";
 
 export default function Franchise() {
+  const [teams, setTeams] = useState([]);
+
+  useEffect(() => {
+    api("/api/teams")
+      .then((data) => setTeams(data.teams || []))
+      .catch(() => {});
+  }, []);
+
+  const catalog = franchises.map((f) => {
+    const live = teams.find((t) => t.id === f.id);
+    return { ...f, owner: live?.owner || null, available: live ? live.available : true };
+  });
+
   return (
     <PageShell
       eyebrow="Own a Team"
@@ -37,17 +52,23 @@ export default function Franchise() {
             {franchiseOffer.investment}
           </p>
           <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-            Limited ownership slots for Season 2026. First three franchise identities are open for
-            Buy Now enquiries.
+            Assigned teams hide Buy Now. Open slots stay available.
           </p>
           <div className="mt-4 space-y-2">
-            {franchises.slice(0, 3).map((t) => (
+            {catalog.map((t) => (
               <div
                 key={t.id}
-                className="flex items-center justify-between rounded-md border border-[color:var(--border)] px-3 py-2"
+                className="flex items-center justify-between gap-3 rounded-md border border-[color:var(--border)] px-3 py-2"
               >
                 <span className="text-sm text-[color:var(--title)]">{t.name}</span>
-                <span className="text-xs font-bold uppercase text-accent">Available</span>
+                {t.owner ? (
+                  <span className="text-right text-xs text-[color:var(--text-muted)]">
+                    {t.owner.fullName}
+                    {t.owner.company ? ` · ${t.owner.company}` : ""}
+                  </span>
+                ) : (
+                  <span className="text-xs font-bold uppercase text-accent">Available</span>
+                )}
               </div>
             ))}
           </div>

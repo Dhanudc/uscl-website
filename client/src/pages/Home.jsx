@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import HeroFranchiseBanners from "../components/HeroFranchiseBanners";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 import { AUCTION_TARGET, siteStats } from "../data/siteContent";
@@ -55,9 +56,10 @@ export default function Home() {
     <>
       <section className="relative min-h-[78vh] overflow-hidden border-b border-[color:var(--border)]">
         <div className="home-hero-bg absolute inset-0" aria-hidden="true" />
-        <div className="relative mx-auto flex min-h-[78vh] max-w-6xl flex-col justify-end px-4 pb-14 pt-20 md:justify-center md:pb-20">
-          <div key={slide} className="home-fade-in max-w-xl">
-            <p className="font-display text-[clamp(3rem,10vw,5.5rem)] leading-[0.9] tracking-tight text-[color:var(--title)]">
+        <div className="relative mx-auto flex min-h-[78vh] max-w-6xl flex-col justify-center gap-8 px-4 py-14 md:py-16 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+          {/* Left: carousel copy + CTAs */}
+          <div key={slide} className="home-fade-in w-full max-w-xl shrink-0 lg:max-w-[48%]">
+            <p className="font-display text-[clamp(2.4rem,8vw,4.6rem)] leading-[0.92] tracking-tight text-[color:var(--title)]">
               {current.title === "USCL T20" ? (
                 <>
                   USCL <span className="text-accent">T20</span>
@@ -73,6 +75,9 @@ export default function Home() {
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link to="/register" className="btn-primary">
                 Register
+              </Link>
+              <Link to="/player-journey" className="btn-ghost">
+                Player Journey
               </Link>
               <Link to="/franchise" className="btn-ghost">
                 Own Franchise
@@ -94,32 +99,41 @@ export default function Home() {
                 ))}
               </div>
             </div>
+
+            <div className="mt-8 flex gap-2">
+              {HERO_SLIDES.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={`Slide ${i + 1}`}
+                  onClick={() => setSlide(i)}
+                  className={`h-1.5 rounded-full transition-all ${
+                    i === slide ? "w-8 bg-accent" : "w-3 bg-[color:var(--border-strong)]"
+                  }`}
+                />
+              ))}
+            </div>
           </div>
 
-          <div className="mt-10 flex gap-2">
-            {HERO_SLIDES.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                aria-label={`Slide ${i + 1}`}
-                onClick={() => setSlide(i)}
-                className={`h-1.5 rounded-full transition-all ${
-                  i === slide ? "w-8 bg-accent" : "w-3 bg-[color:var(--border-strong)]"
-                }`}
-              />
-            ))}
+          {/* Right: franchise hanging banners */}
+          <div className="home-fade-in w-full lg:max-w-[48%]">
+            <HeroFranchiseBanners />
           </div>
         </div>
       </section>
 
-      <section className="border-b border-[color:var(--border)] bg-ink-soft px-4 py-10">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-6">
-          {siteStats.map((stat) => (
-            <div key={stat.label} className="text-center">
-              <p className="font-display text-3xl text-accent md:text-4xl">{stat.value}</p>
-              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
-                {stat.label}
-              </p>
+      <section className="stats-marquee border-b border-[color:var(--border)] bg-ink-soft py-8" aria-label="USCL season stats">
+        <div className="stats-marquee-track">
+          {[0, 1].map((copy) => (
+            <div key={copy} className="stats-marquee-group" aria-hidden={copy === 1}>
+              {siteStats.map((stat) => (
+                <div key={`${copy}-${stat.label}`} className="stats-marquee-item">
+                  <p className="font-display text-3xl text-accent md:text-4xl">{stat.value}</p>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
             </div>
           ))}
         </div>

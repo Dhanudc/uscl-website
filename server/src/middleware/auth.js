@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { User } from "../models/User.js";
 
 const COOKIE_NAME = "uscl_session";
+const ADMIN_COOKIE_NAME = "uscl_admin_session";
 
 function authCookieOptions() {
   // Cross-site (Vercel frontend → Render API) requires SameSite=None + Secure.
@@ -23,6 +24,12 @@ function authCookieOptions() {
   };
 }
 
+function isAdminPortal(req) {
+  const header = String(req.headers["x-uscl-portal"] || "").toLowerCase();
+  const url = String(req.originalUrl || req.url || "");
+  return header === "admin" || url.startsWith("/api/admin") || url.startsWith("/api/auth/admin");
+}
+
 export function hashPassword(password) {
   return bcrypt.hash(password, 10);
 }
@@ -37,19 +44,20 @@ export function signToken(payload) {
   });
 }
 
-export function setAuthCookie(res, token) {
-  res.cookie(COOKIE_NAME, token, authCookieOptions());
+export function setAuthCookie(res, token, { admin = false } = {}) {
+  res.cookie(admin ? ADMIN_COOKIE_NAME : COOKIE_NAME, token, authCookieOptions());
 }
 
-export function clearAuthCookie(res) {
-  res.clearCookie(COOKIE_NAME, {
-    path: "/",
-    ...authCookieOptions(),
-    maxAge: 0,
-  });
+export function clearAuthCookie(res, { admin = false, both = false } = {}) {
+  const opts = { path: "/", ...authCookieOptions(), maxAge: 0 };
+  if (both || !admin) res.clearCookie(COOKIE_NAME, opts);
+  if (both || admin) res.clearCookie(ADMIN_COOKIE_NAME, opts);
 }
 
 export function getTokenFromReq(req) {
+  if (isAdminPortal(req)) {
+    return req.cookies?.[ADMIN_COOKIE_NAME] || req.cookies?.[COOKIE_NAME] || null;
+  }
   return req.cookies?.[COOKIE_NAME] || null;
 }
 

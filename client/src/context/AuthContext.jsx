@@ -3,13 +3,18 @@ import { api } from "../api";
 
 const AuthContext = createContext(null);
 
+function currentPortal() {
+  if (typeof window === "undefined") return "user";
+  return window.location.pathname.startsWith("/admin") ? "admin" : "user";
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
-      const data = await api("/api/auth/me");
+      const data = await api("/api/auth/me", { portal: currentPortal() });
       setUser(data.user);
     } catch {
       setUser(null);
@@ -19,7 +24,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await api("/api/auth/logout", { method: "POST" });
+    await api("/api/auth/logout", { method: "POST", portal: currentPortal() });
     setUser(null);
   }, []);
 

@@ -156,6 +156,7 @@ function OverviewPage() {
 
 function PlayersPage() {
   const { status } = useParams();
+  const navigate = useNavigate();
   const page = ["pending", "accepted", "rejected"].includes(status) ? status : "pending";
   const apiStatus = page === "accepted" ? "verified" : page;
   const [regs, setRegs] = useState([]);
@@ -176,21 +177,41 @@ function PlayersPage() {
   const [activityError, setActivityError] = useState("");
   const [payNowConfirmReg, setPayNowConfirmReg] = useState(null);
   const [enablingPayNow, setEnablingPayNow] = useState(false);
+  const [ownerTeam, setOwnerTeam] = useState({});
+  const [interestFilter, setInterestFilter] = useState("franchise");
 
   async function load() {
-    const data = await api(`/api/admin/registrations?status=${apiStatus}`);
+    const qs = new URLSearchParams({ status: apiStatus });
+    if (["captain", "player", "franchise", "sponsor"].includes(interestFilter)) {
+      qs.set("interest", interestFilter);
+    }
+    const data = await api(`/api/admin/registrations?${qs.toString()}`);
     setRegs(data.registrations || []);
     const seed = {};
-    for (const item of data.registrations || []) seed[item._id] = item.adminNotes || "";
+    const teams = {};
+    for (const item of data.registrations || []) {
+      seed[item._id] = item.adminNotes || "";
+      teams[item._id] = item.franchiseId || "";
+    }
     setNotes(seed);
+    setOwnerTeam(teams);
   }
 
   useEffect(() => {
     setMessage("");
     setError("");
-    load().catch((err) => setError(err.message));
+    load().catch((err) => {
+      setError(err.message);
+      if (/admin access/i.test(err.message)) {
+        navigate("/admin/login", { replace: true });
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiStatus]);
+  }, [apiStatus, interestFilter]);
+
+  useEffect(() => {
+    if (page === "pending") setInterestFilter("franchise");
+  }, [page]);
 
   useEffect(() => {
     if (!paymentModalReg) return;
@@ -222,10 +243,23 @@ function PlayersPage() {
     setBusyId(id);
     setError("");
     setMessage("");
+    const current = regs.find((r) => String(r._id) === String(id));
+    if (
+      current?.interest === "franchise" &&
+      nextStatus === "verified" &&
+      !ownerTeam[id]
+    ) {
+      setError("Assign a franchise team before accepting.");
+      setBusyId("");
+      return;
+    }
     try {
+      const payload = { status: nextStatus, adminNotes: notes[id] || "" };
+      const teamId = ownerTeam[id];
+      if (teamId) payload.franchiseId = teamId;
       await api(`/api/admin/registrations/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({ status: nextStatus, adminNotes: notes[id] || "" }),
+        body: JSON.stringify(payload),
       });
       setMessage(
         nextStatus === "verified"
@@ -353,13 +387,35 @@ function PlayersPage() {
   }
 
   const titles = {
-    pending: ["Pending players", "Accept or reject. After accept they leave this page."],
+    pending: ["Pending franchises", "Assign a team, then accept or reject. After accept they leave this page."],
     accepted: ["Accepted players", "Players you already accepted. No action needed."],
     rejected: ["Rejected players", "Players you already rejected."],
   };
 
   return (
     <AdminShell title={titles[page][0]} subtitle={titles[page][1]}>
+      <div className="mb-3 flex flex-wrap gap-2">
+        {[
+          ["all", "All"],
+          ["captain", "Captain"],
+          ["player", "Player"],
+          ["franchise", "Franchise"],
+          ["sponsor", "Sponsor"],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setInterestFilter(key)}
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+              interestFilter === key
+                ? "bg-accent text-white"
+                : "border border-[color:var(--border-strong)] text-[color:var(--text-muted)]"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <div className="mb-4 flex flex-wrap gap-2">
         {[
           ["pending", "Pending"],
@@ -384,7 +440,8 @@ function PlayersPage() {
       <div className="space-y-3">
         {regs.length === 0 && (
           <p className="rounded-lg border border-[color:var(--border)] bg-ink-card p-4 text-sm text-[color:var(--text-muted)]">
-            No {page} players yet.
+            No {page} {interestFilter === "all" ? "registrations" : `${interestFilter}s`} yet.
+            {interestFilter !== "all" ? " Switch to All to see every type." : ""}
           </p>
         )}
         {regs.map((reg) => {
@@ -413,7 +470,11 @@ function PlayersPage() {
                   </p>
                   <p className="mt-1 text-xs text-[color:var(--text-muted)]">
                     {reg.phone}
-                    {reg.role ? ` · ${playerRoleLabel(reg.role)}` : ""}
+                    {reg.interest === "player" || reg.interest === "captain"
+                      ? reg.role
+                        ? ` · ${playerRoleLabel(reg.role)}`
+                        : ""
+                      : ""}
                     {` · Pay ${paymentStatusLabel(getPaymentStatus(reg))}${
                       reg.payment?.amountInr ? ` ₹${reg.payment.amountInr}` : ""
                     }`}
@@ -492,12 +553,62 @@ function PlayersPage() {
               <StatusBadge status={reg.status} />
             </div>
 
-            {page === "accepted" && (
+            {page === "accepted" && reg.interest !== "franchise" ? (
               <div className="mt-2 text-xs text-[color:var(--text-muted)]">
                 Auction: {reg.auctionStatus || "not_listed"}
                 {reg.franchiseName ? ` · ${reg.franchiseName}` : ""}
               </div>
-            )}
+            ) : null}
+
+            {reg.interest === "franchise" && page === "pending" ? (
+              <div className="mt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+                  Assign a team
+                </p>
+                <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                  {ownerTeam[reg._id]
+                    ? `Selected: ${
+                        franchiseCatalog.find((f) => f.id === ownerTeam[reg._id])?.name || ownerTeam[reg._id]
+                      }`
+                    : "Pick the franchise this owner will get."}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {franchiseCatalog.map((f) => {
+                    const selected = ownerTeam[reg._id] === f.id;
+                    return (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() =>
+                          setOwnerTeam((prev) => ({
+                            ...prev,
+                            [reg._id]: selected ? "" : f.id,
+                          }))
+                        }
+                        className={`rounded-md px-3 py-2 text-xs font-semibold ${
+                          selected
+                            ? "bg-accent text-white"
+                            : "border border-[color:var(--border-strong)] text-[color:var(--title)]"
+                        }`}
+                      >
+                        {f.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {reg.interest === "franchise" && page === "accepted" ? (
+              <p className="mt-3 text-sm text-[color:var(--text)]">
+                Team:{" "}
+                <strong className="text-accent">
+                  {reg.franchiseName ||
+                    franchiseCatalog.find((f) => f.id === (ownerTeam[reg._id] || reg.franchiseId))?.name ||
+                    "Not assigned"}
+                </strong>
+              </p>
+            ) : null}
 
             {page === "pending" ? (
               <>
@@ -511,11 +622,14 @@ function PlayersPage() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    disabled={busyId === reg._id}
+                    disabled={
+                      busyId === reg._id ||
+                      (reg.interest === "franchise" && !ownerTeam[reg._id])
+                    }
                     onClick={() => updateReg(reg._id, "verified")}
-                    className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-[color:var(--title)]"
+                    className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-[color:var(--title)] disabled:opacity-40"
                   >
-                    Accept player
+                    {reg.interest === "franchise" ? "Accept franchise" : "Accept player"}
                   </button>
                   <button
                     type="button"
@@ -548,7 +662,7 @@ function PlayersPage() {
                   >
                     Move back to pending
                   </button>
-                  {page === "accepted" && (
+                  {page === "accepted" && reg.interest !== "franchise" && (
                     <Link to="/admin/auction" className="btn-ghost !py-1.5 !text-xs">
                       Assign in auction
                     </Link>
@@ -760,6 +874,7 @@ function PlayersPage() {
                     <p className="text-sm text-[color:var(--text)]">{item.summary}</p>
                     <p className="mt-1 text-xs text-[color:var(--text-muted)]">
                       {item.createdAt ? new Date(item.createdAt).toLocaleString() : ""}
+                      {item.actorName ? ` · by ${item.actorName}` : ""}
                       {item.actorRole ? ` · ${item.actorRole}` : ""}
                     </p>
                   </li>
@@ -1173,7 +1288,7 @@ function AuctionPage() {
         : `/api/admin/registrations?status=verified&auctionStatus=${filter}`;
     Promise.all([api(url), api("/api/admin/franchises")])
       .then(([r, f]) => {
-        setRegs(r.registrations || []);
+        setRegs((r.registrations || []).filter((item) => item.interest !== "franchise" && item.interest !== "sponsor"));
         setFranchises(f.franchises || []);
         const seed = {};
         for (const item of r.registrations || []) {

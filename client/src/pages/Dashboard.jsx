@@ -349,7 +349,11 @@ export default function Dashboard() {
                       <div className="min-w-0">
                         <p className="text-lg font-semibold text-[color:var(--title)]">{reg.fullName}</p>
                         <p className="text-sm text-[color:var(--text-muted)]">
-                          {reg.company} · {playerRoleLabel(reg.role)} · {reg.interest}
+                          {reg.company}
+                          {reg.interest === "player" || reg.interest === "captain"
+                            ? ` · ${playerRoleLabel(reg.role)}`
+                            : ""}
+                          {reg.interest ? ` · ${reg.interest}` : ""}
                         </p>
                         <p className="mt-2 text-sm text-[color:var(--text-muted)]">
                           Payment:{" "}
@@ -387,6 +391,17 @@ export default function Dashboard() {
                           {reg.soldPrice ? ` · Sold ₹${reg.soldPrice}` : ""}
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2">
+                          {reg.interest === "franchise" &&
+                          reg.status === "verified" &&
+                          getPaymentStatus(reg) === "paid" &&
+                          reg.franchiseId ? (
+                            <Link
+                              to="/dashboard/players"
+                              className="btn-primary !py-2 !text-xs"
+                            >
+                              Players list
+                            </Link>
+                          ) : null}
                           {needsPhoto ? (
                             <button
                               type="button"

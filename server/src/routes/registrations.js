@@ -3,7 +3,7 @@ import { approvedRequired } from "../middleware/auth.js";
 import { playerRegistrationUpload, paymentScreenshotUpload, profilePhotoUpload, toProfileImageMeta, withProfileImageUrl, mapWithProfileImageUrl } from "../middleware/upload.js";
 import { persistUploadedFile } from "../utils/mediaStore.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { isValidPlayerRole } from "../constants/playerRoles.js";
+import { getFranchiseName } from "../utils/franchises.js";
 import { recordPlayerActivity } from "../utils/activity.js";
 import {
   getRegistrationFeeInr,
@@ -70,6 +70,92 @@ router.get("/", approvedRequired, async (req, res) => {
   return res.json({ registrations: mapWithProfileImageUrl(registrations) });
 });
 
+function isPaid(reg) {
+  const top = String(reg?.paymentStatus || "").toLowerCase();
+  const nested = String(reg?.payment?.status || "").toLowerCase();
+  return top === "paid" || nested === "paid";
+}
+
+async function getFranchiseOwnerRecord(userId) {
+  return PlayerRegistration.findOne({
+    userId,
+    interest: "franchise",
+    status: "verified",
+  }).lean();
+}
+
+/** Franchise owner: sold players for the team admin assigned. */
+router.get("/squad", approvedRequired, async (req, res) => {
+  try {
+    const owner = await getFranchiseOwnerRecord(req.user.userId);
+    if (!owner) {
+      return res.status(403).json({ error: "No verified franchise registration found." });
+    }
+    if (!isPaid(owner)) {
+      return res.status(403).json({ error: "Franchise payment is not complete yet." });
+    }
+    if (!owner.franchiseId) {
+      return res.status(400).json({ error: "Admin has not assigned a franchise team yet." });
+    }
+
+    const players = await PlayerRegistration.find({
+      status: "verified",
+      auctionStatus: "sold",
+      franchiseId: owner.franchiseId,
+      interest: { $in: ["player", "captain"] },
+    })
+      .select(
+        "fullName email phone company role interest photo profileImage soldPrice franchiseName auctionStatus paymentStatus payment"
+      )
+      .sort({ fullName: 1 })
+      .lean();
+
+    return res.json({
+      team: {
+        id: owner.franchiseId,
+        name: owner.franchiseName || getFranchiseName(owner.franchiseId),
+      },
+      players: mapWithProfileImageUrl(players),
+    });
+  } catch (error) {
+    console.error("franchise squad error", error);
+    return res.status(500).json({ error: "Unable to load franchise players." });
+  }
+});
+
+/** Franchise owner: one bought player's details (read-only dashboard). */
+router.get("/squad/:playerId", approvedRequired, async (req, res) => {
+  try {
+    const owner = await getFranchiseOwnerRecord(req.user.userId);
+    if (!owner) {
+      return res.status(403).json({ error: "No verified franchise registration found." });
+    }
+    if (!isPaid(owner)) {
+      return res.status(403).json({ error: "Franchise payment is not complete yet." });
+    }
+    if (!owner.franchiseId) {
+      return res.status(400).json({ error: "Admin has not assigned a franchise team yet." });
+    }
+
+    const player = await PlayerRegistration.findOne({
+      _id: req.params.playerId,
+      status: "verified",
+      auctionStatus: "sold",
+      franchiseId: owner.franchiseId,
+      interest: { $in: ["player", "captain"] },
+    }).lean();
+
+    if (!player) {
+      return res.status(404).json({ error: "Player not found on your squad." });
+    }
+
+    return res.json({ player: withProfileImageUrl(player) });
+  } catch (error) {
+    console.error("franchise squad player error", error);
+    return res.status(500).json({ error: "Unable to load player." });
+  }
+});
+
 router.post("/", approvedRequired, (req, res) => {
   playerRegistrationUpload(req, res, async (err) => {
     if (err) {
@@ -86,8 +172,14 @@ router.post("/", approvedRequired, (req, res) => {
       const email = String(req.body.email || "").trim().toLowerCase();
       const phone = String(req.body.phone || "").trim();
       const company = String(req.body.company || "").trim();
-      const role = String(req.body.role || "").trim();
-      const interest = req.body.interest || "player";
+      const interestRaw = String(req.body.interest || "player").trim().toLowerCase();
+      const interest = ["player", "captain", "franchise", "sponsor"].includes(interestRaw)
+        ? interestRaw
+        : "player";
+      const needsPlayingRole = interest === "player" || interest === "captain";
+      const role = needsPlayingRole
+        ? String(req.body.role || "").trim()
+        : interest; // franchise / sponsor — no playing role
       const utrNumber = String(req.body.utrNumber || "")
         .trim()
         .toUpperCase();
@@ -105,14 +197,14 @@ router.post("/", approvedRequired, (req, res) => {
       if (!fullName || !email || !phone || !company || !role) {
         return res.status(400).json({ error: "Please fill all required registration fields." });
       }
-      if (!isValidPlayerRole(role)) {
+      if (needsPlayingRole && !isValidPlayerRole(role)) {
         return res.status(400).json({ error: "Please select a valid playing role." });
       }
       if (!agreedToTerms) {
         return res.status(400).json({ error: "You must agree to the eligibility terms." });
       }
       if (!photoFile) {
-        return res.status(400).json({ error: "Please upload a player photo." });
+        return res.status(400).json({ error: "Please upload a photo." });
       }
 
       await persistUploadedFile(photoFile, "profile");
@@ -151,12 +243,14 @@ router.post("/", approvedRequired, (req, res) => {
 
       const existing = await PlayerRegistration.findOne({
         userId: req.user.userId,
-        interest: "player",
+        interest,
         status: { $in: ["pending", "verified"] },
       });
 
-      if (interest === "player" && existing) {
-        return res.status(409).json({ error: "You already have an active player registration." });
+      if (existing) {
+        return res.status(409).json({
+          error: `You already have an active ${interest} registration.`,
+        });
       }
 
       if (hasRazorpay) {

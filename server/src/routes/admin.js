@@ -173,7 +173,7 @@ router.get("/registrations", adminRequired, async (req, res) => {
   if (["pending", "verified", "rejected"].includes(req.query.status)) {
     filter.status = req.query.status;
   }
-  if (["player", "franchise", "sponsor"].includes(req.query.interest)) {
+  if (["player", "captain", "franchise", "sponsor"].includes(req.query.interest)) {
     filter.interest = req.query.interest;
   }
   if (["not_listed", "unsold", "sold"].includes(req.query.auctionStatus)) {
@@ -403,6 +403,7 @@ router.patch("/registrations/:id", adminRequired, async (req, res) => {
   try {
     const status = String(req.body.status || "");
     const adminNotes = String(req.body.adminNotes || "").trim();
+    const franchiseId = String(req.body.franchiseId || "").trim();
 
     if (!["pending", "verified", "rejected"].includes(status)) {
       return res.status(400).json({ error: "Invalid status." });
@@ -414,10 +415,39 @@ router.patch("/registrations/:id", adminRequired, async (req, res) => {
     }
 
     const prev = registration.status;
+    const prevFranchiseId = String(registration.franchiseId || "").trim();
+    const prevFranchiseName = String(registration.franchiseName || "").trim();
     const statusChanged = prev !== status;
     const notesChanged = String(registration.adminNotes || "").trim() !== adminNotes;
+    const adminName = req.user?.name || req.user?.email || "admin";
 
-    if (!statusChanged && !notesChanged) {
+    if (registration.interest === "franchise") {
+      const nextFranchiseId = franchiseId || String(registration.franchiseId || "").trim();
+      if (status === "verified" && !nextFranchiseId) {
+        return res.status(400).json({ error: "Assign a franchise team before accepting." });
+      }
+      if (nextFranchiseId) {
+        const taken = await PlayerRegistration.findOne({
+          _id: { $ne: registration._id },
+          interest: "franchise",
+          status: { $in: ["pending", "verified"] },
+          franchiseId: nextFranchiseId,
+        }).lean();
+        if (taken) {
+          return res.status(409).json({
+            error: `${getFranchiseName(nextFranchiseId) || "This team"} is already assigned.`,
+          });
+        }
+        registration.franchiseId = nextFranchiseId;
+        registration.franchiseName = getFranchiseName(nextFranchiseId);
+      }
+    }
+
+    const teamChanged =
+      registration.interest === "franchise" &&
+      String(registration.franchiseId || "") !== prevFranchiseId;
+
+    if (!statusChanged && !notesChanged && !teamChanged) {
       return res.json({ registration: withProfileImageUrl(registration) });
     }
 
@@ -442,7 +472,6 @@ router.patch("/registrations/:id", adminRequired, async (req, res) => {
     }
 
     if (statusChanged) {
-      const adminName = req.user?.name || req.user?.email || "admin";
       await recordPlayerActivity({
         registrationId: registration._id,
         userId: registration.userId,
@@ -451,6 +480,27 @@ router.patch("/registrations/:id", adminRequired, async (req, res) => {
         actorName: adminName,
         actorRole: "admin",
         details: { from: prev, to: status, adminNotes },
+      });
+    }
+
+    if (teamChanged) {
+      const teamName = registration.franchiseName || getFranchiseName(registration.franchiseId);
+      await recordPlayerActivity({
+        registrationId: registration._id,
+        userId: registration.userId,
+        action: "franchise.team_assigned",
+        summary: prevFranchiseId
+          ? `${adminName} (admin) changed team from ${prevFranchiseName || prevFranchiseId} to ${teamName}`
+          : `${adminName} (admin) assigned team ${teamName}`,
+        actorName: adminName,
+        actorRole: "admin",
+        details: {
+          fromFranchiseId: prevFranchiseId,
+          fromFranchiseName: prevFranchiseName,
+          toFranchiseId: registration.franchiseId,
+          toFranchiseName: teamName,
+          assignedBy: adminName,
+        },
       });
     }
 

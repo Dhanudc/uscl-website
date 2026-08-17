@@ -25,7 +25,7 @@ const registrationSchema = new mongoose.Schema(
     bowlingStyle: { type: String, default: "" },
     interest: {
       type: String,
-      enum: ["player", "franchise", "sponsor"],
+      enum: ["player", "captain", "franchise", "sponsor"],
       default: "player",
     },
     status: {

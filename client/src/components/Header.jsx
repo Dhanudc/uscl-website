@@ -15,6 +15,7 @@ export default function Header() {
     { to: "/wesley", label: "Wesley" },
     { to: "/franchise", label: "Own Team" },
     { to: "/register", label: "Register" },
+    { to: "/player-journey", label: "Player Journey" },
   ];
 
   return (

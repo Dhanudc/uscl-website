@@ -37,6 +37,9 @@ export default function Register() {
   const [screenshotPreview, setScreenshotPreview] = useState("");
   const [modalError, setModalError] = useState("");
   const [finishing, setFinishing] = useState(false);
+  /** Set from the pre-register popup: captain | player | franchise | sponsor */
+  const [registerInterest, setRegisterInterest] = useState(null);
+  const [showTypePicker, setShowTypePicker] = useState(true);
 
   useEffect(() => {
     api("/api/registrations/payment-config")
@@ -192,7 +195,21 @@ export default function Register() {
     try {
       const photoFile = form.photo.files?.[0];
       if (!photoFile) {
-        throw new Error("Please upload a player photo.");
+        throw new Error("Please upload a photo.");
+      }
+
+      const needsPlayingRole =
+        registerInterest === "player" || registerInterest === "captain";
+      const interest = registerInterest || "player";
+      const role = needsPlayingRole
+        ? form.role.value.trim()
+        : interest;
+
+      if (!registerInterest) {
+        throw new Error("Please choose Captain, Player, Franchise, or Sponsor first.");
+      }
+      if (needsPlayingRole && !role) {
+        throw new Error("Please select a playing role.");
       }
 
       const values = {
@@ -201,8 +218,8 @@ export default function Register() {
         phone: form.phone.value.trim(),
         password: form.password?.value || "",
         company: form.company.value.trim(),
-        role: form.role.value.trim(),
-        interest: form.interest.value,
+        role,
+        interest,
       };
       const agreedToTerms = form.agreedToTerms.checked;
 
@@ -334,7 +351,15 @@ export default function Register() {
                 <p>Email: {existing.email}</p>
                 <p>Phone: {existing.phone}</p>
                 <p>Company: {existing.company}</p>
-                <p>Role: {playerRoleLabel(existing.role)}</p>
+                <p>
+                  Interest:{" "}
+                  <strong className="uppercase text-accent-soft">
+                    {existing.interest || "player"}
+                  </strong>
+                </p>
+                {existing.interest === "player" || existing.interest === "captain" ? (
+                  <p>Role: {playerRoleLabel(existing.role)}</p>
+                ) : null}
                 <p>
                   Payment:{" "}
                   <strong className="uppercase text-accent-soft">
@@ -369,12 +394,28 @@ export default function Register() {
               Open Dashboard
             </Link>
           </div>
-        ) : (
+        ) : registerInterest ? (
           <form
             onSubmit={onSubmit}
             encType="multipart/form-data"
             className="panel mt-8 grid gap-3 rounded-2xl p-6 sm:grid-cols-2"
           >
+            <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-ink-soft px-3 py-2">
+              <p className="text-sm text-[color:var(--text)]">
+                Registering as{" "}
+                <strong className="uppercase text-accent">{registerInterest}</strong>
+              </p>
+              <button
+                type="button"
+                className="text-xs font-semibold text-accent-soft underline"
+                onClick={() => {
+                  setRegisterInterest(null);
+                  setShowTypePicker(true);
+                }}
+              >
+                Change
+              </button>
+            </div>
             <Field label="Full Name" name="fullName" defaultValue={user?.name || ""} required />
             <Field
               label="Email"
@@ -388,30 +429,26 @@ export default function Register() {
               <PasswordInput label="Password" name="password" required minLength={6} className="input-dark" />
             ) : null}
             <Field label="Company" name="company" required />
-            <label className="block text-sm">
-              <span className="text-[color:var(--text-muted)]">Role</span>
-              <select name="role" className="input-dark mt-1.5" required defaultValue="">
-                <option value="" disabled>
-                  Select playing role
-                </option>
-                {PLAYER_ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
+            {registerInterest === "player" || registerInterest === "captain" ? (
+              <label className="block text-sm">
+                <span className="text-[color:var(--text-muted)]">Role</span>
+                <select name="role" className="input-dark mt-1.5" required defaultValue="">
+                  <option value="" disabled>
+                    Select playing role
                   </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="text-[color:var(--text-muted)]">Interest</span>
-              <select name="interest" className="input-dark mt-1.5" defaultValue="player">
-                <option value="player">Player</option>
-                <option value="franchise">Franchise</option>
-                <option value="sponsor">Sponsor</option>
-              </select>
-            </label>
+                  {PLAYER_ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {/* Interest comes from the pre-register popup */}
+            <input type="hidden" name="interest" value={registerInterest || "player"} />
 
             <label className="block text-sm sm:col-span-2">
-              <span className="text-[color:var(--text-muted)]">Player photo (JPG/PNG/WEBP)</span>
+              <span className="text-[color:var(--text-muted)]">Photo (JPG/PNG/WEBP)</span>
               <input
                 name="photo"
                 type="file"
@@ -461,7 +498,66 @@ export default function Register() {
               {submitting ? "Processing payment..." : `Pay ₹${feeInr} & Submit`}
             </button>
           </form>
+        ) : (
+          <div className="panel mt-8 rounded-2xl p-6 text-center">
+            <p className="text-sm text-[color:var(--text-muted)]">
+              Choose Captain, Player, Franchise, or Sponsor to continue.
+            </p>
+            <button
+              type="button"
+              className="btn-primary mt-4"
+              onClick={() => setShowTypePicker(true)}
+            >
+              Select registration type
+            </button>
+          </div>
         )}
+
+        {!existing && !registerInterest && showTypePicker ? (
+          <div
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4"
+            onClick={() => setShowTypePicker(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="register-type-title"
+              className="panel w-full max-w-md rounded-2xl p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p className="eyebrow text-accent">Before you register</p>
+              <h2
+                id="register-type-title"
+                className="mt-1 font-display text-2xl text-[color:var(--title)]"
+              >
+                Who are you registering as?
+              </h2>
+              <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                Pick one option. Interest is set from your choice.
+              </p>
+              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                {[
+                  { value: "captain", label: "Captain" },
+                  { value: "player", label: "Player" },
+                  { value: "franchise", label: "Franchise" },
+                  { value: "sponsor", label: "Sponsor" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className="btn-primary !py-3"
+                    onClick={() => {
+                      setRegisterInterest(opt.value);
+                      setShowTypePicker(false);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {!user && !existing ? (
           <p className="mt-5 text-sm text-[color:var(--text-muted)]">

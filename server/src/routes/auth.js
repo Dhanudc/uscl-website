@@ -148,7 +148,7 @@ router.post("/admin-login", async (req, res) => {
       role: "admin",
       status: "approved",
     });
-    setAuthCookie(res, token);
+    setAuthCookie(res, token, { admin: true });
 
     return res.json({ user: publicUser({ ...user.toObject(), role: "admin", status: "approved" }) });
   } catch (error) {
@@ -157,8 +157,9 @@ router.post("/admin-login", async (req, res) => {
   }
 });
 
-router.post("/logout", (_req, res) => {
-  clearAuthCookie(res);
+router.post("/logout", (req, res) => {
+  const portal = String(req.headers["x-uscl-portal"] || "").toLowerCase();
+  clearAuthCookie(res, { admin: portal === "admin" });
   return res.json({ ok: true });
 });
 
@@ -167,7 +168,8 @@ router.get("/me", authRequired, async (req, res) => {
     "name email phone role status createdAt adminNotes"
   );
   if (!user) {
-    clearAuthCookie(res);
+    const portal = String(req.headers["x-uscl-portal"] || "").toLowerCase();
+    clearAuthCookie(res, { admin: portal === "admin" });
     return res.status(401).json({ user: null });
   }
   return res.json({ user: publicUser(user) });

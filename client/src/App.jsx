@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { SiteSettingsProvider } from "./context/SiteSettingsContext";
@@ -13,8 +14,11 @@ import Sponsorship from "./pages/Sponsorship";
 import Media from "./pages/Media";
 import LiveUpdates from "./pages/LiveUpdates";
 import Register from "./pages/Register";
+import PlayerJourney from "./pages/PlayerJourney";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import FranchiseSquad from "./pages/FranchiseSquad";
+import FranchisePlayerDashboard from "./pages/FranchisePlayerDashboard";
 import Admin from "./pages/Admin";
 import AdminLogin from "./pages/AdminLogin";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -47,7 +51,12 @@ function PublicShell({ children }) {
 
 function AppRoutes() {
   const location = useLocation();
+  const { refresh } = useAuth();
   const isAdminArea = location.pathname.startsWith("/admin");
+
+  useEffect(() => {
+    refresh();
+  }, [isAdminArea, refresh]);
 
   if (isAdminArea) {
     return (
@@ -85,11 +94,28 @@ function AppRoutes() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/pending" element={<Navigate to="/register" replace />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/player-journey" element={<PlayerJourney />} />
         <Route
           path="/dashboard"
           element={
             <ApprovedOnly>
               <Dashboard />
+            </ApprovedOnly>
+          }
+        />
+        <Route
+          path="/dashboard/players"
+          element={
+            <ApprovedOnly>
+              <FranchiseSquad />
+            </ApprovedOnly>
+          }
+        />
+        <Route
+          path="/dashboard/player/:playerId"
+          element={
+            <ApprovedOnly>
+              <FranchisePlayerDashboard />
             </ApprovedOnly>
           }
         />

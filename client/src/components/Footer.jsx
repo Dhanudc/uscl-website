@@ -29,6 +29,7 @@ export default function Footer() {
             <Link to="/media">Media</Link>
             <Link to="/live">Live Updates</Link>
             <Link to="/register">Register</Link>
+            <Link to="/player-journey">Player Journey</Link>
           </div>
         </div>
 

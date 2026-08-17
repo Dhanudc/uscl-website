@@ -5,26 +5,51 @@ import { FRANCHISES } from "../utils/franchises.js";
 
 const router = Router();
 
-/** Public: list franchises with sold player counts. */
+/** Public: list franchises with sold player counts and assigned owners. */
 router.get("/", async (_req, res) => {
   try {
-    const sold = await PlayerRegistration.find({
-      status: "verified",
-      auctionStatus: "sold",
-      franchiseId: { $ne: "" },
-    })
-      .select("franchiseId")
-      .lean();
+    const [sold, owners] = await Promise.all([
+      PlayerRegistration.find({
+        status: "verified",
+        auctionStatus: "sold",
+        franchiseId: { $ne: "" },
+      })
+        .select("franchiseId")
+        .lean(),
+      PlayerRegistration.find({
+        interest: "franchise",
+        status: { $in: ["pending", "verified"] },
+        franchiseId: { $ne: "" },
+      })
+        .select("fullName company phone photo profileImage franchiseId franchiseName status")
+        .lean(),
+    ]);
 
     const counts = {};
     for (const row of sold) {
       counts[row.franchiseId] = (counts[row.franchiseId] || 0) + 1;
     }
 
+    const ownerByTeam = {};
+    for (const owner of owners.map(withProfileImageUrl)) {
+      if (!ownerByTeam[owner.franchiseId]) ownerByTeam[owner.franchiseId] = owner;
+    }
+
     return res.json({
       teams: FRANCHISES.map((f) => ({
         ...f,
         playerCount: counts[f.id] || 0,
+        owner: ownerByTeam[f.id]
+          ? {
+              fullName: ownerByTeam[f.id].fullName,
+              company: ownerByTeam[f.id].company,
+              phone: ownerByTeam[f.id].phone || "",
+              profileImageUrl: ownerByTeam[f.id].profileImageUrl || "",
+              photo: ownerByTeam[f.id].photo || null,
+              status: ownerByTeam[f.id].status,
+            }
+          : null,
+        available: !ownerByTeam[f.id],
       })),
     });
   } catch (error) {

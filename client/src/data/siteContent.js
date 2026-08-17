@@ -10,8 +10,13 @@ export const siteStats = [
 export const aboutSections = [
   {
     id: "vision",
-    title: "Vision",
-    body: "To build India's most celebrated staffing industry cricket league — where competition, culture, and community meet on the field.",
+    title: "Our vision",
+    image:
+      "https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=1400&q=80",
+    paragraphs: [
+      "At USCL, our goal is to build India's most celebrated staffing industry cricket league — where competition, culture, and community meet on the field. We create a national T20 stage that connects players, franchise owners, and partners from 100+ companies.",
+      "Every franchise and player has a unique journey, and the league should reflect that. From registration and auction to league matches and the award ceremony, we want a premium format, lasting professional networks, and a human touch throughout the season.",
+    ],
   },
   {
     id: "mission",
@@ -32,6 +37,45 @@ export const aboutSections = [
     id: "members",
     title: "Members",
     body: "Players, franchise owners, sponsors, and partners from 100+ companies shaping the USCL community every season.",
+  },
+];
+
+export const boardMembers = [
+  {
+    id: "sameer",
+    name: "Sameer Penakalapati",
+    role: "Ceipal CEO | Entrepreneur",
+    image: "https://i.pravatar.cc/320?img=12",
+    summary:
+      "Sameer is a serial entrepreneur and the driving force behind Ceipal. He brings vision, energy, and a passion for building platforms that connect people.",
+    bio: "Sameer Penakalapati is a serial entrepreneur and the driving force behind Ceipal. He has built products used by staffing firms worldwide and is a strong advocate for community cricket. At USCL he helps shape the league vision, franchise model, and industry partnerships so players and owners get a premium T20 stage.",
+  },
+  {
+    id: "ananya",
+    name: "Ananya Reddy",
+    role: "League Director | Operations",
+    image: "https://i.pravatar.cc/320?img=32",
+    summary:
+      "Ananya leads tournament operations — from registration and verification to match-day execution across the 16-day season.",
+    bio: "Ananya Reddy oversees USCL operations end to end. She coordinates player registration, physical verification, auction logistics, and match-day workflows. Her focus is a fair, professional player journey so every franchise and athlete knows what happens next.",
+  },
+  {
+    id: "rahul",
+    name: "Rahul Mehta",
+    role: "Commercial Head | Partnerships",
+    image: "https://i.pravatar.cc/320?img=15",
+    summary:
+      "Rahul manages franchise ownership, sponsorships, and brand partnerships that power the ₹1 Cr prize pool.",
+    bio: "Rahul Mehta leads commercial strategy for USCL. He works with franchise owners, title sponsors, and associate partners to fund the prize pool and keep the league sustainable. He also supports owner hospitality and on-ground brand visibility.",
+  },
+  {
+    id: "priya",
+    name: "Priya Nair",
+    role: "Community Lead | Player Experience",
+    image: "https://i.pravatar.cc/320?img=47",
+    summary:
+      "Priya looks after player experience, awards, and the community that connects 500+ players from 100+ companies.",
+    bio: "Priya Nair is the community lead for USCL. She works on player cards, awards, and season communications so every participant feels part of the league. She also helps run the award ceremony and player-facing updates throughout the tournament.",
   },
 ];
 
