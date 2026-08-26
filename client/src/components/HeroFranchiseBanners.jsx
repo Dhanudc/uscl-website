@@ -37,12 +37,12 @@ export default function HeroFranchiseBanners() {
 
   return (
     <>
-      <div className="hero-banners relative w-full max-w-xl lg:max-w-none" aria-label="USCL franchises">
-        <div className="flex flex-col gap-6 sm:gap-7">
+      <div className="hero-banners relative w-full" aria-label="USCL franchises">
+        <div className="flex flex-col gap-4 sm:gap-7">
           {rows.map((row, rowIndex) => (
             <div key={rowIndex} className="relative pt-1">
               <div className="pennant-rail mx-[3%] mb-0.5" aria-hidden="true" />
-              <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5 md:gap-3">
+              <div className="grid grid-cols-4 gap-1 sm:gap-2.5 md:gap-3">
                 {row.map((team, colIndex) => {
                   const index = rowIndex * 4 + colIndex;
                   const owner = ownersByTeam[team.id];
@@ -50,7 +50,7 @@ export default function HeroFranchiseBanners() {
                     <button
                       key={team.id}
                       type="button"
-                      className="hero-pennant group relative mx-auto block w-full max-w-[7.5rem] origin-top"
+                      className="hero-pennant group relative mx-auto block w-full max-w-[5.5rem] origin-top sm:max-w-[6.5rem] md:max-w-[7.5rem]"
                       style={{
                         animationDelay: `${index * 70}ms`,
                         "--pennant-tilt": `${TILTS[index]}deg`,

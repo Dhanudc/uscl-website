@@ -1,11 +1,34 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
+import { PageLoader, StatusPill } from "../components/ui";
 import ZoomableImage from "../components/ZoomableImage";
 import { useAuth } from "../context/AuthContext";
 import { playerRoleLabel } from "../data/playerRoles";
 import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
+
+function paymentPillTone(status) {
+  const s = String(status || "pending").toLowerCase();
+  if (s === "paid") return "success";
+  if (s === "failed" || s === "cancelled") return "danger";
+  return "warning";
+}
+
+function auctionLabel(status) {
+  const s = String(status || "not_listed").toLowerCase();
+  if (s === "sold") return "Sold";
+  if (s === "unsold") return "Unsold";
+  if (s === "not_listed") return "Not listed";
+  return status;
+}
+
+function auctionPillTone(status) {
+  const s = String(status || "not_listed").toLowerCase();
+  if (s === "sold") return "success";
+  if (s === "unsold") return "warning";
+  return "muted";
+}
 
 function loadRazorpayScript() {
   return new Promise((resolve) => {
@@ -290,7 +313,11 @@ export default function Dashboard() {
   }
 
   if (loading || !user || user.role === "admin") {
-    return <section className="px-4 py-20 text-center text-[color:var(--text-muted)]">Loading...</section>;
+    return (
+      <section className="bg-ink px-4 py-8">
+        <PageLoader message="Loading dashboard…" />
+      </section>
+    );
   }
 
   return (
@@ -355,16 +382,19 @@ export default function Dashboard() {
                             : ""}
                           {reg.interest ? ` · ${reg.interest}` : ""}
                         </p>
-                        <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                          Payment:{" "}
-                          <span className="uppercase text-accent-soft">
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <StatusPill tone={paymentPillTone(getPaymentStatus(reg))}>
                             {paymentStatusLabel(getPaymentStatus(reg))}
-                          </span>
-                          {reg.payment?.amountInr ? ` · ₹${reg.payment.amountInr}` : ""}
-                          {reg.payment?.paymentId ? ` · ${reg.payment.paymentId}` : ""}
-                        </p>
-                        {reg.utrNumber || paymentScreenshotUrl(reg) ? (
-                          <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                            {reg.payment?.amountInr ? ` · ₹${reg.payment.amountInr}` : ""}
+                          </StatusPill>
+                          <StatusPill tone={auctionPillTone(reg.auctionStatus)}>
+                            Auction: {auctionLabel(reg.auctionStatus)}
+                            {reg.franchiseName ? ` · ${reg.franchiseName}` : ""}
+                          </StatusPill>
+                          <StatusPill tone="muted">{reg.status}</StatusPill>
+                        </div>
+                        {(reg.utrNumber || paymentScreenshotUrl(reg)) && (
+                          <p className="mt-3 text-sm text-[color:var(--text-muted)]">
                             {reg.utrNumber ? `UTR: ${reg.utrNumber}` : "UTR: —"}
                             {" · "}
                             {paymentScreenshotUrl(reg) ? (
@@ -380,17 +410,14 @@ export default function Dashboard() {
                               <span>No payment screenshot</span>
                             )}
                           </p>
-                        ) : null}
-                        <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                          Auction:{" "}
-                          <span className="uppercase text-accent-soft">
-                            {reg.auctionStatus || "not_listed"}
-                          </span>
-                          {reg.franchiseName ? ` · ${reg.franchiseName}` : ""}
-                          {reg.basePrice ? ` · Base ₹${reg.basePrice}` : ""}
-                          {reg.soldPrice ? ` · Sold ₹${reg.soldPrice}` : ""}
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        )}
+                        {(reg.basePrice || reg.soldPrice) && (
+                          <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                            {reg.basePrice ? `Base ₹${reg.basePrice}` : ""}
+                            {reg.soldPrice ? `${reg.basePrice ? " · " : ""}Sold ₹${reg.soldPrice}` : ""}
+                          </p>
+                        )}
+                        <div className="mt-4 flex flex-wrap gap-2 border-t border-[color:var(--border)] pt-4">
                           {reg.interest === "franchise" &&
                           reg.status === "verified" &&
                           getPaymentStatus(reg) === "paid" &&
@@ -405,7 +432,7 @@ export default function Dashboard() {
                           {needsPhoto ? (
                             <button
                               type="button"
-                              className="btn-primary !py-2 !text-xs"
+                              className="btn-ghost !py-2 !text-xs"
                               onClick={() => openProfileModal(reg)}
                             >
                               Add profile picture
@@ -424,7 +451,7 @@ export default function Dashboard() {
                           {missingPaymentDetails(reg) ? (
                             <button
                               type="button"
-                              className="btn-primary !py-2 !text-xs"
+                              className="btn-ghost !py-2 !text-xs"
                               onClick={() => openPaymentModal(reg)}
                             >
                               Add payment details
@@ -444,9 +471,6 @@ export default function Dashboard() {
                         ) : null}
                       </div>
                     </div>
-                    <span className="rounded-full border border-accent/40 px-3 py-1 text-[10px] font-bold uppercase text-accent-soft">
-                      {reg.status}
-                    </span>
                   </div>
                   {reg.adminNotes && (
                     <p className="mt-3 text-sm text-[color:var(--text-muted)]">Admin note: {reg.adminNotes}</p>

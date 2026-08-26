@@ -145,28 +145,72 @@ export const sponsorPackages = [
 
 export const tournamentPartners = ["Partner", "Partner", "Partner", "Partner"];
 
+export const mediaNewsItems = [
+  "USCL T20 Season 2026 dates announced",
+  "Franchise auction desk goes live",
+  "500+ players enter registration window",
+];
+
+/** Fixed gallery image sections — max 10 images each (managed in admin). */
+export const portalGallerySections = [
+  {
+    id: "auction-night",
+    title: "Auction Night",
+    body: "Photos from the franchise auction desk and team unveil.",
+  },
+  {
+    id: "league-stage",
+    title: "League Stage",
+    body: "Action from league fixtures across the season.",
+  },
+  {
+    id: "grand-final",
+    title: "Grand Final",
+    body: "Finals night photos, celebrations, and trophy moments.",
+  },
+];
+
+/** Fixed video sections — max 1 video each (managed in admin). */
+export const portalVideoSections = [
+  {
+    id: "season-trailer",
+    title: "Season trailer",
+    body: "Official USCL T20 season trailer and launch film.",
+  },
+  {
+    id: "franchise-unveil",
+    title: "Franchise unveil",
+    body: "Franchise branding and team announcement coverage.",
+  },
+  {
+    id: "player-journey",
+    title: "Player journey film",
+    body: "Stories from registration through auction to match day.",
+  },
+];
+
+export const PORTAL_MAX_IMAGES_PER_SECTION = 10;
+export const PORTAL_MAX_VIDEOS_PER_SECTION = 1;
+
+/** @deprecated use portalGallerySections / portalVideoSections */
 export const mediaCategories = [
   {
     id: "news",
     title: "News",
     body: "Match reports, auction updates, franchise announcements, and league stories.",
-    items: [
-      "USCL T20 Season 2026 dates announced",
-      "Franchise auction desk goes live",
-      "500+ players enter registration window",
-    ],
+    items: mediaNewsItems,
   },
   {
     id: "gallery",
     title: "Gallery",
     body: "Photos from auctions, fixtures, and finals night.",
-    items: ["Auction Night", "League Stage", "Grand Final"],
+    items: portalGallerySections.map((s) => s.title),
   },
   {
     id: "videos",
     title: "Videos",
     body: "Highlights, interviews, and live stream catch-up.",
-    items: ["Season trailer", "Franchise unveil", "Player journey film"],
+    items: portalVideoSections.map((s) => s.title),
   },
 ];
 

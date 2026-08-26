@@ -1,11 +1,12 @@
 import { Router } from "express";
 import { adminRequired, hashPassword } from "../middleware/auth.js";
-import { socialIconUpload, toSocialIconUrl, mapWithProfileImageUrl, withProfileImageUrl, paymentScreenshotUpload } from "../middleware/upload.js";
+import { socialIconUpload, toSocialIconUrl, mapWithProfileImageUrl, withProfileImageUrl, paymentScreenshotUpload, portalImageUpload, portalVideoUpload } from "../middleware/upload.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
 import { getSiteSettings } from "../models/SiteSettings.js";
+import { normalizeRegistrationFees, getRegistrationFeeInr } from "../utils/registrationFees.js";
 import { User } from "../models/User.js";
 import { PlayerActivity } from "../models/PlayerActivity.js";
 import { writeAudit } from "../utils/audit.js";
@@ -13,6 +14,26 @@ import { recordPlayerActivity } from "../utils/activity.js";
 import { FRANCHISES, getFranchiseName } from "../utils/franchises.js";
 import { buildPointsTable } from "../utils/points.js";
 import { persistUploadedFile } from "../utils/mediaStore.js";
+import {
+  isValidImageSectionId,
+  isValidVideoSectionId,
+  MAX_IMAGES_PER_SECTION,
+  MAX_VIDEOS_PER_SECTION,
+} from "../constants/portalMedia.js";
+import {
+  buildPortalMediaResponse,
+  countSectionImages,
+  deletePortalMediaFile,
+  findPortalImageItem,
+  findPortalVideoBySection,
+  findPortalVideoItem,
+  newPortalMediaItemId,
+} from "../utils/portalMedia.js";
+import {
+  getSponsorPackageConfig,
+  listSponsorPackagesPublic,
+  normalizeSponsorPackagesInput,
+} from "../utils/sponsorPackages.js";
 
 function statusLabel(status) {
   if (status === "verified") return "accepted";
@@ -350,6 +371,86 @@ router.patch("/registrations/:id/payment-details", adminRequired, (req, res) => 
   });
 });
 
+router.patch("/registrations/:id/mark-payment-paid", adminRequired, async (req, res) => {
+  try {
+    const registration = await PlayerRegistration.findById(req.params.id);
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+
+    const current = String(
+      registration.paymentStatus || registration.payment?.status || "pending"
+    ).toLowerCase();
+    if (current === "paid") {
+      return res.json({ registration: withProfileImageUrl(registration) });
+    }
+
+    const hasUtr = Boolean(String(registration.utrNumber || "").trim());
+    const hasShot = Boolean(String(registration.paymentScreenshot || "").trim());
+    if (!hasUtr && !hasShot) {
+      return res.status(400).json({
+        error: "Add a UTR number or payment screenshot before marking as paid.",
+      });
+    }
+
+    const feeInr =
+      Number(registration.payment?.amountInr) ||
+      (await getRegistrationFeeInr(registration.interest || "player"));
+    const adminName = req.user?.name || req.user?.email || "admin";
+    const paidAt = new Date();
+    const prevPayment = registration.payment?.toObject?.() || registration.payment || {};
+    const provider = prevPayment.paymentId ? "razorpay" : "offline";
+
+    registration.paymentStatus = "paid";
+    registration.payNowEnabled = false;
+    registration.payment = {
+      ...prevPayment,
+      provider,
+      status: "paid",
+      amountInr: feeInr,
+      currency: "INR",
+      paidAt,
+    };
+
+    await registration.save();
+
+    await recordPlayerActivity({
+      registrationId: registration._id,
+      userId: registration.userId,
+      action: "payment.marked_paid",
+      summary: `${adminName} (admin) marked payment as paid for ${registration.fullName}`,
+      actorName: adminName,
+      actorRole: "admin",
+      details: {
+        from: current,
+        to: "paid",
+        amountInr: feeInr,
+        utrNumber: registration.utrNumber || "",
+        provider,
+      },
+    });
+
+    await writeAudit(req, {
+      action: "registration.payment_marked_paid",
+      targetType: "registration",
+      targetId: registration._id,
+      targetLabel: `${registration.fullName} <${registration.email}>`,
+      details: {
+        summary: `Marked ${registration.fullName} payment as paid (₹${feeInr})`,
+        amountInr: feeInr,
+        utrNumber: registration.utrNumber || "",
+        markedBy: adminName,
+        markedAt: paidAt.toISOString(),
+      },
+    });
+
+    return res.json({ registration: withProfileImageUrl(registration) });
+  } catch (error) {
+    console.error("mark-payment-paid error", error);
+    return res.status(500).json({ error: "Unable to mark payment as paid." });
+  }
+});
+
 router.patch("/registrations/:id/enable-pay-now", adminRequired, async (req, res) => {
   try {
     const registration = await PlayerRegistration.findById(req.params.id);
@@ -616,6 +717,8 @@ router.get("/settings", adminRequired, async (_req, res) => {
       settings: {
         contact: settings.contact,
         socials: settings.socials,
+        registrationFees: normalizeRegistrationFees(settings.registrationFees),
+        sponsorPackages: await getSponsorPackageConfig(),
       },
     });
   } catch (error) {
@@ -627,22 +730,38 @@ router.get("/settings", adminRequired, async (_req, res) => {
 router.put("/settings", adminRequired, async (req, res) => {
   try {
     const settings = await getSiteSettings();
-    const contact = req.body.contact || {};
-    const socials = Array.isArray(req.body.socials) ? req.body.socials : settings.socials;
+    const auditBits = [];
 
-    settings.contact = {
-      email: String(contact.email || "").trim() || settings.contact.email,
-      phone: String(contact.phone || "").trim() || settings.contact.phone,
-      address: String(contact.address || "").trim() || settings.contact.address,
-    };
+    if (req.body.contact) {
+      const contact = req.body.contact || {};
+      settings.contact = {
+        email: String(contact.email || "").trim() || settings.contact.email,
+        phone: String(contact.phone || "").trim() || settings.contact.phone,
+        address: String(contact.address || "").trim() || settings.contact.address,
+      };
+      auditBits.push(`contact (${settings.contact.email})`);
+    }
 
-    settings.socials = socials
-      .map((s) => ({
-        label: String(s.label || "").trim(),
-        href: String(s.href || "#").trim() || "#",
-        iconUrl: String(s.iconUrl || "").trim(),
-      }))
-      .filter((s) => s.label);
+    if (Array.isArray(req.body.socials)) {
+      settings.socials = req.body.socials
+        .map((s) => ({
+          label: String(s.label || "").trim(),
+          href: String(s.href || "#").trim() || "#",
+          iconUrl: String(s.iconUrl || "").trim(),
+        }))
+        .filter((s) => s.label);
+      auditBits.push(`${settings.socials.length} social links`);
+    }
+
+    if (req.body.registrationFees) {
+      settings.registrationFees = normalizeRegistrationFees(req.body.registrationFees);
+      auditBits.push("registration fees");
+    }
+
+    if (Array.isArray(req.body.sponsorPackages)) {
+      settings.sponsorPackages = normalizeSponsorPackagesInput(req.body.sponsorPackages);
+      auditBits.push("sponsor packages");
+    }
 
     await settings.save();
 
@@ -650,9 +769,11 @@ router.put("/settings", adminRequired, async (req, res) => {
       action: "settings.update",
       targetType: "settings",
       targetId: settings._id,
-      targetLabel: "Site contact & social media",
+      targetLabel: "Site settings",
       details: {
-        summary: `Updated contact (${settings.contact.email}) and ${settings.socials.length} social links`,
+        summary: auditBits.length
+          ? `Updated ${auditBits.join(", ")}`
+          : "Updated site settings",
       },
     });
 
@@ -660,6 +781,8 @@ router.put("/settings", adminRequired, async (req, res) => {
       settings: {
         contact: settings.contact,
         socials: settings.socials,
+        registrationFees: normalizeRegistrationFees(settings.registrationFees),
+        sponsorPackages: await getSponsorPackageConfig(),
       },
     });
   } catch (error) {
@@ -678,6 +801,319 @@ router.post("/settings/social-icon", adminRequired, (req, res) => {
     }
     return res.json({ iconUrl: toSocialIconUrl(req.file) });
   });
+});
+
+router.get("/sponsors", adminRequired, async (_req, res) => {
+  try {
+    const packages = await listSponsorPackagesPublic();
+    const buyers = await PlayerRegistration.find({
+      interest: "sponsor",
+      paymentStatus: "paid",
+    })
+      .select(
+        "fullName company email phone sponsorPackageId sponsorPackageTitle paymentStatus status createdAt"
+      )
+      .sort({ createdAt: -1 })
+      .lean();
+    return res.json({ packages, buyers });
+  } catch (error) {
+    console.error("admin sponsors get", error);
+    return res.status(500).json({ error: "Unable to load sponsor data." });
+  }
+});
+
+router.put("/sponsors/packages", adminRequired, async (req, res) => {
+  try {
+    const settings = await getSiteSettings();
+    settings.sponsorPackages = normalizeSponsorPackagesInput(req.body.packages);
+    await settings.save();
+
+    await writeAudit(req, {
+      action: "sponsor_packages.update",
+      targetType: "settings",
+      targetId: settings._id,
+      targetLabel: "Sponsor packages",
+      details: { summary: "Updated sponsor package prices and slot limits" },
+    });
+
+    const packages = await listSponsorPackagesPublic();
+    return res.json({ packages });
+  } catch (error) {
+    console.error("admin sponsors put", error);
+    return res.status(500).json({ error: "Unable to save sponsor packages." });
+  }
+});
+
+router.get("/portal-media", adminRequired, async (_req, res) => {
+  try {
+    const settings = await getSiteSettings();
+    if (!settings.portalMedia) {
+      settings.portalMedia = { images: [], videos: [] };
+    }
+    return res.json({ portalMedia: buildPortalMediaResponse(settings.portalMedia) });
+  } catch (error) {
+    console.error("admin portal-media get", error);
+    return res.status(500).json({ error: "Unable to load portal media." });
+  }
+});
+
+router.post("/portal-media/images", adminRequired, (req, res) => {
+  portalImageUpload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || "Image upload failed." });
+    }
+    try {
+      const sectionId = String(req.body.sectionId || "").trim();
+      if (!isValidImageSectionId(sectionId)) {
+        if (req.file) await deletePortalMediaFile(req.file.filename, "image");
+        return res.status(400).json({ error: "Invalid image section." });
+      }
+      if (!req.file) {
+        return res.status(400).json({ error: "Please choose an image file." });
+      }
+
+      const settings = await getSiteSettings();
+      if (!settings.portalMedia) settings.portalMedia = { images: [], videos: [] };
+      if (!Array.isArray(settings.portalMedia.images)) settings.portalMedia.images = [];
+
+      if (countSectionImages(settings.portalMedia, sectionId) >= MAX_IMAGES_PER_SECTION) {
+        await deletePortalMediaFile(req.file.filename, "image");
+        return res.status(400).json({
+          error: `This section already has the maximum of ${MAX_IMAGES_PER_SECTION} images.`,
+        });
+      }
+
+      const title = String(req.body.title || "").trim();
+      const caption = String(req.body.caption || "").trim();
+      const item = {
+        id: newPortalMediaItemId(),
+        sectionId,
+        filename: req.file.filename,
+        title,
+        caption,
+      };
+      settings.portalMedia.images.push(item);
+      await settings.save();
+
+      await writeAudit(req, {
+        action: "portal_media.image_upload",
+        targetType: "portal_media",
+        targetId: item.id,
+        targetLabel: `${sectionId}: ${title || item.filename}`,
+        details: { sectionId, filename: item.filename },
+      });
+
+      return res.json({ portalMedia: buildPortalMediaResponse(settings.portalMedia) });
+    } catch (error) {
+      console.error("portal-media image upload", error);
+      if (req.file) await deletePortalMediaFile(req.file.filename, "image");
+      return res.status(500).json({ error: "Unable to upload image." });
+    }
+  });
+});
+
+router.patch("/portal-media/images/:itemId", adminRequired, (req, res) => {
+  portalImageUpload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || "Image update failed." });
+    }
+    try {
+      const settings = await getSiteSettings();
+      if (!settings.portalMedia) settings.portalMedia = { images: [], videos: [] };
+      const item = findPortalImageItem(settings.portalMedia, req.params.itemId);
+      if (!item) {
+        if (req.file) await deletePortalMediaFile(req.file.filename, "image");
+        return res.status(404).json({ error: "Image not found." });
+      }
+
+      const title = String(req.body.title ?? item.title ?? "").trim();
+      const caption = String(req.body.caption ?? item.caption ?? "").trim();
+      item.title = title;
+      item.caption = caption;
+
+      if (req.file) {
+        const prevFilename = item.filename;
+        item.filename = req.file.filename;
+        await deletePortalMediaFile(prevFilename, "image");
+      }
+
+      await settings.save();
+
+      await writeAudit(req, {
+        action: "portal_media.image_update",
+        targetType: "portal_media",
+        targetId: item.id,
+        targetLabel: `${item.sectionId}: ${item.title || item.filename}`,
+        details: { sectionId: item.sectionId, filename: item.filename },
+      });
+
+      return res.json({ portalMedia: buildPortalMediaResponse(settings.portalMedia) });
+    } catch (error) {
+      console.error("portal-media image update", error);
+      if (req.file) await deletePortalMediaFile(req.file.filename, "image");
+      return res.status(500).json({ error: "Unable to update image." });
+    }
+  });
+});
+
+router.delete("/portal-media/images/:itemId", adminRequired, async (req, res) => {
+  try {
+    const settings = await getSiteSettings();
+    if (!settings.portalMedia) settings.portalMedia = { images: [], videos: [] };
+    const images = settings.portalMedia.images || [];
+    const index = images.findIndex((item) => item.id === req.params.itemId);
+    if (index === -1) {
+      return res.status(404).json({ error: "Image not found." });
+    }
+
+    const [removed] = images.splice(index, 1);
+    settings.portalMedia.images = images;
+    await settings.save();
+    await deletePortalMediaFile(removed.filename, "image");
+
+    await writeAudit(req, {
+      action: "portal_media.image_delete",
+      targetType: "portal_media",
+      targetId: removed.id,
+      targetLabel: `${removed.sectionId}: ${removed.title || removed.filename}`,
+      details: { sectionId: removed.sectionId, filename: removed.filename },
+    });
+
+    return res.json({ portalMedia: buildPortalMediaResponse(settings.portalMedia) });
+  } catch (error) {
+    console.error("portal-media image delete", error);
+    return res.status(500).json({ error: "Unable to delete image." });
+  }
+});
+
+router.post("/portal-media/videos", adminRequired, (req, res) => {
+  portalVideoUpload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || "Video upload failed." });
+    }
+    try {
+      const sectionId = String(req.body.sectionId || "").trim();
+      if (!isValidVideoSectionId(sectionId)) {
+        if (req.file) await deletePortalMediaFile(req.file.filename, "video");
+        return res.status(400).json({ error: "Invalid video section." });
+      }
+      if (!req.file) {
+        return res.status(400).json({ error: "Please choose a video file." });
+      }
+
+      const settings = await getSiteSettings();
+      if (!settings.portalMedia) settings.portalMedia = { images: [], videos: [] };
+      if (!Array.isArray(settings.portalMedia.videos)) settings.portalMedia.videos = [];
+
+      const existing = findPortalVideoBySection(settings.portalMedia, sectionId);
+      if (existing) {
+        await deletePortalMediaFile(req.file.filename, "video");
+        return res.status(400).json({
+          error: `This section already has a video. Edit or delete it before uploading another.`,
+        });
+      }
+
+      const title = String(req.body.title || "").trim();
+      const caption = String(req.body.caption || "").trim();
+      const item = {
+        id: newPortalMediaItemId(),
+        sectionId,
+        filename: req.file.filename,
+        title,
+        caption,
+      };
+      settings.portalMedia.videos.push(item);
+      await settings.save();
+
+      await writeAudit(req, {
+        action: "portal_media.video_upload",
+        targetType: "portal_media",
+        targetId: item.id,
+        targetLabel: `${sectionId}: ${title || item.filename}`,
+        details: { sectionId, filename: item.filename },
+      });
+
+      return res.json({ portalMedia: buildPortalMediaResponse(settings.portalMedia) });
+    } catch (error) {
+      console.error("portal-media video upload", error);
+      if (req.file) await deletePortalMediaFile(req.file.filename, "video");
+      return res.status(500).json({ error: "Unable to upload video." });
+    }
+  });
+});
+
+router.patch("/portal-media/videos/:itemId", adminRequired, (req, res) => {
+  portalVideoUpload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || "Video update failed." });
+    }
+    try {
+      const settings = await getSiteSettings();
+      if (!settings.portalMedia) settings.portalMedia = { images: [], videos: [] };
+      const item = findPortalVideoItem(settings.portalMedia, req.params.itemId);
+      if (!item) {
+        if (req.file) await deletePortalMediaFile(req.file.filename, "video");
+        return res.status(404).json({ error: "Video not found." });
+      }
+
+      const title = String(req.body.title ?? item.title ?? "").trim();
+      const caption = String(req.body.caption ?? item.caption ?? "").trim();
+      item.title = title;
+      item.caption = caption;
+
+      if (req.file) {
+        const prevFilename = item.filename;
+        item.filename = req.file.filename;
+        await deletePortalMediaFile(prevFilename, "video");
+      }
+
+      await settings.save();
+
+      await writeAudit(req, {
+        action: "portal_media.video_update",
+        targetType: "portal_media",
+        targetId: item.id,
+        targetLabel: `${item.sectionId}: ${item.title || item.filename}`,
+        details: { sectionId: item.sectionId, filename: item.filename },
+      });
+
+      return res.json({ portalMedia: buildPortalMediaResponse(settings.portalMedia) });
+    } catch (error) {
+      console.error("portal-media video update", error);
+      if (req.file) await deletePortalMediaFile(req.file.filename, "video");
+      return res.status(500).json({ error: "Unable to update video." });
+    }
+  });
+});
+
+router.delete("/portal-media/videos/:itemId", adminRequired, async (req, res) => {
+  try {
+    const settings = await getSiteSettings();
+    if (!settings.portalMedia) settings.portalMedia = { images: [], videos: [] };
+    const videos = settings.portalMedia.videos || [];
+    const index = videos.findIndex((item) => item.id === req.params.itemId);
+    if (index === -1) {
+      return res.status(404).json({ error: "Video not found." });
+    }
+
+    const [removed] = videos.splice(index, 1);
+    settings.portalMedia.videos = videos;
+    await settings.save();
+    await deletePortalMediaFile(removed.filename, "video");
+
+    await writeAudit(req, {
+      action: "portal_media.video_delete",
+      targetType: "portal_media",
+      targetId: removed.id,
+      targetLabel: `${removed.sectionId}: ${removed.title || removed.filename}`,
+      details: { sectionId: removed.sectionId, filename: removed.filename },
+    });
+
+    return res.json({ portalMedia: buildPortalMediaResponse(settings.portalMedia) });
+  } catch (error) {
+    console.error("portal-media video delete", error);
+    return res.status(500).json({ error: "Unable to delete video." });
+  }
 });
 
 function parseMatchBody(body) {

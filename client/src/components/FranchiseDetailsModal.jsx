@@ -49,38 +49,38 @@ export default function FranchiseDetailsModal({ team, onClose, showSquad = true 
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4"
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="franchise-details-title"
-        className="panel max-h-[85vh] w-full max-w-lg overflow-hidden rounded-2xl"
+        className="modal-sheet panel overflow-hidden sm:max-w-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="h-1.5 w-full" style={{ background: team.accent }} />
-        <div className="flex items-start justify-between gap-3 px-5 py-4">
+        <div className="flex items-start justify-between gap-3 px-4 py-4 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-2 ring-[color:var(--border)]">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-2 ring-[color:var(--border)] sm:h-14 sm:w-14">
               <img src={team.image} alt="" className="h-[88%] w-[88%] object-contain" />
             </span>
             <div className="min-w-0">
               <p className="eyebrow text-accent">Franchise details</p>
               <h2
                 id="franchise-details-title"
-                className="font-display mt-1 text-2xl text-[color:var(--title)]"
+                className="font-display mt-1 text-xl text-[color:var(--title)] sm:text-2xl"
               >
                 {team.name}
               </h2>
             </div>
           </div>
-          <button type="button" className="btn-ghost !py-1.5 !text-xs" onClick={onClose}>
+          <button type="button" className="btn-ghost shrink-0 !py-1.5 !text-xs" onClick={onClose}>
             Close
           </button>
         </div>
 
-        <div className="max-h-[60vh] overflow-y-auto border-t border-[color:var(--border)] p-4">
+        <div className="max-h-[min(65dvh,60vh)] overflow-y-auto border-t border-[color:var(--border)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           {owner ? (
             <div className={`flex items-center gap-3 rounded-lg border border-[color:var(--border)] p-3 ${showSquad ? "mb-4" : ""}`}>
               {profileImageUrl(owner) ? (

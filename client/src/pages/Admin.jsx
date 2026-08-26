@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import PasswordInput from "../components/PasswordInput";
 import ThemePicker from "../components/ThemePicker";
@@ -9,6 +9,9 @@ import { useSiteSettings } from "../context/SiteSettingsContext";
 import { franchises as franchiseCatalog } from "../data/franchises";
 import { playerRoleLabel } from "../data/playerRoles";
 import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
+import PortalMediaManager from "../components/admin/PortalMediaManager.jsx";
+import SponsorPackagesAdmin from "../components/admin/SponsorPackagesAdmin.jsx";
+import { AlertBanner, PageLoader, StatGridSkeleton } from "../components/ui";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
 import AdminLivePage from "./AdminLive";
 
@@ -42,11 +45,15 @@ function StatusBadge({ status }) {
   );
 }
 
-function StatCard({ label, value, to }) {
+function StatCard({ label, value, to, shortcut = false }) {
   const inner = (
     <div className="rounded-lg border border-[color:var(--border)] bg-ink-card p-4 transition hover:border-accent/40">
       <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{label}</p>
-      <p className="font-display mt-1 text-3xl text-accent">{value ?? "—"}</p>
+      {shortcut ? (
+        <p className="ui-stat-shortcut mt-1">Open →</p>
+      ) : (
+        <p className="font-display mt-1 text-3xl text-accent">{value ?? "—"}</p>
+      )}
     </div>
   );
   return to ? <Link to={to}>{inner}</Link> : inner;
@@ -55,19 +62,82 @@ function StatCard({ label, value, to }) {
 function AdminShell({ children, title, subtitle }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const adminNavGroups = [
+    {
+      label: "Main",
+      links: [{ to: "/admin", label: "Overview", end: true }],
+    },
+    {
+      label: "Players",
+      links: [
+        { to: "/admin/players/pending", label: "Pending players" },
+        { to: "/admin/players/accepted", label: "Accepted players" },
+        { to: "/admin/players/rejected", label: "Rejected players" },
+      ],
+    },
+    {
+      label: "League",
+      links: [
+        { to: "/admin/teams", label: "Teams" },
+        { to: "/admin/auction", label: "Auction desk" },
+        { to: "/admin/live", label: "Live updates" },
+      ],
+    },
+    {
+      label: "Settings",
+      links: [
+        { to: "/admin/passwords", label: "Reset passwords" },
+        { to: "/admin/fees", label: "Registration fees" },
+        { to: "/admin/sponsors", label: "Sponsor packages" },
+        { to: "/admin/media", label: "Portal media" },
+        { to: "/admin/social", label: "Social media" },
+        { to: "/admin/audit", label: "Audit log" },
+      ],
+    },
+  ];
+
+  const desktopLinks = adminNavGroups.flatMap((group) => group.links);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    document.body.classList.toggle("mobile-nav-open", menuOpen);
+    return () => document.body.classList.remove("mobile-nav-open");
+  }, [menuOpen]);
+
+  function adminNavClass(isActive) {
+    return `block rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+      isActive
+        ? "bg-accent text-white"
+        : "text-[color:var(--text-muted)] hover:bg-[color:var(--ink-soft)] hover:text-[color:var(--text)]"
+    }`;
+  }
 
   return (
     <div className="min-h-screen bg-ink text-[color:var(--title)]">
-      <header className="border-b border-[color:var(--border)] bg-ink-soft">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div>
-            <Link to="/admin" className="font-display text-lg text-accent">
-              USCL Admin Dashboard
-            </Link>
-            <p className="text-xs text-[color:var(--text-muted)]">Signed in as {user?.email}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <ThemePicker />
+      <header className="site-header sticky top-0 z-40 border-b border-[color:var(--border)] bg-ink-soft">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:py-3">
+          <Link to="/admin" className="flex min-w-0 items-center gap-2.5">
+            <span className="font-display flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-[11px] text-white">
+              ADM
+            </span>
+            <span className="min-w-0">
+              <span className="font-display block truncate text-base leading-none text-[color:var(--title)] sm:text-lg">
+                USCL Admin
+              </span>
+              <span className="hidden truncate text-[10px] text-[color:var(--text-muted)] sm:block">
+                {user?.email}
+              </span>
+            </span>
+          </Link>
+
+          <div className="hidden items-center gap-2 lg:flex">
+            <ThemePicker compact />
             <Link to="/home" className="btn-ghost !py-1.5 !text-xs">
               Public site
             </Link>
@@ -82,36 +152,115 @@ function AdminShell({ children, title, subtitle }) {
               Logout
             </button>
           </div>
+
+          <button
+            type="button"
+            className="mobile-menu-btn inline-flex h-10 w-10 items-center justify-center rounded-md border border-[color:var(--border)] text-[color:var(--text)] lg:hidden"
+            aria-expanded={menuOpen}
+            aria-controls="admin-nav-panel"
+            aria-label={menuOpen ? "Close admin menu" : "Open admin menu"}
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <span className="mobile-menu-icon" aria-hidden="true" />
+          </button>
         </div>
       </header>
 
-      <nav className="border-b border-[color:var(--border)] bg-ink-soft">
+      <nav className="hidden border-b border-[color:var(--border)] bg-ink-soft lg:block">
         <div className="mx-auto flex max-w-6xl flex-wrap gap-1 px-4 py-2">
-          {[
-            ["/admin", "Overview"],
-            ["/admin/players/pending", "Pending players"],
-            ["/admin/players/accepted", "Accepted players"],
-            ["/admin/players/rejected", "Rejected players"],
-            ["/admin/teams", "Teams"],
-            ["/admin/passwords", "Reset passwords"],
-            ["/admin/auction", "Auction desk"],
-            ["/admin/live", "Live updates"],
-            ["/admin/social", "Social media"],
-            ["/admin/audit", "Audit log"],
-          ].map(([to, label]) => (
-            <Link
-              key={to}
-              to={to}
-              className="rounded-md px-2.5 py-1.5 text-xs font-semibold text-[color:var(--text-muted)] hover:bg-[color:color-mix(in_srgb,var(--text)_8%,transparent)] hover:text-[color:var(--text)]"
+          {desktopLinks.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.end}
+              className={({ isActive }) =>
+                `rounded-md px-2.5 py-1.5 text-xs font-semibold ${
+                  isActive
+                    ? "bg-accent text-white"
+                    : "text-[color:var(--text-muted)] hover:bg-[color:color-mix(in_srgb,var(--text)_8%,transparent)] hover:text-[color:var(--text)]"
+                }`
+              }
             >
-              {label}
-            </Link>
+              {link.label}
+            </NavLink>
           ))}
         </div>
       </nav>
 
-      <main className="mx-auto max-w-6xl px-4 py-6">
-        <div className="mb-5">
+      {menuOpen ? (
+        <div className="admin-mobile-nav lg:hidden">
+          <button
+            type="button"
+            className="admin-mobile-nav-backdrop"
+            aria-label="Close admin menu"
+            onClick={() => setMenuOpen(false)}
+          />
+          <aside
+            id="admin-nav-panel"
+            className="admin-mobile-nav-panel"
+            aria-label="Admin navigation"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-4">
+              <div className="min-w-0">
+                <p className="font-display text-lg text-accent">Admin menu</p>
+                <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">{user?.email}</p>
+              </div>
+              <button
+                type="button"
+                className="btn-ghost shrink-0 !px-2.5 !py-1.5 !text-xs"
+                onClick={() => setMenuOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <nav className="flex-1 overflow-y-auto px-3 py-3">
+              {adminNavGroups.map((group) => (
+                <div key={group.label} className="mb-4 last:mb-0">
+                  <p className="px-2 pb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                    {group.label}
+                  </p>
+                  <div className="space-y-1">
+                    {group.links.map((link) => (
+                      <NavLink
+                        key={link.to}
+                        to={link.to}
+                        end={link.end}
+                        className={({ isActive }) => adminNavClass(isActive)}
+                      >
+                        {link.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </nav>
+
+            <div className="space-y-2 border-t border-[color:var(--border)] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] px-3 py-2">
+                <span className="text-xs font-semibold text-[color:var(--text-muted)]">Theme</span>
+                <ThemePicker compact />
+              </div>
+              <Link to="/home" className="btn-ghost w-full justify-center">
+                Public site
+              </Link>
+              <button
+                type="button"
+                className="btn-primary w-full justify-center"
+                onClick={async () => {
+                  await logout();
+                  navigate("/admin/login");
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          </aside>
+        </div>
+      ) : null}
+
+      <main className="mx-auto max-w-6xl px-4 py-4 sm:py-6">
+        <div className="mb-4 sm:mb-5">
           <h1 className="page-title">{title}</h1>
           {subtitle ? <p className="mt-1 text-sm text-[color:var(--text-muted)]">{subtitle}</p> : null}
         </div>
@@ -124,11 +273,14 @@ function AdminShell({ children, title, subtitle }) {
 function OverviewPage() {
   const [stats, setStats] = useState(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     api("/api/admin/stats")
       .then((data) => setStats(data.stats))
-      .catch((err) => setError(err.message));
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -136,20 +288,31 @@ function OverviewPage() {
       title="Season overview"
       subtitle="Open each page to review pending, accepted, or rejected players."
     >
-      {error && <p className="mb-4 text-sm text-accent">{error}</p>}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total registered" value={stats?.registrationsCount} to="/admin/players/pending" />
-        <StatCard label="Pending players" value={stats?.pendingRegs} to="/admin/players/pending" />
-        <StatCard label="Accepted players" value={stats?.verifiedRegs} to="/admin/players/accepted" />
-        <StatCard label="Rejected players" value={stats?.rejectedRegs} to="/admin/players/rejected" />
-        <StatCard label="Sold in auction" value={stats?.auctionSold} to="/admin/auction" />
-        <StatCard label="Unsold" value={stats?.auctionUnsold} to="/admin/auction" />
-        <StatCard label="Teams roster" value="8" to="/admin/teams" />
-        <StatCard label="Reset passwords" value="→" to="/admin/passwords" />
-        <StatCard label="Social media" value="→" to="/admin/social" />
-        <StatCard label="Live updates" value="→" to="/admin/live" />
-        <StatCard label="Audit log" value="→" to="/admin/audit" />
-      </div>
+      {error ? (
+        <div className="mb-4">
+          <AlertBanner tone="error">{error}</AlertBanner>
+        </div>
+      ) : null}
+      {loading ? (
+        <StatGridSkeleton count={12} />
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Total registered" value={stats?.registrationsCount} to="/admin/players/pending" />
+          <StatCard label="Pending players" value={stats?.pendingRegs} to="/admin/players/pending" />
+          <StatCard label="Accepted players" value={stats?.verifiedRegs} to="/admin/players/accepted" />
+          <StatCard label="Rejected players" value={stats?.rejectedRegs} to="/admin/players/rejected" />
+          <StatCard label="Sold in auction" value={stats?.auctionSold} to="/admin/auction" />
+          <StatCard label="Unsold" value={stats?.auctionUnsold} to="/admin/auction" />
+          <StatCard label="Teams roster" value="8" to="/admin/teams" />
+          <StatCard label="Reset passwords" shortcut to="/admin/passwords" />
+          <StatCard label="Registration fees" shortcut to="/admin/fees" />
+          <StatCard label="Sponsor packages" shortcut to="/admin/sponsors" />
+          <StatCard label="Portal media" shortcut to="/admin/media" />
+          <StatCard label="Social media" shortcut to="/admin/social" />
+          <StatCard label="Live updates" shortcut to="/admin/live" />
+          <StatCard label="Audit log" shortcut to="/admin/audit" />
+        </div>
+      )}
     </AdminShell>
   );
 }
@@ -177,10 +340,14 @@ function PlayersPage() {
   const [activityError, setActivityError] = useState("");
   const [payNowConfirmReg, setPayNowConfirmReg] = useState(null);
   const [enablingPayNow, setEnablingPayNow] = useState(false);
+  const [markPaidConfirmReg, setMarkPaidConfirmReg] = useState(null);
+  const [markingPaid, setMarkingPaid] = useState(false);
   const [ownerTeam, setOwnerTeam] = useState({});
   const [interestFilter, setInterestFilter] = useState("franchise");
+  const [loading, setLoading] = useState(true);
 
   async function load() {
+    setLoading(true);
     const qs = new URLSearchParams({ status: apiStatus });
     if (["captain", "player", "franchise", "sponsor"].includes(interestFilter)) {
       qs.set("interest", interestFilter);
@@ -195,12 +362,14 @@ function PlayersPage() {
     }
     setNotes(seed);
     setOwnerTeam(teams);
+    setLoading(false);
   }
 
   useEffect(() => {
     setMessage("");
     setError("");
     load().catch((err) => {
+      setLoading(false);
       setError(err.message);
       if (/admin access/i.test(err.message)) {
         navigate("/admin/login", { replace: true });
@@ -298,8 +467,51 @@ function PlayersPage() {
     return !String(reg?.utrNumber || "").trim() || !paymentScreenshotUrl(reg);
   }
 
+  function hasPaymentEvidence(reg) {
+    return Boolean(String(reg?.utrNumber || "").trim()) || Boolean(paymentScreenshotUrl(reg));
+  }
+
+  function canMarkPaymentPaid(reg) {
+    return getPaymentStatus(reg) !== "paid" && hasPaymentEvidence(reg);
+  }
+
   function canEnablePayNow(reg) {
     return getPaymentStatus(reg) !== "paid" && !reg?.payNowEnabled;
+  }
+
+  async function confirmMarkPaymentPaid() {
+    if (!markPaidConfirmReg) return;
+    setMarkingPaid(true);
+    setError("");
+    try {
+      const data = await api(
+        `/api/admin/registrations/${markPaidConfirmReg._id}/mark-payment-paid`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({}),
+        }
+      );
+      setRegs((prev) =>
+        prev.map((r) =>
+          String(r._id) === String(data.registration._id) ? data.registration : r
+        )
+      );
+      if (paymentModalReg && String(paymentModalReg._id) === String(data.registration._id)) {
+        setPaymentModalReg(data.registration);
+      }
+      setMessage(`Payment marked as paid for ${data.registration.fullName}.`);
+      setMarkPaidConfirmReg(null);
+      if (
+        paymentModalReg &&
+        String(paymentModalReg._id) === String(data.registration._id)
+      ) {
+        closePaymentModal();
+      }
+    } catch (err) {
+      setError(err.message || "Unable to mark payment as paid.");
+    } finally {
+      setMarkingPaid(false);
+    }
   }
 
   async function confirmEnablePayNow() {
@@ -344,8 +556,8 @@ function PlayersPage() {
     setPaymentModalError("");
   }
 
-  async function saveAdminPaymentDetails() {
-    if (!paymentModalReg) return;
+  async function saveAdminPaymentDetails({ closeOnSave = true } = {}) {
+    if (!paymentModalReg) return null;
     setPaymentModalError("");
     setSavingPayment(true);
     try {
@@ -355,7 +567,10 @@ function PlayersPage() {
       const shotChanged = Boolean(screenshotFile);
 
       if (!utrChanged && !shotChanged) {
-        throw new Error("No payment changes to save. Update UTR or upload a new screenshot.");
+        if (closeOnSave) {
+          throw new Error("No payment changes to save. Update UTR or upload a new screenshot.");
+        }
+        return paymentModalReg;
       }
 
       if (!utrNumber.trim() && !screenshotFile && !paymentScreenshotUrl(paymentModalReg)) {
@@ -377,12 +592,52 @@ function PlayersPage() {
       setRegs((prev) =>
         prev.map((r) => (String(r._id) === String(data.registration._id) ? data.registration : r))
       );
+      setPaymentModalReg(data.registration);
       setMessage(`Payment details saved for ${data.registration.fullName}.`);
-      closePaymentModal();
+      if (closeOnSave) closePaymentModal();
+      return data.registration;
     } catch (err) {
       setPaymentModalError(err.message);
+      throw err;
     } finally {
       setSavingPayment(false);
+    }
+  }
+
+  async function markPaidFromModal() {
+    if (!paymentModalReg) return;
+    setPaymentModalError("");
+    try {
+      let reg = paymentModalReg;
+      const nextUtr = utrNumber.trim().toUpperCase();
+      const prevUtr = String(paymentModalReg.utrNumber || "").trim().toUpperCase();
+      const needsSave =
+        (Boolean(nextUtr) && nextUtr !== prevUtr) || Boolean(screenshotFile);
+
+      if (needsSave) {
+        reg = await saveAdminPaymentDetails({ closeOnSave: false });
+      }
+
+      const evidence =
+        Boolean(String(reg?.utrNumber || "").trim()) ||
+        Boolean(paymentScreenshotUrl(reg)) ||
+        Boolean(utrNumber.trim()) ||
+        Boolean(screenshotFile);
+
+      if (!evidence) {
+        throw new Error("Add a UTR number or payment screenshot before marking as paid.");
+      }
+
+      if (!needsSave && canMarkPaymentPaid(reg)) {
+        setMarkPaidConfirmReg(reg);
+        return;
+      }
+
+      if (needsSave && reg) {
+        setMarkPaidConfirmReg(reg);
+      }
+    } catch (err) {
+      if (!paymentModalError) setPaymentModalError(err.message);
     }
   }
 
@@ -434,9 +689,20 @@ function PlayersPage() {
         ))}
       </div>
 
-      {error && <p className="mb-3 text-sm text-accent">{error}</p>}
-      {message && <p className="mb-3 text-sm text-emerald-300">{message}</p>}
+      {error ? (
+        <div className="mb-3">
+          <AlertBanner tone="error">{error}</AlertBanner>
+        </div>
+      ) : null}
+      {message ? (
+        <div className="mb-3">
+          <AlertBanner tone="ok">{message}</AlertBanner>
+        </div>
+      ) : null}
 
+      {loading ? (
+        <PageLoader message="Loading registrations…" />
+      ) : (
       <div className="space-y-3">
         {regs.length === 0 && (
           <p className="rounded-lg border border-[color:var(--border)] bg-ink-card p-4 text-sm text-[color:var(--text-muted)]">
@@ -466,7 +732,8 @@ function PlayersPage() {
                 <div className="min-w-0">
                   <p className="font-semibold text-[color:var(--title)]">{reg.fullName}</p>
                   <p className="text-sm text-[color:var(--text-muted)]">
-                    {reg.company} · {reg.interest} · {reg.email}
+                    {reg.company} · {reg.interest}
+                    {reg.sponsorPackageTitle ? ` · ${reg.sponsorPackageTitle}` : ""} · {reg.email}
                   </p>
                   <p className="mt-1 text-xs text-[color:var(--text-muted)]">
                     {reg.phone}
@@ -511,7 +778,7 @@ function PlayersPage() {
                         : ""}
                     </p>
                   ) : null}
-                  {canEnablePayNow(reg) || missingPaymentDetails(reg) ? (
+                  {getPaymentStatus(reg) !== "paid" ? (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {canEnablePayNow(reg) ? (
                         <button
@@ -529,6 +796,23 @@ function PlayersPage() {
                           onClick={() => openPaymentModal(reg)}
                         >
                           Add payment details
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn-ghost !py-1.5 !text-xs"
+                          onClick={() => openPaymentModal(reg)}
+                        >
+                          Edit payment details
+                        </button>
+                      )}
+                      {canMarkPaymentPaid(reg) ? (
+                        <button
+                          type="button"
+                          className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110"
+                          onClick={() => setMarkPaidConfirmReg(reg)}
+                        >
+                          Mark as paid
                         </button>
                       ) : null}
                     </div>
@@ -560,6 +844,11 @@ function PlayersPage() {
               </div>
             ) : null}
 
+            {reg.interest === "sponsor" && reg.sponsorPackageTitle ? (
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                Package: <strong className="text-[color:var(--title)]">{reg.sponsorPackageTitle}</strong>
+              </p>
+            ) : null}
             {reg.interest === "franchise" && page === "pending" ? (
               <div className="mt-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
@@ -681,14 +970,15 @@ function PlayersPage() {
           );
         })}
       </div>
+      )}
 
       {paymentModalReg ? (
-        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/75 p-4">
+        <div className="fixed inset-0 z-[95] flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-4">
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="admin-payment-details-title"
-            className="panel w-full max-w-md rounded-2xl p-5"
+            className="modal-sheet panel w-full rounded-t-2xl p-4 sm:max-w-md sm:rounded-2xl sm:p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="eyebrow text-accent">Payment details</p>
@@ -757,6 +1047,19 @@ function PlayersPage() {
               >
                 {savingPayment ? "Saving..." : "Save"}
               </button>
+              {getPaymentStatus(paymentModalReg) !== "paid" &&
+              (hasPaymentEvidence(paymentModalReg) ||
+                utrNumber.trim() ||
+                screenshotFile) ? (
+                <button
+                  type="button"
+                  disabled={savingPayment || markingPaid}
+                  className="rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50"
+                  onClick={markPaidFromModal}
+                >
+                  Mark as paid
+                </button>
+              ) : null}
               <button
                 type="button"
                 disabled={savingPayment}
@@ -772,14 +1075,14 @@ function PlayersPage() {
 
       {screenshotModal ? (
         <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 p-4"
+          className="fixed inset-0 z-[90] flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-4"
           onClick={() => setScreenshotModal(null)}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="payment-shot-title"
-            className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-xl border border-[color:var(--border)] bg-ink-card p-4 shadow-xl"
+            className="modal-sheet max-h-[90vh] w-full overflow-auto rounded-t-2xl border border-[color:var(--border)] bg-ink-card p-4 shadow-xl sm:max-w-lg sm:rounded-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -826,14 +1129,14 @@ function PlayersPage() {
 
       {activityModal ? (
         <div
-          className="fixed inset-0 z-[95] flex items-center justify-center bg-black/75 p-4"
+          className="fixed inset-0 z-[95] flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-4"
           onClick={closeActivityModal}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="player-activity-title"
-            className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-xl border border-[color:var(--border)] bg-ink-card p-4 shadow-xl"
+            className="modal-sheet max-h-[90vh] w-full overflow-auto rounded-t-2xl border border-[color:var(--border)] bg-ink-card p-4 shadow-xl sm:max-w-lg sm:rounded-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -885,16 +1188,65 @@ function PlayersPage() {
         </div>
       ) : null}
 
+      {markPaidConfirmReg ? (
+        <div
+          className="fixed inset-0 z-[96] flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-4"
+          onClick={() => !markingPaid && setMarkPaidConfirmReg(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mark-paid-title"
+            className="modal-sheet panel w-full rounded-t-2xl p-4 sm:max-w-md sm:rounded-2xl sm:p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="eyebrow text-accent">Confirm</p>
+            <h3
+              id="mark-paid-title"
+              className="mt-1 font-display text-xl text-[color:var(--title)]"
+            >
+              Mark payment as paid?
+            </h3>
+            <p className="mt-3 text-sm text-[color:var(--text-muted)]">
+              Confirm offline payment for{" "}
+              <span className="text-[color:var(--text)]">{markPaidConfirmReg.fullName}</span>
+              {markPaidConfirmReg.payment?.amountInr
+                ? ` (₹${markPaidConfirmReg.payment.amountInr})`
+                : ""}
+              . UTR or payment screenshot must already be on file.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-50"
+                disabled={markingPaid}
+                onClick={confirmMarkPaymentPaid}
+              >
+                {markingPaid ? "Saving..." : "Yes, mark as paid"}
+              </button>
+              <button
+                type="button"
+                className="btn-ghost"
+                disabled={markingPaid}
+                onClick={() => setMarkPaidConfirmReg(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {payNowConfirmReg ? (
         <div
-          className="fixed inset-0 z-[96] flex items-center justify-center bg-black/75 p-4"
+          className="fixed inset-0 z-[96] flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-4"
           onClick={() => !enablingPayNow && setPayNowConfirmReg(null)}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="enable-pay-now-title"
-            className="panel w-full max-w-md rounded-2xl p-5"
+            className="modal-sheet panel w-full rounded-t-2xl p-4 sm:max-w-md sm:rounded-2xl sm:p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="eyebrow text-accent">Confirm</p>
@@ -1000,7 +1352,7 @@ function PasswordResetBox({ userId, busyId, onSave }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="New password (min 6 chars)"
-          className="input-dark !w-auto min-w-[220px] flex-1"
+          className="input-dark min-w-0 flex-1 sm:!w-auto sm:min-w-[220px]"
         />
         <button
           type="button"
@@ -1478,6 +1830,9 @@ function formatAuditAction(action) {
     "registration.rejected": "Rejected player",
     "registration.pending": "Moved player to pending",
     "registration.auction_update": "Auction assignment",
+    "registration.payment_details": "Payment details updated",
+    "registration.payment_marked_paid": "Payment marked as paid",
+    "registration.pay_now_enabled": "Pay now enabled",
     "user.approved": "Accepted account",
     "user.rejected": "Rejected account",
     "user.pending": "Moved account to pending",
@@ -1582,7 +1937,7 @@ function TeamsPage() {
 
       {popupTeam && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/55 p-4"
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-4"
           onClick={() => setPopupTeam(null)}
           role="presentation"
         >
@@ -1590,7 +1945,7 @@ function TeamsPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="team-players-title"
-            className="max-h-[80vh] w-full max-w-lg overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card shadow-2xl"
+            className="modal-sheet max-h-[85vh] w-full overflow-hidden rounded-t-2xl border border-[color:var(--border)] bg-ink-card shadow-2xl sm:max-w-lg sm:rounded-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
@@ -1712,6 +2067,133 @@ function AuditPage() {
       </div>
     </AdminShell>
   );
+}
+
+function RegistrationFeesPage() {
+  const FEE_TYPES = [
+    { key: "captain", label: "Captain", hint: "Team captain registration" },
+    { key: "player", label: "Player", hint: "Batsman, bowler, all-rounder, wicketkeeper" },
+    { key: "franchise", label: "Franchise", hint: "Franchise owner registration" },
+    { key: "sponsor", label: "Sponsor", hint: "Sponsor registration" },
+  ];
+  const [fees, setFees] = useState({
+    captain: 999,
+    player: 999,
+    franchise: 999,
+    sponsor: 999,
+  });
+  const [error, setError] = useState("");
+  const [ok, setOk] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    api("/api/admin/settings")
+      .then((data) => {
+        const incoming = data.settings?.registrationFees || {};
+        setFees((prev) => ({
+          captain: incoming.captain ?? prev.captain,
+          player: incoming.player ?? prev.player,
+          franchise: incoming.franchise ?? prev.franchise,
+          sponsor: incoming.sponsor ?? prev.sponsor,
+        }));
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  function updateFee(key, value) {
+    setFees((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function onSave(e) {
+    e.preventDefault();
+    setError("");
+    setOk("");
+    setSaving(true);
+    try {
+      const registrationFees = {};
+      for (const { key } of FEE_TYPES) {
+        const amount = Math.round(Number(fees[key]));
+        if (!Number.isFinite(amount) || amount <= 0) {
+          throw new Error("Each fee must be a positive amount in INR.");
+        }
+        registrationFees[key] = amount;
+      }
+      const data = await api("/api/admin/settings", {
+        method: "PUT",
+        body: JSON.stringify({ registrationFees }),
+      });
+      setFees(data.settings.registrationFees);
+      setOk("Registration fees saved.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <AdminShell
+      title="Registration fees"
+      subtitle="Set Razorpay registration amounts for Captain, Player, Franchise, and Sponsor."
+    >
+      {loading ? (
+        <PageLoader message="Loading fees…" />
+      ) : (
+        <form onSubmit={onSave} className="max-w-2xl">
+          <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
+            <div className="border-b border-[color:var(--border)] px-5 py-4">
+              <p className="eyebrow text-accent">Payment</p>
+              <h2 className="font-display mt-1 text-xl text-[color:var(--title)]">Fee by registration type</h2>
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                Shown on the register page and used when creating Razorpay orders.
+              </p>
+            </div>
+            <div className="grid gap-4 p-5 sm:grid-cols-2">
+              {FEE_TYPES.map(({ key, label, hint }) => (
+                <label key={key} className="block text-sm">
+                  <span className="font-medium text-[color:var(--title)]">{label}</span>
+                  <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">{hint}</span>
+                  <div className="relative mt-1.5">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[color:var(--text-muted)]">
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      required
+                      className="input-dark !pl-7"
+                      value={fees[key]}
+                      onChange={(e) => updateFee(key, e.target.value)}
+                    />
+                  </div>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? "Saving..." : "Save fees"}
+            </button>
+            {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
+            {ok ? <AlertBanner tone="ok">{ok}</AlertBanner> : null}
+          </div>
+        </form>
+      )}
+    </AdminShell>
+  );
+}
+
+function PortalMediaPage() {
+  return <PortalMediaManager AdminShell={AdminShell} />;
+}
+
+function SponsorPackagesPage() {
+  return <SponsorPackagesAdmin AdminShell={AdminShell} />;
 }
 
 function SocialMediaPage() {
@@ -1936,6 +2418,9 @@ export default function Admin() {
       <Route path="passwords" element={<PasswordsPage />} />
       <Route path="auction" element={<AuctionPage />} />
       <Route path="live" element={<AdminLivePage AdminShell={AdminShell} />} />
+      <Route path="fees" element={<RegistrationFeesPage />} />
+      <Route path="sponsors" element={<SponsorPackagesPage />} />
+      <Route path="media" element={<PortalMediaPage />} />
       <Route path="social" element={<SocialMediaPage />} />
       <Route path="audit" element={<AuditPage />} />
       <Route path="players" element={<Navigate to="/admin/players/pending" replace />} />

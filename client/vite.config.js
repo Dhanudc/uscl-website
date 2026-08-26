@@ -35,6 +35,14 @@ export default defineConfig({
         target: "http://localhost:5000",
         changeOrigin: true,
       },
+      "/media/images": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+      },
+      "/media/videos": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+      },
     },
   },
 });

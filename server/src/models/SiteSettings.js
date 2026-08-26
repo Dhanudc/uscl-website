@@ -9,6 +9,27 @@ const socialSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const portalMediaItemSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    sectionId: { type: String, required: true },
+    filename: { type: String, required: true },
+    title: { type: String, default: "" },
+    caption: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const sponsorPackageSettingSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    priceInr: { type: Number, default: 0 },
+    maxSlots: { type: Number, default: 1 },
+    enabled: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
 const siteSettingsSchema = new mongoose.Schema(
   {
     key: { type: String, unique: true, default: "default" },
@@ -26,6 +47,20 @@ const siteSettingsSchema = new mongoose.Schema(
         { label: "YouTube", href: "#", iconUrl: "" },
         { label: "Twitter (X)", href: "#", iconUrl: "" },
       ],
+    },
+    registrationFees: {
+      captain: { type: Number, default: 999 },
+      player: { type: Number, default: 999 },
+      franchise: { type: Number, default: 999 },
+      sponsor: { type: Number, default: 999 },
+    },
+    portalMedia: {
+      images: { type: [portalMediaItemSchema], default: [] },
+      videos: { type: [portalMediaItemSchema], default: [] },
+    },
+    sponsorPackages: {
+      type: [sponsorPackageSettingSchema],
+      default: () => [],
     },
   },
   { timestamps: true }
@@ -47,6 +82,16 @@ export const DEFAULT_SITE_SETTINGS = {
     { label: "YouTube", href: "#", iconUrl: "" },
     { label: "Twitter (X)", href: "#", iconUrl: "" },
   ],
+  registrationFees: {
+    captain: 999,
+    player: 999,
+    franchise: 999,
+    sponsor: 999,
+  },
+  portalMedia: {
+    images: [],
+    videos: [],
+  },
 };
 
 export async function getSiteSettings() {

@@ -25,6 +25,14 @@
       "destination": "https://uscl-website.onrender.com/uploads/:path*"
     },
     {
+      "source": "/media/images/:path*",
+      "destination": "https://uscl-website.onrender.com/media/images/:path*"
+    },
+    {
+      "source": "/media/videos/:path*",
+      "destination": "https://uscl-website.onrender.com/media/videos/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

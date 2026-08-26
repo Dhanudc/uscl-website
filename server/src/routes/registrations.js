@@ -3,10 +3,20 @@ import { approvedRequired } from "../middleware/auth.js";
 import { playerRegistrationUpload, paymentScreenshotUpload, profilePhotoUpload, toProfileImageMeta, withProfileImageUrl, mapWithProfileImageUrl } from "../middleware/upload.js";
 import { persistUploadedFile } from "../utils/mediaStore.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
+import { isValidPlayerRole } from "../constants/playerRoles.js";
 import { getFranchiseName } from "../utils/franchises.js";
 import { recordPlayerActivity } from "../utils/activity.js";
 import {
   getRegistrationFeeInr,
+  getRegistrationFees,
+  normalizeRegistrationFees,
+  REGISTRATION_INTERESTS,
+} from "../utils/registrationFees.js";
+import {
+  assertSponsorPackageAvailable,
+  getSponsorPackageById,
+} from "../utils/sponsorPackages.js";
+import {
   getRazorpayClient,
   getRazorpayConfig,
   verifyRazorpaySignature,
@@ -14,28 +24,86 @@ import {
 
 const router = Router();
 
-router.get("/payment-config", (_req, res) => {
-  const { keyId, configured } = getRazorpayConfig();
-  return res.json({
-    feeInr: getRegistrationFeeInr(),
-    currency: "INR",
-    keyId: configured ? keyId : "",
-    configured,
-  });
+router.get("/payment-config", async (req, res) => {
+  try {
+    const interest = String(req.query.interest || "").trim().toLowerCase();
+    const sponsorPackageId = String(req.query.sponsorPackageId || "").trim();
+    const fees = await getRegistrationFees();
+    const { keyId, configured } = getRazorpayConfig();
+    let feeInr = REGISTRATION_INTERESTS.includes(interest) ? fees[interest] : fees.player;
+    let sponsorPackage = null;
+
+    if (interest === "sponsor") {
+      if (!sponsorPackageId) {
+        return res.json({
+          feeInr: null,
+          fees,
+          currency: "INR",
+          keyId: configured ? keyId : "",
+          configured,
+          requiresPackage: true,
+          sponsorPackage: null,
+        });
+      }
+      const pkg = await getSponsorPackageById(sponsorPackageId);
+      if (!pkg) {
+        return res.status(400).json({ error: "Invalid or unavailable sponsor package." });
+      }
+      feeInr = pkg.priceInr;
+      sponsorPackage = {
+        id: pkg.id,
+        title: pkg.title,
+        priceInr: pkg.priceInr,
+        priceLabel: pkg.priceLabel || undefined,
+      };
+    }
+
+    return res.json({
+      feeInr,
+      fees,
+      currency: "INR",
+      keyId: configured ? keyId : "",
+      configured,
+      sponsorPackage,
+    });
+  } catch (error) {
+    console.error("payment-config error", error);
+    return res.status(500).json({ error: "Unable to load payment config." });
+  }
 });
 
 router.post("/create-order", approvedRequired, async (req, res) => {
   try {
+    const interestRaw = String(req.body.interest || "player").trim().toLowerCase();
+    const interest = REGISTRATION_INTERESTS.includes(interestRaw) ? interestRaw : "player";
+    const sponsorPackageId = String(req.body.sponsorPackageId || "").trim();
+
     const existing = await PlayerRegistration.findOne({
       userId: req.user.userId,
-      interest: "player",
+      interest,
       status: { $in: ["pending", "verified"] },
     });
     if (existing) {
-      return res.status(409).json({ error: "You already have an active player registration." });
+      return res.status(409).json({
+        error: `You already have an active ${interest} registration.`,
+      });
     }
 
-    const feeInr = getRegistrationFeeInr();
+    let feeInr = await getRegistrationFeeInr(interest);
+    let sponsorPackage = null;
+
+    if (interest === "sponsor") {
+      if (!sponsorPackageId) {
+        return res.status(400).json({ error: "Please select a sponsor package to buy." });
+      }
+      const check = await assertSponsorPackageAvailable(sponsorPackageId);
+      if (!check.ok) {
+        return res.status(400).json({ error: check.error });
+      }
+      feeInr = check.pkg.priceInr;
+      sponsorPackage = { id: check.pkg.id, title: check.pkg.title };
+    }
+
     const razorpay = getRazorpayClient();
     const order = await razorpay.orders.create({
       amount: feeInr * 100,
@@ -43,7 +111,9 @@ router.post("/create-order", approvedRequired, async (req, res) => {
       receipt: `uscl_${String(req.user.userId).slice(-8)}_${Date.now()}`.slice(0, 40),
       notes: {
         userId: String(req.user.userId),
-        purpose: "player_registration",
+        interest,
+        sponsorPackageId: sponsorPackage?.id || "",
+        purpose: sponsorPackage ? "sponsor_package" : `${interest}_registration`,
       },
     });
 
@@ -54,6 +124,7 @@ router.post("/create-order", approvedRequired, async (req, res) => {
       currency: order.currency,
       feeInr,
       keyId,
+      sponsorPackage,
     });
   } catch (error) {
     console.error("create-order error", error);
@@ -262,7 +333,31 @@ router.post("/", approvedRequired, (req, res) => {
         }
       }
 
-      const feeInr = getRegistrationFeeInr();
+      const sponsorPackageId = String(req.body.sponsorPackageId || "").trim();
+      let sponsorPackageTitle = "";
+      let feeInr = await getRegistrationFeeInr(interest);
+
+      if (interest === "sponsor") {
+        if (!sponsorPackageId) {
+          return res.status(400).json({ error: "Please select a sponsor package to buy." });
+        }
+        if (paymentStatus === "paid") {
+          const check = await assertSponsorPackageAvailable(sponsorPackageId);
+          if (!check.ok) {
+            return res.status(400).json({ error: check.error });
+          }
+          feeInr = check.pkg.priceInr;
+          sponsorPackageTitle = check.pkg.title;
+        } else {
+          const pkg = await getSponsorPackageById(sponsorPackageId);
+          if (!pkg) {
+            return res.status(400).json({ error: "Invalid sponsor package." });
+          }
+          feeInr = pkg.priceInr;
+          sponsorPackageTitle = pkg.title;
+        }
+      }
+
       const photo = toProfileImageMeta(photoFile);
       const registration = await PlayerRegistration.create({
         userId: req.user.userId,
@@ -272,6 +367,8 @@ router.post("/", approvedRequired, (req, res) => {
         company,
         role,
         interest,
+        sponsorPackageId: interest === "sponsor" ? sponsorPackageId : "",
+        sponsorPackageTitle: interest === "sponsor" ? sponsorPackageTitle : "",
         agreedToTerms,
         profileImage: photo.filename,
         photo,
@@ -466,7 +563,7 @@ router.post("/:id/create-payment-order", approvedRequired, async (req, res) => {
       });
     }
 
-    const feeInr = getRegistrationFeeInr();
+    const feeInr = await getRegistrationFeeInr(registration.interest || "player");
     const razorpay = getRazorpayClient();
     const order = await razorpay.orders.create({
       amount: feeInr * 100,
@@ -552,7 +649,9 @@ router.patch("/:id/confirm-payment", approvedRequired, async (req, res) => {
       return res.json({ registration: withProfileImageUrl(registration) });
     }
 
-    const feeInr = Number(registration.payment?.amountInr) || getRegistrationFeeInr();
+    const feeInr =
+      Number(registration.payment?.amountInr) ||
+      (await getRegistrationFeeInr(registration.interest || "player"));
     const prevStatus = current;
 
     registration.paymentStatus = paymentStatus;

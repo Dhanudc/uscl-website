@@ -49,7 +49,7 @@ export default function AdminLogin() {
         <div className="mx-auto flex max-w-md items-center justify-between gap-3">
           <p className="font-display text-lg text-accent">USCL Admin Portal</p>
           <div className="flex items-center gap-2">
-            <ThemePicker />
+            <ThemePicker compact />
             <Link to="/home" className="text-xs text-[color:var(--text-muted)] hover:text-[color:var(--text)]">
               Public website
             </Link>
@@ -76,7 +76,7 @@ export default function AdminLogin() {
                 type="email"
                 required
                 autoComplete="username"
-                defaultValue="admin@uscl.com"
+                placeholder="admin@uscl.com"
                 className="input-dark mt-1"
               />
             </label>

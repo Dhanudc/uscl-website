@@ -33,3 +33,21 @@ export function paymentScreenshotUrl(reg) {
   if (!filename) return "";
   return mediaUrl(`/payments/${filename.split("/").pop()}`);
 }
+
+/** Portal gallery image from /media/images. */
+export function portalMediaImageUrl(item) {
+  if (!item) return "";
+  if (item.url) return mediaUrl(item.url);
+  const filename = String(item.filename || "").trim();
+  if (!filename) return "";
+  return mediaUrl(`/media/images/${filename.split("/").pop()}`);
+}
+
+/** Portal video from /media/videos. */
+export function portalMediaVideoUrl(item) {
+  if (!item) return "";
+  if (item.url) return mediaUrl(item.url);
+  const filename = String(item.filename || "").trim();
+  if (!filename) return "";
+  return mediaUrl(`/media/videos/${filename.split("/").pop()}`);
+}

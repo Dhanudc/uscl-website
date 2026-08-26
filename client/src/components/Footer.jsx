@@ -8,8 +8,8 @@ export default function Footer() {
   const { user } = useAuth();
 
   return (
-    <footer className="border-t border-[color:var(--border)] bg-ink">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 md:grid-cols-2 lg:grid-cols-4">
+    <footer className="border-t border-[color:var(--border)] bg-ink pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:py-10 md:grid-cols-2 lg:grid-cols-4">
         <div>
           <p className="font-display text-2xl text-accent">USCL T20</p>
           <p className="mt-2 text-sm text-[color:var(--text-muted)]">

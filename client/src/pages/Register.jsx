@@ -1,12 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import PasswordInput from "../components/PasswordInput";
+import { AlertBanner, EmptyState, PageLoader } from "../components/ui";
 import ZoomableImage from "../components/ZoomableImage";
 import { useAuth } from "../context/AuthContext";
 import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
 import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
+
+const REGISTER_TYPES = [
+  { value: "captain", label: "Captain", hint: "Register as team captain for the auction", badge: "C" },
+  { value: "player", label: "Player", hint: "Batsman, bowler, all-rounder, or wicketkeeper", badge: "P" },
+  { value: "franchise", label: "Franchise", hint: "Own and manage a USCL franchise team", badge: "F" },
+  { value: "sponsor", label: "Sponsor", hint: "Browse brand packages and buy a slot", badge: "S", href: "/sponsorship" },
+];
 
 function loadRazorpayScript() {
   return new Promise((resolve) => {
@@ -24,11 +32,14 @@ function loadRazorpayScript() {
 
 export default function Register() {
   const { user, loading, refresh } = useAuth();
+  const [searchParams] = useSearchParams();
   const [error, setError] = useState("");
   const [existing, setExisting] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [preview, setPreview] = useState("");
-  const [feeInr, setFeeInr] = useState(999);
+  const [feeInr, setFeeInr] = useState(null);
+  const [feeLoading, setFeeLoading] = useState(false);
+  const [feeError, setFeeError] = useState("");
   const [paymentConfigured, setPaymentConfigured] = useState(true);
   const [pendingSave, setPendingSave] = useState(null);
   const pendingSaveRef = useRef(null);
@@ -39,16 +50,69 @@ export default function Register() {
   const [finishing, setFinishing] = useState(false);
   /** Set from the pre-register popup: captain | player | franchise | sponsor */
   const [registerInterest, setRegisterInterest] = useState(null);
+  const [sponsorPackageId, setSponsorPackageId] = useState("");
+  const [sponsorPackageTitle, setSponsorPackageTitle] = useState("");
   const [showTypePicker, setShowTypePicker] = useState(true);
 
   useEffect(() => {
+    const interest = String(searchParams.get("interest") || "").trim().toLowerCase();
+    const pkg = String(searchParams.get("package") || "").trim();
+    if (interest === "sponsor" && pkg) {
+      setRegisterInterest("sponsor");
+      setSponsorPackageId(pkg);
+      setShowTypePicker(false);
+    } else if (["captain", "player", "franchise"].includes(interest)) {
+      setRegisterInterest(interest);
+      setShowTypePicker(false);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     api("/api/registrations/payment-config")
-      .then((data) => {
-        setFeeInr(data.feeInr || 999);
-        setPaymentConfigured(Boolean(data.configured));
-      })
+      .then((data) => setPaymentConfigured(Boolean(data.configured)))
       .catch(() => setPaymentConfigured(false));
   }, []);
+
+  useEffect(() => {
+    if (!registerInterest) {
+      setFeeInr(null);
+      setFeeError("");
+      return;
+    }
+    if (registerInterest === "sponsor" && !sponsorPackageId) {
+      setFeeInr(null);
+      setFeeError("");
+      return;
+    }
+
+    setFeeLoading(true);
+    setFeeError("");
+    const qs = new URLSearchParams({ interest: registerInterest });
+    if (registerInterest === "sponsor" && sponsorPackageId) {
+      qs.set("sponsorPackageId", sponsorPackageId);
+    }
+
+    api(`/api/registrations/payment-config?${qs.toString()}`)
+      .then((data) => {
+        if (Number.isFinite(Number(data.feeInr)) && Number(data.feeInr) > 0) {
+          setFeeInr(Number(data.feeInr));
+          setFeeError("");
+        } else {
+          setFeeInr(null);
+          setFeeError("Fee could not be loaded. Check that the server is running.");
+        }
+        if (data.sponsorPackage?.title) {
+          setSponsorPackageTitle(data.sponsorPackage.title);
+        } else if (registerInterest !== "sponsor") {
+          setSponsorPackageTitle("");
+        }
+      })
+      .catch((err) => {
+        setFeeInr(null);
+        setFeeError(err.message || "Unable to load registration fee.");
+      })
+      .finally(() => setFeeLoading(false));
+  }, [registerInterest, sponsorPackageId]);
 
   useEffect(() => {
     if (!user) {
@@ -145,6 +209,9 @@ export default function Register() {
     formData.set("company", pending.values.company);
     formData.set("role", pending.values.role);
     formData.set("interest", pending.values.interest);
+    if (pending.values.sponsorPackageId) {
+      formData.set("sponsorPackageId", pending.values.sponsorPackageId);
+    }
     formData.set("agreedToTerms", pending.agreedToTerms ? "true" : "false");
     formData.set("paymentStatus", pending.paymentStatus || "pending");
     formData.set("utrNumber", utr || "");
@@ -208,6 +275,9 @@ export default function Register() {
       if (!registerInterest) {
         throw new Error("Please choose Captain, Player, Franchise, or Sponsor first.");
       }
+      if (registerInterest === "sponsor" && !sponsorPackageId) {
+        throw new Error("Please choose a sponsor package on the Sponsors page first.");
+      }
       if (needsPlayingRole && !role) {
         throw new Error("Please select a playing role.");
       }
@@ -220,6 +290,7 @@ export default function Register() {
         company: form.company.value.trim(),
         role,
         interest,
+        sponsorPackageId: registerInterest === "sponsor" ? sponsorPackageId : "",
       };
       const agreedToTerms = form.agreedToTerms.checked;
 
@@ -247,7 +318,10 @@ export default function Register() {
         try {
           const order = await api("/api/registrations/create-order", {
             method: "POST",
-            body: JSON.stringify({}),
+            body: JSON.stringify({
+              interest,
+              sponsorPackageId: registerInterest === "sponsor" ? sponsorPackageId : "",
+            }),
           });
           const payment = await openRazorpayCheckout(order, values);
           if (payment.ok) {
@@ -323,7 +397,11 @@ export default function Register() {
   }
 
   if (loading) {
-    return <section className="px-4 py-20 text-center text-[color:var(--text-muted)]">Loading...</section>;
+    return (
+      <section className="bg-ink px-4 py-8">
+        <PageLoader message="Loading registration…" />
+      </section>
+    );
   }
 
   return (
@@ -388,6 +466,9 @@ export default function Register() {
                   </strong>
                 </p>
                 {existing.franchiseName ? <p>Team: {existing.franchiseName}</p> : null}
+                {existing.sponsorPackageTitle ? (
+                  <p>Package: {existing.sponsorPackageTitle}</p>
+                ) : null}
               </div>
             </div>
             <Link to="/dashboard" className="btn-primary inline-flex">
@@ -410,12 +491,31 @@ export default function Register() {
                 className="text-xs font-semibold text-accent-soft underline"
                 onClick={() => {
                   setRegisterInterest(null);
+                  setSponsorPackageId("");
+                  setSponsorPackageTitle("");
                   setShowTypePicker(true);
                 }}
               >
                 Change
               </button>
             </div>
+            {registerInterest === "sponsor" && sponsorPackageId ? (
+              <div className="sm:col-span-2 rounded-lg border border-accent/35 bg-accent/10 px-4 py-3">
+                <p className="text-sm font-semibold text-[color:var(--title)]">
+                  Sponsor package: {sponsorPackageTitle || sponsorPackageId}
+                </p>
+                <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                  Payment amount{" "}
+                  {feeLoading || feeInr == null
+                    ? "…"
+                    : `₹${feeInr.toLocaleString("en-IN")}`}{" "}
+                  for this package.
+                </p>
+                <Link to="/sponsorship" className="mt-2 inline-block text-xs text-accent-soft underline">
+                  Change package
+                </Link>
+              </div>
+            ) : null}
             <Field label="Full Name" name="fullName" defaultValue={user?.name || ""} required />
             <Field
               label="Email"
@@ -446,6 +546,9 @@ export default function Register() {
             ) : null}
             {/* Interest comes from the pre-register popup */}
             <input type="hidden" name="interest" value={registerInterest || "player"} />
+            {registerInterest === "sponsor" && sponsorPackageId ? (
+              <input type="hidden" name="sponsorPackageId" value={sponsorPackageId} />
+            ) : null}
 
             <label className="block text-sm sm:col-span-2">
               <span className="text-[color:var(--text-muted)]">Photo (JPG/PNG/WEBP)</span>
@@ -472,11 +575,25 @@ export default function Register() {
 
             <div className="sm:col-span-2 rounded-lg border border-[color:var(--border)] bg-ink-soft px-4 py-3">
               <p className="text-sm font-semibold text-[color:var(--title)]">
-                Registration fee: ₹{feeInr}
+                {registerInterest === "sponsor" ? "Package fee" : "Registration fee"}:{" "}
+                {feeLoading ? (
+                  <span className="text-[color:var(--text-muted)]">Loading…</span>
+                ) : feeInr != null ? (
+                  <>₹{feeInr.toLocaleString("en-IN")}</>
+                ) : (
+                  <span className="text-accent">Unavailable</span>
+                )}
               </p>
+              {feeError ? (
+                <div className="mt-2">
+                  <AlertBanner tone="error">
+                    {feeError} Make sure the server is running, then refresh or change registration type.
+                  </AlertBanner>
+                </div>
+              ) : null}
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                Razorpay checkout opens after you click Pay &amp; Submit. Registration is saved only
-                after successful payment.
+                Razorpay checkout opens after you click Pay &amp; Submit. Registration is saved after
+                payment (or if you add offline payment details).
               </p>
               {!paymentConfigured && (
                 <p className="mt-2 text-xs text-accent">
@@ -492,38 +609,41 @@ export default function Register() {
             {error && <p className="sm:col-span-2 text-sm text-accent">{error}</p>}
             <button
               type="submit"
-              disabled={submitting || Boolean(pendingSave)}
+              disabled={submitting || Boolean(pendingSave) || feeLoading || feeInr == null}
               className="btn-primary sm:col-span-2"
             >
-              {submitting ? "Processing payment..." : `Pay ₹${feeInr} & Submit`}
+              {submitting
+                ? "Processing payment..."
+                : feeLoading || feeInr == null
+                  ? "Loading fee…"
+                  : `Pay ₹${feeInr.toLocaleString("en-IN")} & Submit`}
             </button>
           </form>
         ) : (
-          <div className="panel mt-8 rounded-2xl p-6 text-center">
-            <p className="text-sm text-[color:var(--text-muted)]">
-              Choose Captain, Player, Franchise, or Sponsor to continue.
-            </p>
-            <button
-              type="button"
-              className="btn-primary mt-4"
-              onClick={() => setShowTypePicker(true)}
-            >
-              Select registration type
-            </button>
+          <div className="mt-8">
+            <EmptyState
+            title="Choose how you want to register"
+            description="Captain, Player, Franchise, or Sponsor — each path has its own fee set in admin."
+            action={
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setShowTypePicker(true)}
+              >
+                Select registration type
+              </button>
+            }
+            />
           </div>
         )}
 
         {!existing && !registerInterest && showTypePicker ? (
-          <div
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4"
-            onClick={() => setShowTypePicker(false)}
-          >
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4">
             <div
               role="dialog"
               aria-modal="true"
               aria-labelledby="register-type-title"
-              className="panel w-full max-w-md rounded-2xl p-5"
-              onClick={(e) => e.stopPropagation()}
+              className="panel relative w-full max-w-lg rounded-2xl p-5"
             >
               <p className="eyebrow text-accent">Before you register</p>
               <h2
@@ -533,28 +653,44 @@ export default function Register() {
                 Who are you registering as?
               </h2>
               <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                Pick one option. Interest is set from your choice.
+                Pick one option. Your fee is loaded from admin settings for that type.
               </p>
-              <div className="mt-5 grid gap-2 sm:grid-cols-2">
-                {[
-                  { value: "captain", label: "Captain" },
-                  { value: "player", label: "Player" },
-                  { value: "franchise", label: "Franchise" },
-                  { value: "sponsor", label: "Sponsor" },
-                ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    className="btn-primary !py-3"
-                    onClick={() => {
-                      setRegisterInterest(opt.value);
-                      setShowTypePicker(false);
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="ui-type-grid mt-5">
+                {REGISTER_TYPES.map((opt) =>
+                  opt.href ? (
+                    <Link key={opt.value} to={opt.href} className="ui-type-card">
+                      <span className="ui-type-card__icon">{opt.badge}</span>
+                      <span>
+                        <span className="ui-type-card__label">{opt.label}</span>
+                        <span className="ui-type-card__hint">{opt.hint}</span>
+                      </span>
+                    </Link>
+                  ) : (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className="ui-type-card"
+                      onClick={() => {
+                        setRegisterInterest(opt.value);
+                        setShowTypePicker(false);
+                      }}
+                    >
+                      <span className="ui-type-card__icon">{opt.badge}</span>
+                      <span>
+                        <span className="ui-type-card__label">{opt.label}</span>
+                        <span className="ui-type-card__hint">{opt.hint}</span>
+                      </span>
+                    </button>
+                  )
+                )}
               </div>
+              <button
+                type="button"
+                className="btn-ghost mt-4 w-full"
+                onClick={() => setShowTypePicker(false)}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         ) : null}
@@ -575,20 +711,24 @@ export default function Register() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="payment-details-title"
-            className="panel w-full max-w-md rounded-2xl p-5"
+            className="panel relative w-full max-w-md rounded-2xl p-5"
           >
             <p className="eyebrow text-accent">
-              {pendingSave.paymentNote ? "Payment incomplete" : "Payment received"}
+              {pendingSave.paymentNote ? "Payment incomplete" : "Almost done"}
             </p>
             <h2 id="payment-details-title" className="mt-1 font-display text-2xl text-[color:var(--title)]">
-              {pendingSave.fullName}
+              Save your registration
             </h2>
+            <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+              {pendingSave.fullName}
+            </p>
             {pendingSave.paymentNote ? (
-              <p className="mt-2 text-sm text-accent">{pendingSave.paymentNote}</p>
-            ) : null}
-            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              Your player details will be saved. Use Continue to include UTR/screenshot, or Skip to
-              save without them.
+              <AlertBanner tone="error">{pendingSave.paymentNote}</AlertBanner>
+            ) : (
+              <AlertBanner tone="ok">Payment received. You can add UTR and a screenshot now, or skip and add them later.</AlertBanner>
+            )}
+            <p className="mt-3 text-sm text-[color:var(--text-muted)]">
+              Optional: add bank UTR and payment screenshot so admin can verify faster.
             </p>
 
             <label className="mt-4 block text-sm">
@@ -644,7 +784,7 @@ export default function Register() {
                 onClick={onContinueWithDetails}
                 className="btn-primary"
               >
-                {finishing ? "Saving..." : "Continue"}
+                {finishing ? "Saving..." : "Save with details"}
               </button>
               <button
                 type="button"
@@ -652,7 +792,7 @@ export default function Register() {
                 onClick={onSkipDetails}
                 className="btn-ghost"
               >
-                {finishing ? "Saving..." : "Skip"}
+                {finishing ? "Saving..." : "Skip for now"}
               </button>
             </div>
           </div>

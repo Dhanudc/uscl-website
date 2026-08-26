@@ -54,12 +54,12 @@ export default function Home() {
 
   return (
     <>
-      <section className="relative min-h-[78vh] overflow-hidden border-b border-[color:var(--border)]">
+      <section className="relative min-h-0 overflow-hidden border-b border-[color:var(--border)] sm:min-h-[78vh]">
         <div className="home-hero-bg absolute inset-0" aria-hidden="true" />
-        <div className="relative mx-auto flex min-h-[78vh] max-w-6xl flex-col justify-center gap-8 px-4 py-14 md:py-16 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
+        <div className="relative mx-auto flex min-h-0 max-w-6xl flex-col justify-center gap-6 px-4 py-10 sm:min-h-[78vh] sm:gap-8 sm:py-14 md:py-16 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
           {/* Left: carousel copy + CTAs */}
           <div key={slide} className="home-fade-in w-full max-w-xl shrink-0 lg:max-w-[48%]">
-            <p className="font-display text-[clamp(2.4rem,8vw,4.6rem)] leading-[0.92] tracking-tight text-[color:var(--title)]">
+            <p className="font-display text-[clamp(2rem,10vw,4.6rem)] leading-[0.95] tracking-tight text-[color:var(--title)]">
               {current.title === "USCL T20" ? (
                 <>
                   USCL <span className="text-accent">T20</span>
@@ -72,14 +72,14 @@ export default function Home() {
               {current.line}
             </p>
             <p className="mt-3 max-w-md text-base text-[color:var(--text)]">{current.text}</p>
-            <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Link to="/register" className="btn-primary">
+            <div className="mt-7 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+              <Link to="/register" className="btn-primary w-full justify-center sm:w-auto">
                 Register
               </Link>
-              <Link to="/player-journey" className="btn-ghost">
+              <Link to="/player-journey" className="btn-ghost w-full justify-center sm:w-auto">
                 Player Journey
               </Link>
-              <Link to="/franchise" className="btn-ghost">
+              <Link to="/franchise" className="btn-ghost w-full justify-center sm:w-auto">
                 Own Franchise
               </Link>
             </div>
@@ -116,7 +116,7 @@ export default function Home() {
           </div>
 
           {/* Right: franchise hanging banners */}
-          <div className="home-fade-in w-full lg:max-w-[48%]">
+          <div className="home-fade-in w-full shrink-0 lg:max-w-[48%]">
             <HeroFranchiseBanners />
           </div>
         </div>

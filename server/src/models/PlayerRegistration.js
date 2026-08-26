@@ -60,6 +60,8 @@ const registrationSchema = new mongoose.Schema(
     payNowEnabledAt: { type: Date, default: null },
     franchiseId: { type: String, default: "" },
     franchiseName: { type: String, default: "" },
+    sponsorPackageId: { type: String, default: "", index: true },
+    sponsorPackageTitle: { type: String, default: "" },
     basePrice: { type: Number, default: 0 },
     soldPrice: { type: Number, default: 0 },
     auctionStatus: {

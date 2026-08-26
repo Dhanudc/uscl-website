@@ -10,15 +10,21 @@ const serverRoot = path.join(__dirname, "../..");
 const registrationRoot = path.join(serverRoot, "uploads", "registrations");
 const profileImagesRoot = path.join(serverRoot, "public", "profile-images");
 const paymentsRoot = path.join(serverRoot, "public", "payments");
+const portalImagesRoot = path.join(serverRoot, "public", "media", "images");
+const portalVideosRoot = path.join(serverRoot, "public", "media", "videos");
 const socialRoot = path.join(serverRoot, "uploads", "social");
 
 fs.mkdirSync(registrationRoot, { recursive: true });
 fs.mkdirSync(profileImagesRoot, { recursive: true });
 fs.mkdirSync(paymentsRoot, { recursive: true });
+fs.mkdirSync(portalImagesRoot, { recursive: true });
+fs.mkdirSync(portalVideosRoot, { recursive: true });
 fs.mkdirSync(socialRoot, { recursive: true });
 
 export const PROFILE_IMAGES_DIR = profileImagesRoot;
 export const PAYMENTS_DIR = paymentsRoot;
+export const PORTAL_IMAGES_DIR = portalImagesRoot;
+export const PORTAL_VIDEOS_DIR = portalVideosRoot;
 
 function makeStorage(dest) {
   return multer.diskStorage({
@@ -67,6 +73,40 @@ function imageFilter(_req, file, cb) {
   if (mime.startsWith("image/")) cb(null, true);
   else cb(new Error("Only image files are allowed."));
 }
+
+function videoFilter(_req, file, cb) {
+  const mime = String(file.mimetype || "").toLowerCase();
+  const allowed = ["video/mp4", "video/webm", "video/quicktime", "video/x-msvideo"];
+  if (allowed.includes(mime)) cb(null, true);
+  else cb(new Error("Only MP4, WEBM, MOV, or AVI videos are allowed."));
+}
+
+function portalMediaFilename(sectionId, file, cb) {
+  const safeSection = String(sectionId || "media")
+    .trim()
+    .replace(/[^a-zA-Z0-9-]/g, "") || "media";
+  const ext = path.extname(file.originalname).toLowerCase() || ".jpg";
+  const safeExt = ext.length <= 8 ? ext : ".jpg";
+  cb(null, `${safeSection}_${Date.now()}${safeExt}`);
+}
+
+export const portalImageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, portalImagesRoot),
+    filename: (req, file, cb) => portalMediaFilename(req.body.sectionId, file, cb),
+  }),
+  fileFilter: imageFilter,
+  limits: { fileSize: 15 * 1024 * 1024 },
+}).single("file");
+
+export const portalVideoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, portalVideosRoot),
+    filename: (req, file, cb) => portalMediaFilename(req.body.sectionId, file, cb),
+  }),
+  fileFilter: videoFilter,
+  limits: { fileSize: 200 * 1024 * 1024 },
+}).single("file");
 
 export const registrationUpload = multer({
   storage: makeStorage(registrationRoot),

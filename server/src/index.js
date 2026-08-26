@@ -12,6 +12,7 @@ import adminRoutes from "./routes/admin.js";
 import settingsRoutes from "./routes/settings.js";
 import liveRoutes from "./routes/live.js";
 import teamsRoutes from "./routes/teams.js";
+import sponsorRoutes from "./routes/sponsors.js";
 import { backfillProfileImageColumn } from "./utils/backfillProfileImage.js";
 import { backfillPaymentStatusColumn } from "./utils/backfillPaymentStatus.js";
 import { serveMediaFromDb } from "./utils/mediaStore.js";
@@ -84,6 +85,8 @@ app.use(
   "/payment-screenshots",
   express.static(path.join(__dirname, "../public/payments"))
 );
+app.use("/media/images", express.static(path.join(__dirname, "../public/media/images")));
+app.use("/media/videos", express.static(path.join(__dirname, "../public/media/videos")));
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "uscl-server", env: isProd ? "production" : "development" });
@@ -95,6 +98,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/live", liveRoutes);
 app.use("/api/teams", teamsRoutes);
+app.use("/api/sponsors", sponsorRoutes);
 
 app.use((err, _req, res, _next) => {
   if (err?.message?.startsWith("CORS blocked")) {
