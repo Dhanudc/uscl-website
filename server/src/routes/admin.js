@@ -5,11 +5,15 @@ import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { getSiteSettings } from "../models/SiteSettings.js";
+import { getSiteSettings, isRegistrationEnabled } from "../models/SiteSettings.js";
 import { normalizeRegistrationFees, getRegistrationFeeInr } from "../utils/registrationFees.js";
 import { User } from "../models/User.js";
 import { PlayerActivity } from "../models/PlayerActivity.js";
 import { writeAudit } from "../utils/audit.js";
+import {
+  sendRegistrationConfirmedEmail,
+  sendRegistrationRejectedEmail,
+} from "../utils/mail.js";
 import { recordPlayerActivity } from "../utils/activity.js";
 import { FRANCHISES, getFranchiseName } from "../utils/franchises.js";
 import { buildPointsTable } from "../utils/points.js";
@@ -582,6 +586,23 @@ router.patch("/registrations/:id", adminRequired, async (req, res) => {
         actorRole: "admin",
         details: { from: prev, to: status, adminNotes },
       });
+
+      if (status === "verified") {
+        sendRegistrationConfirmedEmail({
+          to: registration.email,
+          fullName: registration.fullName,
+          interest: registration.interest,
+          franchiseName: registration.franchiseName,
+          adminNotes,
+        });
+      } else if (status === "rejected") {
+        sendRegistrationRejectedEmail({
+          to: registration.email,
+          fullName: registration.fullName,
+          interest: registration.interest,
+          adminNotes,
+        });
+      }
     }
 
     if (teamChanged) {
@@ -719,6 +740,7 @@ router.get("/settings", adminRequired, async (_req, res) => {
         socials: settings.socials,
         registrationFees: normalizeRegistrationFees(settings.registrationFees),
         sponsorPackages: await getSponsorPackageConfig(),
+        registrationEnabled: isRegistrationEnabled(settings),
       },
     });
   } catch (error) {
@@ -763,6 +785,13 @@ router.put("/settings", adminRequired, async (req, res) => {
       auditBits.push("sponsor packages");
     }
 
+    if (typeof req.body.registrationEnabled === "boolean") {
+      settings.registrationEnabled = req.body.registrationEnabled;
+      auditBits.push(
+        req.body.registrationEnabled ? "registration shown" : "registration hidden"
+      );
+    }
+
     await settings.save();
 
     await writeAudit(req, {
@@ -783,6 +812,7 @@ router.put("/settings", adminRequired, async (req, res) => {
         socials: settings.socials,
         registrationFees: normalizeRegistrationFees(settings.registrationFees),
         sponsorPackages: await getSponsorPackageConfig(),
+        registrationEnabled: isRegistrationEnabled(settings),
       },
     });
   } catch (error) {

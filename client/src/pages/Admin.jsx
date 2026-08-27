@@ -89,6 +89,7 @@ function AdminShell({ children, title, subtitle }) {
     {
       label: "Settings",
       links: [
+        { to: "/admin/settings", label: "Settings" },
         { to: "/admin/passwords", label: "Reset passwords" },
         { to: "/admin/fees", label: "Registration fees" },
         { to: "/admin/sponsors", label: "Sponsor packages" },
@@ -304,6 +305,7 @@ function OverviewPage() {
           <StatCard label="Sold in auction" value={stats?.auctionSold} to="/admin/auction" />
           <StatCard label="Unsold" value={stats?.auctionUnsold} to="/admin/auction" />
           <StatCard label="Teams roster" value="8" to="/admin/teams" />
+          <StatCard label="Settings" shortcut to="/admin/settings" />
           <StatCard label="Reset passwords" shortcut to="/admin/passwords" />
           <StatCard label="Registration fees" shortcut to="/admin/fees" />
           <StatCard label="Sponsor packages" shortcut to="/admin/sponsors" />
@@ -2069,6 +2071,116 @@ function AuditPage() {
   );
 }
 
+function SiteSettingsPage() {
+  const { refresh } = useSiteSettings();
+  const [registrationEnabled, setRegistrationEnabled] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [ok, setOk] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    api("/api/admin/settings")
+      .then((data) => {
+        setRegistrationEnabled(data.settings?.registrationEnabled !== false);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function onSave(e) {
+    e.preventDefault();
+    setError("");
+    setOk("");
+    setSaving(true);
+    try {
+      const data = await api("/api/admin/settings", {
+        method: "PUT",
+        body: JSON.stringify({ registrationEnabled }),
+      });
+      setRegistrationEnabled(data.settings?.registrationEnabled !== false);
+      await refresh();
+      setOk(
+        data.settings?.registrationEnabled !== false
+          ? "Registration is open — form is live on /register."
+          : "Coming soon mode on — button stays visible, form is hidden."
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <AdminShell
+      title="Settings"
+      subtitle="Control public site options. Changes apply immediately after save."
+    >
+      {loading ? (
+        <PageLoader message="Loading settings…" />
+      ) : (
+        <form onSubmit={onSave} className="max-w-xl space-y-5">
+          <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
+            <div className="border-b border-[color:var(--border)] px-5 py-4">
+              <p className="eyebrow text-accent">Registration</p>
+              <h2 className="font-display mt-1 text-xl text-[color:var(--title)]">
+                Registration mode
+              </h2>
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                The button always stays on the site as “Registration” when closed. Choose whether players see the form or the coming-soon page.
+              </p>
+            </div>
+            <div className="space-y-3 p-5">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[color:var(--border)] px-4 py-3 hover:border-accent/40">
+                <input
+                  type="radio"
+                  name="registrationEnabled"
+                  className="mt-1"
+                  checked={registrationEnabled === true}
+                  onChange={() => setRegistrationEnabled(true)}
+                />
+                <span>
+                  <span className="block font-medium text-[color:var(--title)]">Registration open</span>
+                  <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                    Button says Register and the full form is available.
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[color:var(--border)] px-4 py-3 hover:border-accent/40">
+                <input
+                  type="radio"
+                  name="registrationEnabled"
+                  className="mt-1"
+                  checked={registrationEnabled === false}
+                  onChange={() => setRegistrationEnabled(false)}
+                />
+                <span>
+                  <span className="block font-medium text-[color:var(--title)]">
+                    Coming soon (hide form)
+                  </span>
+                  <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                    Button says “Registration” and opens the coming-soon page instead of the form.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </section>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? "Saving..." : "Save settings"}
+            </button>
+            {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
+            {ok ? <AlertBanner tone="ok">{ok}</AlertBanner> : null}
+          </div>
+        </form>
+      )}
+    </AdminShell>
+  );
+}
+
 function RegistrationFeesPage() {
   const FEE_TYPES = [
     { key: "captain", label: "Captain", hint: "Team captain registration" },
@@ -2418,6 +2530,7 @@ export default function Admin() {
       <Route path="passwords" element={<PasswordsPage />} />
       <Route path="auction" element={<AuctionPage />} />
       <Route path="live" element={<AdminLivePage AdminShell={AdminShell} />} />
+      <Route path="settings" element={<SiteSettingsPage />} />
       <Route path="fees" element={<RegistrationFeesPage />} />
       <Route path="sponsors" element={<SponsorPackagesPage />} />
       <Route path="media" element={<PortalMediaPage />} />

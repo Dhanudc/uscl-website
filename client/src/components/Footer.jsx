@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
+import RegisterCta from "./RegisterCta";
 import { wesleyContent } from "../data/siteContent";
 
 export default function Footer() {
@@ -28,7 +29,7 @@ export default function Footer() {
             {user ? <Link to="/sponsorship">Sponsors</Link> : null}
             <Link to="/media">Media</Link>
             <Link to="/live">Live Updates</Link>
-            <Link to="/register">Register</Link>
+            <RegisterCta className="text-left hover:text-[color:var(--text)]" />
             <Link to="/player-journey">Player Journey</Link>
           </div>
         </div>

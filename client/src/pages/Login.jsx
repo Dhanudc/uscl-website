@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import PasswordInput from "../components/PasswordInput";
+import RegisterCta from "../components/RegisterCta";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
@@ -59,9 +60,7 @@ export default function Login() {
         </form>
         <p className="mt-5 text-sm text-[color:var(--text-muted)]">
           New player?{" "}
-          <Link to="/register" className="text-accent-soft">
-            Register
-          </Link>
+          <RegisterCta className="text-accent-soft" openLabel="Register" closedLabel="Registration" />
         </p>
       </div>
     </section>

@@ -1,5 +1,6 @@
-import { Link } from "react-router-dom";
 import PageShell from "../components/PageShell";
+import RegisterCta from "../components/RegisterCta";
+import { useSiteSettings } from "../context/SiteSettingsContext";
 
 const JOURNEY_STEPS = [
   {
@@ -83,6 +84,8 @@ const AWARDS = [
 ];
 
 export default function PlayerJourney() {
+  const { registrationEnabled } = useSiteSettings();
+
   return (
     <PageShell
       eyebrow="Player Journey"
@@ -90,9 +93,7 @@ export default function PlayerJourney() {
       subtitle="Your full USCL path — register, get verified, enter the auction, play for a franchise, and chase the trophies."
     >
       <div className="flex flex-wrap gap-2">
-        <Link to="/register" className="btn-primary">
-          Start Registration
-        </Link>
+        <RegisterCta openLabel="Start Registration" closedLabel="Registration" />
         <a href="#awards" className="btn-ghost">
           View Awards
         </a>
@@ -182,14 +183,20 @@ export default function PlayerJourney() {
 
       <div className="mt-10 rounded-xl border border-accent/40 bg-accent/10 p-5 sm:flex sm:items-center sm:justify-between sm:gap-4">
         <div>
-          <p className="font-display text-xl text-[color:var(--title)]">Ready for step 1?</p>
+          <p className="font-display text-xl text-[color:var(--title)]">
+            {registrationEnabled ? "Ready for step 1?" : "Registration opens shortly"}
+          </p>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-            Register now and begin your USCL player journey.
+            {registrationEnabled
+              ? "Register now and begin your USCL player journey."
+              : "The form is paused for now — tap below to see when registration returns."}
           </p>
         </div>
-        <Link to="/register" className="btn-primary mt-4 inline-flex shrink-0 sm:mt-0">
-          Register
-        </Link>
+        <RegisterCta
+          className="btn-primary mt-4 inline-flex shrink-0 sm:mt-0"
+          openLabel="Register"
+          closedLabel="Registration"
+        />
       </div>
     </PageShell>
   );

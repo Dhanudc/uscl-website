@@ -14,11 +14,13 @@ const DEFAULTS = {
     { label: "YouTube", href: "#", iconUrl: "" },
     { label: "Twitter (X)", href: "#", iconUrl: "" },
   ],
+  registrationEnabled: true,
 };
 
 const SiteSettingsContext = createContext({
   contact: DEFAULTS.contact,
   socials: DEFAULTS.socials,
+  registrationEnabled: true,
   loading: true,
   refresh: async () => {},
 });
@@ -26,6 +28,7 @@ const SiteSettingsContext = createContext({
 export function SiteSettingsProvider({ children }) {
   const [contact, setContact] = useState(DEFAULTS.contact);
   const [socials, setSocials] = useState(DEFAULTS.socials);
+  const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -33,6 +36,7 @@ export function SiteSettingsProvider({ children }) {
       const data = await api("/api/settings");
       if (data.settings?.contact) setContact(data.settings.contact);
       if (Array.isArray(data.settings?.socials)) setSocials(data.settings.socials);
+      setRegistrationEnabled(data.settings?.registrationEnabled !== false);
     } catch {
       // keep defaults
     } finally {
@@ -45,8 +49,8 @@ export function SiteSettingsProvider({ children }) {
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ contact, socials, loading, refresh }),
-    [contact, socials, loading, refresh]
+    () => ({ contact, socials, registrationEnabled, loading, refresh }),
+    [contact, socials, registrationEnabled, loading, refresh]
   );
 
   return <SiteSettingsContext.Provider value={value}>{children}</SiteSettingsContext.Provider>;

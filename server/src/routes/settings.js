@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getSiteSettings } from "../models/SiteSettings.js";
+import { getSiteSettings, isRegistrationEnabled } from "../models/SiteSettings.js";
 import { buildPortalMediaResponse } from "../utils/portalMedia.js";
 
 const router = Router();
@@ -11,6 +11,7 @@ router.get("/", async (_req, res) => {
       settings: {
         contact: settings.contact,
         socials: settings.socials,
+        registrationEnabled: isRegistrationEnabled(settings),
       },
     });
   } catch (error) {

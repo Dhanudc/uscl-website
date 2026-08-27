@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { PageLoader, StatusPill } from "../components/ui";
+import RegisterCta from "../components/RegisterCta";
 import ZoomableImage from "../components/ZoomableImage";
 import { useAuth } from "../context/AuthContext";
 import { playerRoleLabel } from "../data/playerRoles";
@@ -330,9 +331,11 @@ export default function Dashboard() {
             <p className="text-sm text-[color:var(--text-muted)]">{user.email}</p>
           </div>
           <div className="flex gap-2">
-            <Link to="/register" className="btn-ghost !py-2 !text-xs">
-              Registration
-            </Link>
+            <RegisterCta
+              className="btn-ghost !py-2 !text-xs"
+              openLabel="Registration"
+              closedLabel="Registration"
+            />
             <button
               type="button"
               className="btn-ghost !py-2 !text-xs"
@@ -349,7 +352,8 @@ export default function Dashboard() {
         <div className="mt-8 space-y-3">
           {regs.length === 0 ? (
             <div className="panel rounded-2xl p-5 text-sm text-[color:var(--text-muted)]">
-              No registrations yet. <Link to="/register" className="text-accent">Register now</Link>
+              No registrations yet.{" "}
+              <RegisterCta className="text-accent" openLabel="Register now" closedLabel="Registration" />
             </div>
           ) : (
             regs.map((reg) => {

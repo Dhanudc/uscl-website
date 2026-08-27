@@ -62,6 +62,8 @@ const siteSettingsSchema = new mongoose.Schema(
       type: [sponsorPackageSettingSchema],
       default: () => [],
     },
+    /** When false, public Register CTAs are hidden and new registrations are blocked. */
+    registrationEnabled: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
@@ -92,6 +94,7 @@ export const DEFAULT_SITE_SETTINGS = {
     images: [],
     videos: [],
   },
+  registrationEnabled: true,
 };
 
 export async function getSiteSettings() {
@@ -100,4 +103,8 @@ export async function getSiteSettings() {
     doc = await SiteSettings.create({ key: "default", ...DEFAULT_SITE_SETTINGS });
   }
   return doc;
+}
+
+export function isRegistrationEnabled(settings) {
+  return settings?.registrationEnabled !== false;
 }

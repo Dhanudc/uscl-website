@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import RegisterCta from "./RegisterCta";
 import ThemePicker from "./ThemePicker";
 
 const NAV_LINKS = [
@@ -12,7 +13,7 @@ const NAV_LINKS = [
   { to: "/live", label: "Live" },
   { to: "/wesley", label: "Wesley" },
   { to: "/franchise", label: "Own Team" },
-  { to: "/register", label: "Register" },
+  { to: "/register", label: "Register", isRegister: true },
   { to: "/player-journey", label: "Player Journey" },
 ];
 
@@ -58,22 +59,35 @@ export default function Header() {
         </Link>
 
         <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Main navigation">
-          {links.map((link) => (
-            <NavLink
-              key={`${link.label}-${link.to}`}
-              to={link.to}
-              end={link.end}
-              className={({ isActive }) =>
-                `rounded px-2.5 py-1.5 text-[13px] font-medium whitespace-nowrap ${
-                  isActive
+          {links.map((link) =>
+            link.isRegister ? (
+              <RegisterCta
+                key={`${link.label}-${link.to}`}
+                className={`rounded px-2.5 py-1.5 text-[13px] font-medium whitespace-nowrap ${
+                  location.pathname.startsWith("/register")
                     ? "bg-accent text-white"
                     : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
-                }`
-              }
-            >
-              {link.label}
-            </NavLink>
-          ))}
+                }`}
+                openLabel="Register"
+                closedLabel="Registration"
+              />
+            ) : (
+              <NavLink
+                key={`${link.label}-${link.to}`}
+                to={link.to}
+                end={link.end}
+                className={({ isActive }) =>
+                  `rounded px-2.5 py-1.5 text-[13px] font-medium whitespace-nowrap ${
+                    isActive
+                      ? "bg-accent text-white"
+                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
+                  }`
+                }
+              >
+                {link.label}
+              </NavLink>
+            )
+          )}
         </nav>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -103,9 +117,7 @@ export default function Header() {
                 >
                   Sign in
                 </Link>
-                <Link to="/register" className="btn-primary !py-1.5 !text-xs">
-                  Register
-                </Link>
+                <RegisterCta className="btn-primary !py-1.5 !text-xs" />
               </>
             )}
           </div>
@@ -129,16 +141,25 @@ export default function Header() {
         >
           <nav className="mx-auto max-w-6xl px-4 py-3" aria-label="Mobile navigation">
             <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
-              {links.map((link) => (
-                <NavLink
-                  key={`mobile-${link.label}-${link.to}`}
-                  to={link.to}
-                  end={link.end}
-                  className={({ isActive }) => navClass(isActive)}
-                >
-                  {link.label}
-                </NavLink>
-              ))}
+              {links.map((link) =>
+                link.isRegister ? (
+                  <RegisterCta
+                    key={`mobile-${link.label}-${link.to}`}
+                    className={navClass(location.pathname.startsWith("/register"))}
+                    openLabel="Register"
+                    closedLabel="Registration"
+                  />
+                ) : (
+                  <NavLink
+                    key={`mobile-${link.label}-${link.to}`}
+                    to={link.to}
+                    end={link.end}
+                    className={({ isActive }) => navClass(isActive)}
+                  >
+                    {link.label}
+                  </NavLink>
+                )
+              )}
             </div>
 
             <div className="mt-4 flex flex-col gap-2 border-t border-[color:var(--border)] pt-4 sm:hidden">
@@ -162,9 +183,7 @@ export default function Header() {
                   <Link to="/signin" className="btn-ghost w-full justify-center">
                     Sign in
                   </Link>
-                  <Link to="/register" className="btn-primary w-full justify-center">
-                    Register
-                  </Link>
+                  <RegisterCta className="btn-primary w-full justify-center" />
                 </>
               )}
             </div>

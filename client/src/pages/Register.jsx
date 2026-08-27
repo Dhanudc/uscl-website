@@ -3,8 +3,10 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import PasswordInput from "../components/PasswordInput";
 import { AlertBanner, EmptyState, PageLoader } from "../components/ui";
+import RegistrationComingSoon from "../components/RegistrationComingSoon";
 import ZoomableImage from "../components/ZoomableImage";
 import { useAuth } from "../context/AuthContext";
+import { useSiteSettings } from "../context/SiteSettingsContext";
 import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
 import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
@@ -32,9 +34,11 @@ function loadRazorpayScript() {
 
 export default function Register() {
   const { user, loading, refresh } = useAuth();
+  const { registrationEnabled, loading: settingsLoading } = useSiteSettings();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState("");
   const [existing, setExisting] = useState(null);
+  const [existingLoaded, setExistingLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [preview, setPreview] = useState("");
   const [feeInr, setFeeInr] = useState(null);
@@ -117,11 +121,14 @@ export default function Register() {
   useEffect(() => {
     if (!user) {
       setExisting(null);
+      setExistingLoaded(true);
       return;
     }
+    setExistingLoaded(false);
     api("/api/registrations")
       .then((data) => setExisting(data.registrations?.[0] || null))
-      .catch(() => {});
+      .catch(() => setExisting(null))
+      .finally(() => setExistingLoaded(true));
   }, [user]);
 
   useEffect(() => {
@@ -396,12 +403,16 @@ export default function Register() {
     }
   }
 
-  if (loading) {
+  if (loading || settingsLoading || !existingLoaded) {
     return (
       <section className="bg-ink px-4 py-8">
         <PageLoader message="Loading registration…" />
       </section>
     );
+  }
+
+  if (!registrationEnabled && !existing) {
+    return <RegistrationComingSoon />;
   }
 
   return (

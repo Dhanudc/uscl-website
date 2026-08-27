@@ -9,6 +9,7 @@ import {
   signToken,
   verifyPassword,
 } from "../middleware/auth.js";
+import { isMailConfigured, sendPasswordResetEmail } from "../utils/mail.js";
 
 const router = Router();
 
@@ -203,8 +204,16 @@ router.post("/forgot-password", async (req, res) => {
     const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
     const resetLink = `${clientUrl}/reset-password?token=${rawToken}&email=${encodeURIComponent(email)}`;
 
-    // No email service configured yet — return the link so the player can reset now.
-    // When SMTP is added later, send this link by email and stop returning resetLink.
+    if (isMailConfigured()) {
+      try {
+        await sendPasswordResetEmail({ to: email, name: user.name, resetLink });
+        return res.json(generic);
+      } catch (mailError) {
+        console.error("forgot-password mail error", mailError);
+        return res.status(500).json({ error: "Unable to send reset email. Please try again." });
+      }
+    }
+
     return res.json({
       message: "Reset link created. Open it within 1 hour to set a new password.",
       resetLink,

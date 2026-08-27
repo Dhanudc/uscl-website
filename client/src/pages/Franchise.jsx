@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import PageShell from "../components/PageShell";
+import RegisterCta from "../components/RegisterCta";
 import { franchiseOffer } from "../data/siteContent";
 import { franchises } from "../data/franchises";
 
@@ -37,9 +38,7 @@ export default function Franchise() {
             ))}
           </ul>
           <div className="mt-6 flex flex-wrap gap-2">
-            <Link to="/register" className="btn-primary">
-              Register to Enquire
-            </Link>
+            <RegisterCta openLabel="Register to Enquire" closedLabel="Registration" />
             <Link to="/franchises" className="btn-ghost">
               View Teams
             </Link>

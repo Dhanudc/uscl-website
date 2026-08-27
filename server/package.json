@@ -20,6 +20,7 @@
     "mongodb-memory-server": "^10.4.3",
     "mongoose": "^8.24.2",
     "multer": "^2.0.2",
+    "nodemailer": "^9.0.5",
     "razorpay": "^2.9.8"
   }
 }

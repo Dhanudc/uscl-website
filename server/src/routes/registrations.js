@@ -3,7 +3,7 @@ import { approvedRequired } from "../middleware/auth.js";
 import { playerRegistrationUpload, paymentScreenshotUpload, profilePhotoUpload, toProfileImageMeta, withProfileImageUrl, mapWithProfileImageUrl } from "../middleware/upload.js";
 import { persistUploadedFile } from "../utils/mediaStore.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { isValidPlayerRole } from "../constants/playerRoles.js";
+import { isValidPlayerRole, playerRoleLabel } from "../constants/playerRoles.js";
 import { getFranchiseName } from "../utils/franchises.js";
 import { recordPlayerActivity } from "../utils/activity.js";
 import {
@@ -21,8 +21,19 @@ import {
   getRazorpayConfig,
   verifyRazorpaySignature,
 } from "../utils/razorpay.js";
+import { sendRegistrationReceivedEmail } from "../utils/mail.js";
+import { getSiteSettings, isRegistrationEnabled } from "../models/SiteSettings.js";
 
 const router = Router();
+
+async function assertRegistrationOpen(res) {
+  const settings = await getSiteSettings();
+  if (!isRegistrationEnabled(settings)) {
+    res.status(403).json({ error: "Registration is currently closed." });
+    return false;
+  }
+  return true;
+}
 
 router.get("/payment-config", async (req, res) => {
   try {
@@ -74,6 +85,8 @@ router.get("/payment-config", async (req, res) => {
 
 router.post("/create-order", approvedRequired, async (req, res) => {
   try {
+    if (!(await assertRegistrationOpen(res))) return;
+
     const interestRaw = String(req.body.interest || "player").trim().toLowerCase();
     const interest = REGISTRATION_INTERESTS.includes(interestRaw) ? interestRaw : "player";
     const sponsorPackageId = String(req.body.sponsorPackageId || "").trim();
@@ -239,6 +252,8 @@ router.post("/", approvedRequired, (req, res) => {
     }
 
     try {
+      if (!(await assertRegistrationOpen(res))) return;
+
       const fullName = String(req.body.fullName || "").trim();
       const email = String(req.body.email || "").trim().toLowerCase();
       const phone = String(req.body.phone || "").trim();
@@ -437,6 +452,16 @@ router.post("/", approvedRequired, (req, res) => {
           },
         });
       }
+
+      sendRegistrationReceivedEmail({
+        to: email,
+        fullName,
+        interest,
+        role: needsPlayingRole ? playerRoleLabel(role) : "",
+        company,
+        paymentStatus,
+        feeInr,
+      });
 
       return res.status(201).json({ registration: withProfileImageUrl(registration) });
     } catch (error) {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import HeroFranchiseBanners from "../components/HeroFranchiseBanners";
+import RegisterCta from "../components/RegisterCta";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 import { AUCTION_TARGET, siteStats } from "../data/siteContent";
@@ -73,9 +74,11 @@ export default function Home() {
             </p>
             <p className="mt-3 max-w-md text-base text-[color:var(--text)]">{current.text}</p>
             <div className="mt-7 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-              <Link to="/register" className="btn-primary w-full justify-center sm:w-auto">
-                Register
-              </Link>
+              <RegisterCta
+                className="btn-primary w-full justify-center sm:w-auto"
+                openLabel="Register"
+                closedLabel="Registration"
+              />
               <Link to="/player-journey" className="btn-ghost w-full justify-center sm:w-auto">
                 Player Journey
               </Link>
