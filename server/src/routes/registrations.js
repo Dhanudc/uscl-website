@@ -25,8 +25,27 @@ import {
 } from "../utils/paymentGateway.js";
 import { sendRegistrationReceivedEmail } from "../utils/mail.js";
 import { getSiteSettings, isRegistrationEnabled } from "../models/SiteSettings.js";
+import { User } from "../models/User.js";
 
 const router = Router();
+
+function normalizePhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  return digits;
+}
+
+async function resolvePaymentCustomer(req) {
+  const dbUser = await User.findById(req.user.userId).select("email phone name").lean();
+  const phone = normalizePhone(req.body.phone || dbUser?.phone || "");
+  const email = String(req.body.email || req.user.email || dbUser?.email || "").trim().toLowerCase();
+  return {
+    id: String(req.user.userId),
+    email,
+    phone,
+    name: String(dbUser?.name || req.user.name || "").trim(),
+  };
+}
 
 async function assertRegistrationOpen(res) {
   const settings = await getSiteSettings();
@@ -125,6 +144,14 @@ router.post("/create-order", approvedRequired, async (req, res) => {
     }
 
     const gateway = await getActivePaymentGateway();
+    const customer = await resolvePaymentCustomer(req);
+    if (!customer.phone) {
+      return res.status(400).json({ error: "Phone number is required for online payment." });
+    }
+    if (!customer.email) {
+      return res.status(400).json({ error: "Email is required for online payment." });
+    }
+
     const receipt = `uscl_${String(req.user.userId).slice(-8)}_${Date.now()}`.slice(0, 40);
     const order = await createGatewayOrder(gateway, {
       feeInr,
@@ -135,11 +162,7 @@ router.post("/create-order", approvedRequired, async (req, res) => {
         sponsorPackageId: sponsorPackage?.id || "",
         purpose: sponsorPackage ? "sponsor_package" : `${interest}_registration`,
       },
-      customer: {
-        id: String(req.user.userId),
-        email: req.user.email || "",
-        phone: req.user.phone || "",
-      },
+      customer,
     });
 
     return res.json({

@@ -285,6 +285,8 @@ export default function Register() {
             body: JSON.stringify({
               interest,
               sponsorPackageId: registerInterest === "sponsor" ? sponsorPackageId : "",
+              phone: values.phone,
+              email: values.email,
             }),
           });
           const payment = await openPaymentCheckout(order, values);
