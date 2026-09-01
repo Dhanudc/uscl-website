@@ -51,3 +51,37 @@ export function portalMediaVideoUrl(item) {
   if (!filename) return "";
   return mediaUrl(`/media/videos/${filename.split("/").pop()}`);
 }
+
+/**
+ * Resize/compress an image file so uploads stay under proxy limits (~4.5 MB on Vercel).
+ * Returns the original file when compression fails or the file is already small enough.
+ */
+export async function compressImageForUpload(file, { maxBytes = 1.5 * 1024 * 1024, maxDim = 1600 } = {}) {
+  if (!file || !file.type?.startsWith("image/")) return file;
+  if (file.size <= maxBytes) return file;
+
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+
+  const mime = file.type === "image/png" ? "image/png" : "image/jpeg";
+  let quality = 0.88;
+  let blob = await new Promise((resolve) => canvas.toBlob(resolve, mime, quality));
+  while (blob && blob.size > maxBytes && quality > 0.45) {
+    quality -= 0.1;
+    blob = await new Promise((resolve) => canvas.toBlob(resolve, mime, quality));
+  }
+  if (!blob || blob.size >= file.size) return file;
+
+  const base = file.name.replace(/\.[^.]+$/, "") || "upload";
+  const ext = mime === "image/png" ? ".png" : ".jpg";
+  return new File([blob], `${base}${ext}`, { type: mime, lastModified: Date.now() });
+}

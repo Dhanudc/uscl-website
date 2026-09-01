@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import PasswordInput from "../components/PasswordInput";
 import { AlertBanner, EmptyState, PageLoader } from "../components/ui";
@@ -8,7 +8,7 @@ import ZoomableImage from "../components/ZoomableImage";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
-import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
+import { compressImageForUpload, paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
 import {
   buildRegistrationPaymentFields,
@@ -24,6 +24,7 @@ const REGISTER_TYPES = [
 ];
 
 export default function Register() {
+  const navigate = useNavigate();
   const { user, loading, refresh } = useAuth();
   const { registrationEnabled, loading: settingsLoading } = useSiteSettings();
   const [searchParams] = useSearchParams();
@@ -149,13 +150,14 @@ export default function Register() {
     clearPaymentModalFields();
   }
 
-  function closePaymentModal() {
+  function closePaymentModal({ redirectToDashboard = false } = {}) {
     pendingSaveRef.current = null;
     setPendingSave(null);
     clearPaymentModalFields();
+    if (redirectToDashboard) navigate("/dashboard");
   }
 
-  async function finalizeRegistration({ utr = "", screenshot = null }) {
+  async function finalizeRegistration({ utr = "", screenshot = null, closeModal = true }) {
     const pending = pendingSaveRef.current;
     if (!pending) {
       throw new Error("Registration session expired. Please submit the form again.");
@@ -197,7 +199,7 @@ export default function Register() {
         body: formData,
       });
       setExisting(data.registration);
-      closePaymentModal();
+      if (closeModal) closePaymentModal({ redirectToDashboard: true });
       return data.registration;
     } catch (err) {
       if (/already have an active/i.test(err.message || "")) {
@@ -206,7 +208,7 @@ export default function Register() {
           const reg = data.registrations?.[0] || null;
           if (reg) {
             setExisting(reg);
-            closePaymentModal();
+            if (closeModal) closePaymentModal({ redirectToDashboard: true });
             return reg;
           }
         } catch {
@@ -215,6 +217,32 @@ export default function Register() {
       }
       throw err;
     }
+  }
+
+  async function savePaymentDetails(registration) {
+    const nextUtr = utrNumber.trim();
+    const utrChanged = Boolean(nextUtr);
+    const shotChanged = Boolean(screenshotFile);
+
+    if (!utrChanged && !shotChanged) {
+      throw new Error("No payment changes to save. Enter a UTR or upload a screenshot.");
+    }
+
+    const formData = new FormData();
+    formData.set("fullName", registration.fullName || pendingSave?.fullName || "player");
+    if (utrChanged) formData.set("utrNumber", nextUtr);
+    if (shotChanged) {
+      const compressed = await compressImageForUpload(screenshotFile);
+      formData.set("paymentScreenshot", compressed);
+    }
+
+    const data = await api(`/api/registrations/${registration._id}/payment-details`, {
+      method: "PATCH",
+      body: formData,
+    });
+    setExisting(data.registration);
+    closePaymentModal({ redirectToDashboard: true });
+    return data.registration;
   }
 
   async function onSubmit(e) {
@@ -307,15 +335,40 @@ export default function Register() {
         paymentStatus = "pending";
       }
 
-      openPaymentDetailsPopup({
+      const compressedPhoto = await compressImageForUpload(photoFile);
+      const payload = {
         values,
-        photoFile,
+        photoFile: compressedPhoto,
         agreedToTerms,
         paymentNote,
         paymentStatus,
         gatewayPayment,
         fullName: values.fullName,
-      });
+      };
+
+      pendingSaveRef.current = payload;
+
+      if (paymentStatus === "paid") {
+        try {
+          const registration = await finalizeRegistration({
+            utr: "",
+            screenshot: null,
+            closeModal: false,
+          });
+          openPaymentDetailsPopup({
+            ...payload,
+            paymentNote: "",
+            savedRegistration: registration,
+          });
+        } catch (err) {
+          openPaymentDetailsPopup({
+            ...payload,
+            paymentNote: err.message || "Could not save registration.",
+          });
+        }
+      } else {
+        openPaymentDetailsPopup(payload);
+      }
     } catch (err) {
       setError(err.message);
       await refresh();
@@ -329,10 +382,17 @@ export default function Register() {
     setModalError("");
     setFinishing(true);
     try {
-      await finalizeRegistration({
-        utr: utrNumber.trim(),
-        screenshot: screenshotFile,
-      });
+      const saved = pendingSaveRef.current.savedRegistration;
+      if (saved) {
+        await savePaymentDetails(saved);
+      } else {
+        let screenshot = screenshotFile;
+        if (screenshot) screenshot = await compressImageForUpload(screenshot);
+        await finalizeRegistration({
+          utr: utrNumber.trim(),
+          screenshot,
+        });
+      }
     } catch (err) {
       setModalError(err.message);
     } finally {
@@ -342,6 +402,10 @@ export default function Register() {
 
   async function onSkipDetails() {
     if (!pendingSaveRef.current) return;
+    if (pendingSaveRef.current.savedRegistration) {
+      closePaymentModal({ redirectToDashboard: true });
+      return;
+    }
     setModalError("");
     setUtrNumber("");
     setScreenshotFile(null);
@@ -349,7 +413,6 @@ export default function Register() {
     setScreenshotPreview("");
     setFinishing(true);
     try {
-      // Always skip UTR + screenshot — save player details only
       await finalizeRegistration({ utr: "", screenshot: null });
     } catch (err) {
       setModalError(err.message);
@@ -681,21 +744,35 @@ export default function Register() {
             className="panel relative w-full max-w-md rounded-2xl p-5"
           >
             <p className="eyebrow text-accent">
-              {pendingSave.paymentNote ? "Payment incomplete" : "Almost done"}
+              {pendingSave.savedRegistration
+                ? "Almost done"
+                : pendingSave.paymentNote
+                  ? "Payment incomplete"
+                  : "Almost done"}
             </p>
             <h2 id="payment-details-title" className="mt-1 font-display text-2xl text-[color:var(--title)]">
-              Save your registration
+              {pendingSave.savedRegistration ? "Add payment details" : "Save your registration"}
             </h2>
             <p className="mt-1 text-sm text-[color:var(--text-muted)]">
               {pendingSave.fullName}
             </p>
-            {pendingSave.paymentNote ? (
+            {pendingSave.savedRegistration ? (
+              <AlertBanner tone="ok">
+                Payment received and registration saved. Add UTR and a screenshot now, or skip and add them later from your dashboard.
+              </AlertBanner>
+            ) : pendingSave.paymentNote ? (
               <AlertBanner tone="error">{pendingSave.paymentNote}</AlertBanner>
             ) : (
-              <AlertBanner tone="ok">Payment received. You can add UTR and a screenshot now, or skip and add them later.</AlertBanner>
+              <AlertBanner tone="ok">
+                Payment received. You can add UTR and a screenshot now, or skip and add them later.
+              </AlertBanner>
             )}
             <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-              Optional: add bank UTR and payment screenshot so admin can verify faster.
+              {pendingSave.savedRegistration
+                ? "Optional: add bank UTR and payment screenshot so admin can verify faster."
+                : pendingSave.paymentNote
+                  ? "You can still save your registration. Optionally add UTR / screenshot if you paid another way."
+                  : "Optional: add bank UTR and payment screenshot so admin can verify faster."}
             </p>
 
             <label className="mt-4 block text-sm">
@@ -759,7 +836,11 @@ export default function Register() {
                 onClick={onSkipDetails}
                 className="btn-ghost"
               >
-                {finishing ? "Saving..." : "Skip for now"}
+                {finishing
+                  ? "Saving..."
+                  : pendingSave.savedRegistration
+                    ? "Skip for now"
+                    : "Skip and save"}
               </button>
             </div>
           </div>

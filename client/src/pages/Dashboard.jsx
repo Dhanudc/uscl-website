@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
-import { PageLoader, StatusPill } from "../components/ui";
+import { AlertBanner, PageLoader, StatusPill } from "../components/ui";
 import RegisterCta from "../components/RegisterCta";
 import ZoomableImage from "../components/ZoomableImage";
 import { useAuth } from "../context/AuthContext";
@@ -49,6 +49,8 @@ export default function Dashboard() {
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
   const [regs, setRegs] = useState([]);
+  const [regsLoading, setRegsLoading] = useState(true);
+  const [regsError, setRegsError] = useState("");
   const [brokenProfileIds, setBrokenProfileIds] = useState(() => new Set());
   const [payError, setPayError] = useState("");
   const [payErrorId, setPayErrorId] = useState("");
@@ -72,12 +74,28 @@ export default function Dashboard() {
     if (!loading && user?.role === "admin") navigate("/admin");
   }, [loading, user, navigate]);
 
-  useEffect(() => {
-    if (!user || user.role === "admin") return;
-    api("/api/registrations")
-      .then((data) => setRegs(data.registrations || []))
-      .catch(() => {});
+  const loadRegistrations = useCallback(async () => {
+    if (!user || user.role === "admin") {
+      setRegs([]);
+      setRegsLoading(false);
+      return;
+    }
+    setRegsLoading(true);
+    setRegsError("");
+    try {
+      const data = await api("/api/registrations");
+      setRegs(data.registrations || []);
+    } catch (err) {
+      setRegs([]);
+      setRegsError(err.message || "Unable to load your registrations.");
+    } finally {
+      setRegsLoading(false);
+    }
   }, [user]);
+
+  useEffect(() => {
+    loadRegistrations();
+  }, [loadRegistrations]);
 
   useEffect(() => {
     return () => {
@@ -279,9 +297,18 @@ export default function Dashboard() {
         </div>
 
         <div className="mt-8 space-y-3">
-          {regs.length === 0 ? (
+          {regsLoading ? (
+            <PageLoader message="Loading your registrations…" />
+          ) : regsError ? (
+            <div className="panel space-y-3 rounded-2xl p-5">
+              <AlertBanner tone="error">{regsError}</AlertBanner>
+              <button type="button" className="btn-primary" onClick={loadRegistrations}>
+                Try again
+              </button>
+            </div>
+          ) : regs.length === 0 ? (
             <div className="panel rounded-2xl p-5 text-sm text-[color:var(--text-muted)]">
-              No registrations yet.{" "}
+              No registrations yet. Complete player registration to see your status, payment, and auction details here.{" "}
               <RegisterCta className="text-accent" openLabel="Register now" closedLabel="Registration" />
             </div>
           ) : (
