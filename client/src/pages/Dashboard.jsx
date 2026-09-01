@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 import { playerRoleLabel } from "../data/playerRoles";
 import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
+import { buildConfirmPaymentPayload, openPaymentCheckout } from "../utils/payments";
 
 function paymentPillTone(status) {
   const s = String(status || "pending").toLowerCase();
@@ -29,20 +30,6 @@ function auctionPillTone(status) {
   if (s === "sold") return "success";
   if (s === "unsold") return "warning";
   return "muted";
-}
-
-function loadRazorpayScript() {
-  return new Promise((resolve) => {
-    if (window.Razorpay) {
-      resolve(true);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
 }
 
 function missingPaymentDetails(reg) {
@@ -104,51 +91,6 @@ export default function Dashboard() {
     setUtrNumber(String(paymentModalReg.utrNumber || "").trim());
   }, [paymentModalReg]);
 
-  async function openRazorpayCheckout(order, values) {
-    const ready = await loadRazorpayScript();
-    if (!ready || !window.Razorpay) {
-      throw new Error("Unable to load Razorpay checkout.");
-    }
-
-    return new Promise((resolve) => {
-      const rzp = new window.Razorpay({
-        key: order.keyId,
-        amount: order.amount,
-        currency: order.currency || "INR",
-        name: "USCL T20",
-        description: "Player registration fee",
-        order_id: order.orderId,
-        prefill: {
-          name: values.fullName,
-          email: values.email,
-          contact: values.phone,
-        },
-        theme: { color: "#ff3d2e" },
-        handler: (response) =>
-          resolve({
-            ok: true,
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-          }),
-        modal: {
-          ondismiss: () =>
-            resolve({
-              ok: false,
-              reason: "Payment cancelled.",
-            }),
-        },
-      });
-      rzp.on("payment.failed", (resp) => {
-        resolve({
-          ok: false,
-          reason: resp?.error?.description || "Payment failed.",
-        });
-      });
-      rzp.open();
-    });
-  }
-
   async function payRegistration(reg) {
     if (!reg?._id || payingId) return;
     setPayError("");
@@ -160,26 +102,13 @@ export default function Dashboard() {
         body: JSON.stringify({}),
       });
 
-      const payment = await openRazorpayCheckout(order, {
+      const payment = await openPaymentCheckout(order, {
         fullName: reg.fullName || user?.name || "",
         email: reg.email || user?.email || "",
         phone: reg.phone || user?.phone || "",
       });
 
-      let payload;
-      if (payment.ok) {
-        payload = {
-          razorpayOrderId: payment.razorpay_order_id,
-          razorpayPaymentId: payment.razorpay_payment_id,
-          razorpaySignature: payment.razorpay_signature,
-          paymentStatus: "paid",
-        };
-      } else {
-        const reason = payment.reason || "Payment failed.";
-        payload = {
-          paymentStatus: /cancel/i.test(reason) ? "cancelled" : "failed",
-        };
-      }
+      const payload = buildConfirmPaymentPayload(payment);
 
       const data = await api(`/api/registrations/${reg._id}/confirm-payment`, {
         method: "PATCH",

@@ -2194,6 +2194,11 @@ function RegistrationFeesPage() {
     franchise: 999,
     sponsor: 999,
   });
+  const [paymentGateway, setPaymentGateway] = useState("razorpay");
+  const [gatewayStatus, setGatewayStatus] = useState({
+    razorpay: { configured: false },
+    cashfree: { configured: false, mode: "sandbox" },
+  });
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const [loading, setLoading] = useState(true);
@@ -2210,6 +2215,13 @@ function RegistrationFeesPage() {
           franchise: incoming.franchise ?? prev.franchise,
           sponsor: incoming.sponsor ?? prev.sponsor,
         }));
+        setPaymentGateway(data.settings?.paymentGateway || "razorpay");
+        setGatewayStatus(
+          data.settings?.paymentGatewayStatus || {
+            razorpay: { configured: false },
+            cashfree: { configured: false, mode: "sandbox" },
+          }
+        );
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -2235,10 +2247,17 @@ function RegistrationFeesPage() {
       }
       const data = await api("/api/admin/settings", {
         method: "PUT",
-        body: JSON.stringify({ registrationFees }),
+        body: JSON.stringify({ registrationFees, paymentGateway }),
       });
       setFees(data.settings.registrationFees);
-      setOk("Registration fees saved.");
+      setPaymentGateway(data.settings.paymentGateway || paymentGateway);
+      setGatewayStatus(
+        data.settings.paymentGatewayStatus || {
+          razorpay: { configured: false },
+          cashfree: { configured: false, mode: "sandbox" },
+        }
+      );
+      setOk("Payment settings saved.");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -2249,18 +2268,60 @@ function RegistrationFeesPage() {
   return (
     <AdminShell
       title="Registration fees"
-      subtitle="Set Razorpay registration amounts for Captain, Player, Franchise, and Sponsor."
+      subtitle="Set registration amounts and choose Razorpay or Cashfree for online payments."
     >
       {loading ? (
         <PageLoader message="Loading fees…" />
       ) : (
-        <form onSubmit={onSave} className="max-w-2xl">
+        <form onSubmit={onSave} className="max-w-2xl space-y-5">
+          <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
+            <div className="border-b border-[color:var(--border)] px-5 py-4">
+              <p className="eyebrow text-accent">Payment gateway</p>
+              <h2 className="font-display mt-1 text-xl text-[color:var(--title)]">Online checkout</h2>
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                Keys stay in server `.env`. This setting controls which gateway the register page uses.
+              </p>
+            </div>
+            <div className="grid gap-3 p-5 sm:grid-cols-2">
+              {[
+                { value: "razorpay", label: "Razorpay" },
+                { value: "cashfree", label: "Cashfree" },
+              ].map((option) => (
+                <label
+                  key={option.value}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 ${
+                    paymentGateway === option.value
+                      ? "border-accent bg-accent/10"
+                      : "border-[color:var(--border)]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="paymentGateway"
+                    value={option.value}
+                    checked={paymentGateway === option.value}
+                    onChange={() => setPaymentGateway(option.value)}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="block font-medium text-[color:var(--title)]">{option.label}</span>
+                    <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                      {gatewayStatus[option.value]?.configured
+                        ? "Configured"
+                        : "Keys missing in server .env"}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </section>
+
           <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
             <div className="border-b border-[color:var(--border)] px-5 py-4">
               <p className="eyebrow text-accent">Payment</p>
               <h2 className="font-display mt-1 text-xl text-[color:var(--title)]">Fee by registration type</h2>
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                Shown on the register page and used when creating Razorpay orders.
+                Shown on the register page and used when creating payment orders.
               </p>
             </div>
             <div className="grid gap-4 p-5 sm:grid-cols-2">
@@ -2289,7 +2350,7 @@ function RegistrationFeesPage() {
 
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <button type="submit" disabled={saving} className="btn-primary">
-              {saving ? "Saving..." : "Save fees"}
+              {saving ? "Saving..." : "Save payment settings"}
             </button>
             {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
             {ok ? <AlertBanner tone="ok">{ok}</AlertBanner> : null}

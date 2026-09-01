@@ -129,12 +129,17 @@ async function start() {
     String(process.env.RAZORPAY_KEY_ID || "").trim() &&
       String(process.env.RAZORPAY_KEY_SECRET || "").trim()
   );
+  const cashfreeReady = Boolean(
+    String(process.env.CASHFREE_APP_ID || "").trim() &&
+      String(process.env.CASHFREE_SECRET_KEY || "").trim()
+  );
   app.listen(PORT, () => {
     console.log(`[server] API listening on port ${PORT}`);
     console.log(`[server] CORS allowlist: ${[...allowedOrigins].join(", ")}`);
     console.log(`[server] Primary client: ${primaryClientUrl}`);
     console.log(`[server] Admin: ${process.env.ADMIN_EMAIL || "admin@uscl.com"}`);
     console.log(`[server] Razorpay: ${razorpayReady ? "configured" : "MISSING keys"}`);
+    console.log(`[server] Cashfree: ${cashfreeReady ? "configured" : "MISSING keys"}`);
   });
 }
 

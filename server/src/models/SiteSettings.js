@@ -64,6 +64,12 @@ const siteSettingsSchema = new mongoose.Schema(
     },
     /** When false, public Register CTAs are hidden and new registrations are blocked. */
     registrationEnabled: { type: Boolean, default: true },
+    /** Active online payment gateway for registrations. */
+    paymentGateway: {
+      type: String,
+      enum: ["razorpay", "cashfree"],
+      default: "razorpay",
+    },
   },
   { timestamps: true }
 );
@@ -95,7 +101,13 @@ export const DEFAULT_SITE_SETTINGS = {
     videos: [],
   },
   registrationEnabled: true,
+  paymentGateway: "razorpay",
 };
+
+export function getPaymentGateway(settings) {
+  const gateway = String(settings?.paymentGateway || "razorpay").toLowerCase();
+  return gateway === "cashfree" ? "cashfree" : "razorpay";
+}
 
 export async function getSiteSettings() {
   let doc = await SiteSettings.findOne({ key: "default" });

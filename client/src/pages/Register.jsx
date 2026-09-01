@@ -10,6 +10,11 @@ import { useSiteSettings } from "../context/SiteSettingsContext";
 import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
 import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
+import {
+  buildRegistrationPaymentFields,
+  openPaymentCheckout,
+  paymentProviderLabel,
+} from "../utils/payments";
 
 const REGISTER_TYPES = [
   { value: "captain", label: "Captain", hint: "Register as team captain for the auction", badge: "C" },
@@ -17,20 +22,6 @@ const REGISTER_TYPES = [
   { value: "franchise", label: "Franchise", hint: "Own and manage a USCL franchise team", badge: "F" },
   { value: "sponsor", label: "Sponsor", hint: "Browse brand packages and buy a slot", badge: "S", href: "/sponsorship" },
 ];
-
-function loadRazorpayScript() {
-  return new Promise((resolve) => {
-    if (window.Razorpay) {
-      resolve(true);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
 
 export default function Register() {
   const { user, loading, refresh } = useAuth();
@@ -45,6 +36,7 @@ export default function Register() {
   const [feeLoading, setFeeLoading] = useState(false);
   const [feeError, setFeeError] = useState("");
   const [paymentConfigured, setPaymentConfigured] = useState(true);
+  const [paymentProvider, setPaymentProvider] = useState("razorpay");
   const [pendingSave, setPendingSave] = useState(null);
   const pendingSaveRef = useRef(null);
   const [utrNumber, setUtrNumber] = useState("");
@@ -73,7 +65,10 @@ export default function Register() {
 
   useEffect(() => {
     api("/api/registrations/payment-config")
-      .then((data) => setPaymentConfigured(Boolean(data.configured)))
+      .then((data) => {
+        setPaymentConfigured(Boolean(data.configured));
+        setPaymentProvider(data.provider || "razorpay");
+      })
       .catch(() => setPaymentConfigured(false));
   }, []);
 
@@ -105,6 +100,8 @@ export default function Register() {
           setFeeInr(null);
           setFeeError("Fee could not be loaded. Check that the server is running.");
         }
+        setPaymentConfigured(Boolean(data.configured));
+        setPaymentProvider(data.provider || "razorpay");
         if (data.sponsorPackage?.title) {
           setSponsorPackageTitle(data.sponsorPackage.title);
         } else if (registerInterest !== "sponsor") {
@@ -137,51 +134,6 @@ export default function Register() {
       if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
     };
   }, [preview, screenshotPreview]);
-
-  async function openRazorpayCheckout(order, values) {
-    const ready = await loadRazorpayScript();
-    if (!ready || !window.Razorpay) {
-      throw new Error("Unable to load Razorpay checkout.");
-    }
-
-    return new Promise((resolve) => {
-      const rzp = new window.Razorpay({
-        key: order.keyId,
-        amount: order.amount,
-        currency: order.currency || "INR",
-        name: "USCL T20",
-        description: "Player registration fee",
-        order_id: order.orderId,
-        prefill: {
-          name: values.fullName,
-          email: values.email,
-          contact: values.phone,
-        },
-        theme: { color: "#ff3d2e" },
-        handler: (response) =>
-          resolve({
-            ok: true,
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-          }),
-        modal: {
-          ondismiss: () =>
-            resolve({
-              ok: false,
-              reason: "Payment cancelled.",
-            }),
-        },
-      });
-      rzp.on("payment.failed", (resp) => {
-        resolve({
-          ok: false,
-          reason: resp?.error?.description || "Payment failed.",
-        });
-      });
-      rzp.open();
-    });
-  }
 
   function clearPaymentModalFields() {
     setUtrNumber("");
@@ -224,7 +176,12 @@ export default function Register() {
     formData.set("utrNumber", utr || "");
     formData.set("photo", pending.photoFile);
 
-    if (pending.razorpay?.orderId) {
+    if (pending.gatewayPayment) {
+      const fields = buildRegistrationPaymentFields(pending.gatewayPayment);
+      Object.entries(fields).forEach(([key, value]) => {
+        if (value) formData.set(key, value);
+      });
+    } else if (pending.razorpay?.orderId) {
       formData.set("razorpayOrderId", pending.razorpay.orderId);
       formData.set("razorpayPaymentId", pending.razorpay.paymentId);
       formData.set("razorpaySignature", pending.razorpay.signature);
@@ -319,7 +276,7 @@ export default function Register() {
 
       let paymentNote = "";
       let paymentStatus = "pending";
-      let razorpay = null;
+      let gatewayPayment = null;
 
       if (paymentConfigured) {
         try {
@@ -330,13 +287,9 @@ export default function Register() {
               sponsorPackageId: registerInterest === "sponsor" ? sponsorPackageId : "",
             }),
           });
-          const payment = await openRazorpayCheckout(order, values);
+          const payment = await openPaymentCheckout(order, values);
           if (payment.ok) {
-            razorpay = {
-              orderId: payment.razorpay_order_id,
-              paymentId: payment.razorpay_payment_id,
-              signature: payment.razorpay_signature,
-            };
+            gatewayPayment = payment;
             paymentStatus = "paid";
           } else {
             const reason = payment.reason || "Payment failed.";
@@ -358,7 +311,7 @@ export default function Register() {
         agreedToTerms,
         paymentNote,
         paymentStatus,
-        razorpay,
+        gatewayPayment,
         fullName: values.fullName,
       });
     } catch (err) {
@@ -603,12 +556,13 @@ export default function Register() {
                 </div>
               ) : null}
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                Razorpay checkout opens after you click Pay &amp; Submit. Registration is saved after
-                payment (or if you add offline payment details).
+                {paymentProviderLabel(paymentProvider)} checkout opens after you click Pay &amp;
+                Submit. Registration is saved after payment (or if you add offline payment details).
               </p>
               {!paymentConfigured && (
                 <p className="mt-2 text-xs text-accent">
-                  Razorpay keys are missing on the server. Add them in server `.env`.
+                  {paymentProviderLabel(paymentProvider)} keys are missing on the server. Add them in
+                  server `.env`.
                 </p>
               )}
             </div>

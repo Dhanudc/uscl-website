@@ -16,11 +16,13 @@ import {
   assertSponsorPackageAvailable,
   getSponsorPackageById,
 } from "../utils/sponsorPackages.js";
+import { verifyRazorpaySignature } from "../utils/razorpay.js";
 import {
-  getRazorpayClient,
-  getRazorpayConfig,
-  verifyRazorpaySignature,
-} from "../utils/razorpay.js";
+  createGatewayOrder,
+  getActivePaymentGateway,
+  getGatewayPublicConfig,
+  verifyGatewayPayment,
+} from "../utils/paymentGateway.js";
 import { sendRegistrationReceivedEmail } from "../utils/mail.js";
 import { getSiteSettings, isRegistrationEnabled } from "../models/SiteSettings.js";
 
@@ -40,7 +42,8 @@ router.get("/payment-config", async (req, res) => {
     const interest = String(req.query.interest || "").trim().toLowerCase();
     const sponsorPackageId = String(req.query.sponsorPackageId || "").trim();
     const fees = await getRegistrationFees();
-    const { keyId, configured } = getRazorpayConfig();
+    const gateway = await getActivePaymentGateway();
+    const { provider, keyId, configured, mode } = getGatewayPublicConfig(gateway);
     let feeInr = REGISTRATION_INTERESTS.includes(interest) ? fees[interest] : fees.player;
     let sponsorPackage = null;
 
@@ -50,8 +53,10 @@ router.get("/payment-config", async (req, res) => {
           feeInr: null,
           fees,
           currency: "INR",
-          keyId: configured ? keyId : "",
+          provider,
+          keyId,
           configured,
+          mode,
           requiresPackage: true,
           sponsorPackage: null,
         });
@@ -73,8 +78,10 @@ router.get("/payment-config", async (req, res) => {
       feeInr,
       fees,
       currency: "INR",
-      keyId: configured ? keyId : "",
+      provider,
+      keyId,
       configured,
+      mode,
       sponsorPackage,
     });
   } catch (error) {
@@ -117,26 +124,26 @@ router.post("/create-order", approvedRequired, async (req, res) => {
       sponsorPackage = { id: check.pkg.id, title: check.pkg.title };
     }
 
-    const razorpay = getRazorpayClient();
-    const order = await razorpay.orders.create({
-      amount: feeInr * 100,
-      currency: "INR",
-      receipt: `uscl_${String(req.user.userId).slice(-8)}_${Date.now()}`.slice(0, 40),
+    const gateway = await getActivePaymentGateway();
+    const receipt = `uscl_${String(req.user.userId).slice(-8)}_${Date.now()}`.slice(0, 40);
+    const order = await createGatewayOrder(gateway, {
+      feeInr,
+      receipt,
       notes: {
         userId: String(req.user.userId),
         interest,
         sponsorPackageId: sponsorPackage?.id || "",
         purpose: sponsorPackage ? "sponsor_package" : `${interest}_registration`,
       },
+      customer: {
+        id: String(req.user.userId),
+        email: req.user.email || "",
+        phone: req.user.phone || "",
+      },
     });
 
-    const { keyId } = getRazorpayConfig();
     return res.json({
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency,
-      feeInr,
-      keyId,
+      ...order,
       sponsorPackage,
     });
   } catch (error) {
@@ -276,6 +283,8 @@ router.post("/", approvedRequired, (req, res) => {
       const razorpayOrderId = String(req.body.razorpayOrderId || "").trim();
       const razorpayPaymentId = String(req.body.razorpayPaymentId || "").trim();
       const razorpaySignature = String(req.body.razorpaySignature || "").trim();
+      const cashfreeOrderId = String(req.body.cashfreeOrderId || "").trim();
+      const paymentProvider = String(req.body.paymentProvider || "").trim().toLowerCase();
 
       const photoFile = req.files?.photo?.[0];
       const screenshotFile = req.files?.paymentScreenshot?.[0];
@@ -303,11 +312,15 @@ router.post("/", approvedRequired, (req, res) => {
         }
       }
 
+      const gateway = await getActivePaymentGateway();
       const hasRazorpay =
         Boolean(razorpayOrderId) && Boolean(razorpayPaymentId) && Boolean(razorpaySignature);
+      const hasCashfree = Boolean(cashfreeOrderId);
 
       const requestedStatus = String(req.body.paymentStatus || "").trim().toLowerCase();
       let paymentStatus = "pending";
+      let verifiedPayment = null;
+
       if (hasRazorpay) {
         const paymentOk = verifyRazorpaySignature({
           orderId: razorpayOrderId,
@@ -318,12 +331,26 @@ router.post("/", approvedRequired, (req, res) => {
           return res.status(400).json({ error: "Payment verification failed." });
         }
         paymentStatus = "paid";
+        verifiedPayment = {
+          provider: "razorpay",
+          orderId: razorpayOrderId,
+          paymentId: razorpayPaymentId,
+          signature: razorpaySignature,
+        };
+      } else if (hasCashfree) {
+        const paymentOk = await verifyGatewayPayment("cashfree", { orderId: cashfreeOrderId });
+        if (!paymentOk.ok) {
+          return res.status(400).json({ error: "Payment verification failed." });
+        }
+        paymentStatus = "paid";
+        verifiedPayment = paymentOk;
       } else if (requestedStatus === "cancelled") {
         paymentStatus = "cancelled";
       } else if (requestedStatus === "failed" || requestedStatus === "pending") {
         paymentStatus = requestedStatus;
+      } else if (paymentProvider && requestedStatus === "paid") {
+        return res.status(400).json({ error: "Payment verification failed." });
       } else {
-        // Gateway failed/cancelled without ids — mark failed
         paymentStatus = "failed";
       }
 
@@ -339,9 +366,9 @@ router.post("/", approvedRequired, (req, res) => {
         });
       }
 
-      if (hasRazorpay) {
+      if (verifiedPayment?.paymentId) {
         const paidExists = await PlayerRegistration.findOne({
-          "payment.paymentId": razorpayPaymentId,
+          "payment.paymentId": verifiedPayment.paymentId,
         });
         if (paidExists) {
           return res.status(409).json({ error: "This payment was already used for a registration." });
@@ -395,13 +422,13 @@ router.post("/", approvedRequired, (req, res) => {
         paymentDetailsAddedAt:
           utrNumber || screenshotFile?.filename ? new Date() : null,
         payment: {
-          provider: "razorpay",
+          provider: verifiedPayment?.provider || gateway,
           status: paymentStatus === "paid" ? "paid" : paymentStatus === "pending" ? "pending" : "failed",
           amountInr: feeInr,
           currency: "INR",
-          orderId: razorpayOrderId,
-          paymentId: razorpayPaymentId,
-          signature: razorpaySignature,
+          orderId: verifiedPayment?.orderId || cashfreeOrderId || razorpayOrderId || "",
+          paymentId: verifiedPayment?.paymentId || razorpayPaymentId || "",
+          signature: verifiedPayment?.signature || razorpaySignature || "",
           paidAt: paymentStatus === "paid" ? new Date() : null,
         },
         status: "pending",
@@ -588,27 +615,25 @@ router.post("/:id/create-payment-order", approvedRequired, async (req, res) => {
       });
     }
 
+    const gateway = await getActivePaymentGateway();
     const feeInr = await getRegistrationFeeInr(registration.interest || "player");
-    const razorpay = getRazorpayClient();
-    const order = await razorpay.orders.create({
-      amount: feeInr * 100,
-      currency: "INR",
-      receipt: `uscl_pay_${String(registration._id).slice(-8)}_${Date.now()}`.slice(0, 40),
+    const receipt = `uscl_pay_${String(registration._id).slice(-8)}_${Date.now()}`.slice(0, 40);
+    const order = await createGatewayOrder(gateway, {
+      feeInr,
+      receipt,
       notes: {
         userId: String(req.user.userId),
         registrationId: String(registration._id),
         purpose: "player_registration_retry",
       },
+      customer: {
+        id: String(req.user.userId),
+        email: registration.email || req.user.email || "",
+        phone: registration.phone || req.user.phone || "",
+      },
     });
 
-    const { keyId } = getRazorpayConfig();
-    return res.json({
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency,
-      feeInr,
-      keyId,
-    });
+    return res.json(order);
   } catch (error) {
     console.error("create-payment-order error", error);
     return res.status(500).json({
@@ -617,7 +642,7 @@ router.post("/:id/create-payment-order", approvedRequired, async (req, res) => {
   }
 });
 
-/** Confirm Razorpay payment (or record failed/cancelled) for an existing registration. */
+/** Confirm online payment (or record failed/cancelled) for an existing registration. */
 router.patch("/:id/confirm-payment", approvedRequired, async (req, res) => {
   try {
     const registration = await PlayerRegistration.findOne({
@@ -636,12 +661,17 @@ router.patch("/:id/confirm-payment", approvedRequired, async (req, res) => {
     const razorpayOrderId = String(req.body.razorpayOrderId || "").trim();
     const razorpayPaymentId = String(req.body.razorpayPaymentId || "").trim();
     const razorpaySignature = String(req.body.razorpaySignature || "").trim();
+    const cashfreeOrderId = String(req.body.cashfreeOrderId || "").trim();
     const requestedStatus = String(req.body.paymentStatus || "").trim().toLowerCase();
+    const gateway = await getActivePaymentGateway();
 
     const hasRazorpay =
       Boolean(razorpayOrderId) && Boolean(razorpayPaymentId) && Boolean(razorpaySignature);
+    const hasCashfree = Boolean(cashfreeOrderId);
 
     let paymentStatus = "pending";
+    let verifiedPayment = null;
+
     if (hasRazorpay) {
       const paymentOk = verifyRazorpaySignature({
         orderId: razorpayOrderId,
@@ -661,6 +691,28 @@ router.patch("/:id/confirm-payment", approvedRequired, async (req, res) => {
       }
 
       paymentStatus = "paid";
+      verifiedPayment = {
+        provider: "razorpay",
+        orderId: razorpayOrderId,
+        paymentId: razorpayPaymentId,
+        signature: razorpaySignature,
+      };
+    } else if (hasCashfree) {
+      const paymentOk = await verifyGatewayPayment("cashfree", { orderId: cashfreeOrderId });
+      if (!paymentOk.ok) {
+        return res.status(400).json({ error: "Payment verification failed." });
+      }
+
+      const paidExists = await PlayerRegistration.findOne({
+        "payment.paymentId": paymentOk.paymentId,
+        _id: { $ne: registration._id },
+      }).lean();
+      if (paidExists) {
+        return res.status(409).json({ error: "This payment was already used for a registration." });
+      }
+
+      paymentStatus = "paid";
+      verifiedPayment = paymentOk;
     } else if (requestedStatus === "cancelled") {
       paymentStatus = "cancelled";
     } else if (requestedStatus === "failed" || requestedStatus === "pending") {
@@ -682,13 +734,13 @@ router.patch("/:id/confirm-payment", approvedRequired, async (req, res) => {
     registration.paymentStatus = paymentStatus;
     registration.payment = {
       ...(registration.payment?.toObject?.() || registration.payment || {}),
-      provider: "razorpay",
+      provider: verifiedPayment?.provider || gateway,
       status: paymentStatus === "paid" ? "paid" : paymentStatus === "pending" ? "pending" : "failed",
       amountInr: feeInr,
       currency: "INR",
-      orderId: razorpayOrderId || registration.payment?.orderId || "",
-      paymentId: razorpayPaymentId || registration.payment?.paymentId || "",
-      signature: razorpaySignature || registration.payment?.signature || "",
+      orderId: verifiedPayment?.orderId || cashfreeOrderId || razorpayOrderId || registration.payment?.orderId || "",
+      paymentId: verifiedPayment?.paymentId || razorpayPaymentId || registration.payment?.paymentId || "",
+      signature: verifiedPayment?.signature || razorpaySignature || registration.payment?.signature || "",
       paidAt: paymentStatus === "paid" ? new Date() : registration.payment?.paidAt || null,
     };
 
@@ -710,8 +762,8 @@ router.patch("/:id/confirm-payment", approvedRequired, async (req, res) => {
         details: {
           from: prevStatus,
           to: paymentStatus,
-          orderId: razorpayOrderId,
-          paymentId: razorpayPaymentId,
+          orderId: verifiedPayment?.orderId || razorpayOrderId || cashfreeOrderId,
+          paymentId: verifiedPayment?.paymentId || razorpayPaymentId,
           amountInr: feeInr,
         },
       });

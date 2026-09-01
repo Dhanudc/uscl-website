@@ -5,7 +5,8 @@ import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { getSiteSettings, isRegistrationEnabled } from "../models/SiteSettings.js";
+import { getSiteSettings, getPaymentGateway, isRegistrationEnabled } from "../models/SiteSettings.js";
+import { getGatewayStatus } from "../utils/paymentGateway.js";
 import { normalizeRegistrationFees, getRegistrationFeeInr } from "../utils/registrationFees.js";
 import { User } from "../models/User.js";
 import { PlayerActivity } from "../models/PlayerActivity.js";
@@ -741,6 +742,8 @@ router.get("/settings", adminRequired, async (_req, res) => {
         registrationFees: normalizeRegistrationFees(settings.registrationFees),
         sponsorPackages: await getSponsorPackageConfig(),
         registrationEnabled: isRegistrationEnabled(settings),
+        paymentGateway: getPaymentGateway(settings),
+        paymentGatewayStatus: getGatewayStatus(),
       },
     });
   } catch (error) {
@@ -792,6 +795,14 @@ router.put("/settings", adminRequired, async (req, res) => {
       );
     }
 
+    if (req.body.paymentGateway) {
+      const gateway = String(req.body.paymentGateway || "").trim().toLowerCase();
+      if (gateway === "razorpay" || gateway === "cashfree") {
+        settings.paymentGateway = gateway;
+        auditBits.push(`payment gateway (${gateway})`);
+      }
+    }
+
     await settings.save();
 
     await writeAudit(req, {
@@ -813,6 +824,8 @@ router.put("/settings", adminRequired, async (req, res) => {
         registrationFees: normalizeRegistrationFees(settings.registrationFees),
         sponsorPackages: await getSponsorPackageConfig(),
         registrationEnabled: isRegistrationEnabled(settings),
+        paymentGateway: getPaymentGateway(settings),
+        paymentGatewayStatus: getGatewayStatus(),
       },
     });
   } catch (error) {
