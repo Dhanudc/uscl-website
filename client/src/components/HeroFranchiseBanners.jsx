@@ -7,7 +7,7 @@ import FranchiseDetailsModal from "./FranchiseDetailsModal";
 const BANNER_ORDER = [
   "new-jersey-jaguars",
   "florida-falcons",
-  "carolina-crushers",
+  "chicago-crushers",
   "virginia-vikings",
   "california-chargers",
   "texas-thunder",

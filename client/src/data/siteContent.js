@@ -60,7 +60,7 @@ export const aboutSections = [
   {
     id: "format",
     title: "League Format",
-    body: "8 franchises compete across a league stage, knockouts, semi-finals, and a grand final — 31 matches over 16 days with a ₹15L prize pool.",
+    body: "8 franchises compete across a league stage, semi-finals, and a grand final — 31 matches over 16 days with a ₹15L prize pool.",
     highlights: [
       { value: "8", label: "Franchises" },
       { value: "31", label: "Matches" },
@@ -72,26 +72,19 @@ export const aboutSections = [
         id: "league-stage",
         step: "01",
         title: "League Stage",
-        meta: "24 matches",
+        meta: "28 matches",
         detail: "All 8 franchises battle through round-robin fixtures to climb the points table.",
       },
       {
-        id: "knockouts",
-        step: "02",
-        title: "Knockouts",
-        meta: "4 matches",
-        detail: "Table toppers get a second life; the chasing pack plays sudden-death cricket.",
-      },
-      {
         id: "semi-finals",
-        step: "03",
+        step: "02",
         title: "Semi-Finals",
         meta: "2 matches",
         detail: "Two winners survive the pressure and book a place on finals night.",
       },
       {
         id: "grand-final",
-        step: "04",
+        step: "03",
         title: "Grand Final",
         meta: "1 match",
         detail: "One night, one crown, and a ₹15L prize pool on the line.",
@@ -292,7 +285,7 @@ export const liveSections = [
   {
     id: "fixtures",
     title: "Fixtures",
-    body: "Upcoming USCL T20 match pairings across the league stage and knockouts.",
+    body: "Upcoming USCL T20 match pairings across the league stage and finals.",
   },
   {
     id: "schedule",

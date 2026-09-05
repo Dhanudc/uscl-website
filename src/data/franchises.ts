@@ -25,11 +25,11 @@ export const franchises: Franchise[] = [
     accent: "#d4a017",
   },
   {
-    id: "carolina-crushers",
-    name: "Carolina Crushers",
+    id: "chicago-crushers",
+    name: "Chicago Crushers",
     shortName: "Crushers",
-    city: "Carolina",
-    image: "/franchises/carolina-crushers.png",
+    city: "Chicago",
+    image: "/franchises/chicago-crushers.jpg",
     accent: "#4aa3d9",
   },
   {

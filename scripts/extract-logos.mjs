@@ -12,7 +12,7 @@ fs.mkdirSync(outBrand, { recursive: true });
 const map = [
   { file: "Arizona Avengers.pdf", out: "arizona-avengers.png", dest: outFranchises },
   { file: "California Chargers.pdf", out: "california-chargers.png", dest: outFranchises },
-  { file: "Carolina Crushers.pdf", out: "carolina-crushers.png", dest: outFranchises },
+  { file: "Chicago Crushers.pdf", out: "chicago-crushers.jpg", dest: outFranchises },
   { file: "Florida Falcons.pdf", out: "florida-falcons.png", dest: outFranchises },
   { file: "New Jersery Jaguars.pdf", out: "new-jersey-jaguars.png", dest: outFranchises },
   { file: "New York Knight.pdf", out: "new-york-knights.png", dest: outFranchises },

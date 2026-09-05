@@ -6,9 +6,9 @@ import { StatStrip } from "@/components/StatStrip";
 
 const fixtures = [
   { code: "M01", title: "Opening Night", meta: "Auction + Ceremony" },
-  { code: "LG", title: "League Stage", meta: "31 Pro Matches" },
-  { code: "SF", title: "Semi Finals", meta: "Knockout Heat" },
-  { code: "F", title: "Grand Final", meta: "₹15L on the line" },
+  { code: "LG", title: "League Stage", meta: "28 Matches" },
+  { code: "SF", title: "Semi Finals", meta: "2 Matches" },
+  { code: "GF", title: "Grand Final", meta: "1 Match · ₹15L" },
 ];
 
 const pillars = [
