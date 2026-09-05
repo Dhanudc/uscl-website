@@ -345,7 +345,7 @@ export const wesleyContent = {
     { date: "Nov 2019", event: "Teletext Cricket League" },
     { date: "Mar 2024", event: "IT Staffing Corporate Cricket League" },
     { date: "Dec 2024", event: "IT Staffing Corporate Cricket League" },
-    { date: "Feb 2025", event: "Ceipal Cricket League (Co-Sponsored by Intellect)" },
+    { date: "Feb 2025", event: "Ceipal Cricket League (Co-Sponsored by Intellectt)" },
     { date: "Feb 2026", event: "Corporate Cricket League" },
     { date: "2026 (USCL)", event: "India's Biggest Staffing Franchise League" },
   ],
