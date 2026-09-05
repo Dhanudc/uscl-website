@@ -1,16 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import HeroFranchiseBanners from "../components/HeroFranchiseBanners";
+import LeagueTagline from "../components/LeagueTagline";
 import RegisterCta from "../components/RegisterCta";
+import TeamsRibbon from "../components/TeamsRibbon";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
-import { AUCTION_TARGET, siteStats } from "../data/siteContent";
+import {
+  AUCTION_DATE_LABEL,
+  AUCTION_TARGET,
+  AUCTION_TIME_LABEL,
+  siteStats,
+} from "../data/siteContent";
 
 const HERO_SLIDES = [
   {
     title: "USCL T20",
     line: "US Staffing Champions League",
-    text: "India's biggest staffing franchise cricket league.",
+    tagline: true,
   },
   {
     title: "8 Franchises. One Crown.",
@@ -58,7 +65,6 @@ export default function Home() {
       <section className="relative min-h-0 overflow-hidden border-b border-[color:var(--border)] sm:min-h-[78vh]">
         <div className="home-hero-bg absolute inset-0" aria-hidden="true" />
         <div className="relative mx-auto flex min-h-0 max-w-6xl flex-col justify-center gap-6 px-4 py-10 sm:min-h-[78vh] sm:gap-8 sm:py-14 md:py-16 lg:flex-row lg:items-center lg:justify-between lg:gap-10">
-          {/* Left: carousel copy + CTAs */}
           <div key={slide} className="home-fade-in w-full max-w-xl shrink-0 lg:max-w-[48%]">
             <p className="font-display text-[clamp(2rem,10vw,4.6rem)] leading-[0.95] tracking-tight text-[color:var(--title)]">
               {current.title === "USCL T20" ? (
@@ -72,7 +78,11 @@ export default function Home() {
             <p className="mt-4 text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--text-muted)]">
               {current.line}
             </p>
-            <p className="mt-3 max-w-md text-base text-[color:var(--text)]">{current.text}</p>
+            {current.tagline ? (
+              <LeagueTagline as="p" variant="hero" className="mt-3 max-w-md" />
+            ) : (
+              <p className="mt-3 max-w-md text-base text-[color:var(--text)]">{current.text}</p>
+            )}
             <div className="mt-7 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
               <RegisterCta
                 className="btn-primary w-full justify-center sm:w-auto"
@@ -118,7 +128,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right: franchise hanging banners */}
           <div className="home-fade-in w-full shrink-0 lg:max-w-[48%]">
             <HeroFranchiseBanners />
           </div>
@@ -148,6 +157,13 @@ export default function Home() {
           <h2 className="font-display mt-1 text-2xl text-[color:var(--title)] md:text-[1.85rem]">
             Auction starts in
           </h2>
+          <p className="mt-3 inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-full border border-accent/35 bg-accent/10 px-4 py-1.5 text-sm font-semibold text-accent-soft">
+            <span>{AUCTION_DATE_LABEL}</span>
+            <span aria-hidden="true" className="text-[color:var(--text-muted)]">
+              ·
+            </span>
+            <span>{AUCTION_TIME_LABEL}</span>
+          </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 md:gap-5">
             {[
               [countdown.days, "days"],
@@ -167,6 +183,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <TeamsRibbon />
 
       <section className="bg-ink px-4 py-12">
         <div className="mx-auto grid max-w-6xl gap-3 sm:grid-cols-2 lg:grid-cols-4">

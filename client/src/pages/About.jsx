@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import LeagueFormatShowcase from "../components/LeagueFormatShowcase";
+import LeagueTagline from "../components/LeagueTagline";
 import PageShell from "../components/PageShell";
 import RegisterCta from "../components/RegisterCta";
 import { aboutSections, boardMembers, siteStats } from "../data/siteContent";
@@ -78,7 +80,7 @@ export default function About() {
     <PageShell
       eyebrow="About USCL"
       title="US Staffing Champions League"
-      subtitle="India's biggest staffing franchise cricket league — 8 franchises, live auction, and a national T20 stage."
+      subtitle={<LeagueTagline variant="banner" withPeriod={false} />}
     >
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {siteStats.map((s) => (
@@ -101,6 +103,10 @@ export default function About() {
                 imageFirst={block.id !== "mission"}
               />
             );
+          }
+
+          if (block.id === "format") {
+            return <LeagueFormatShowcase key={block.id} block={block} />;
           }
 
           return (

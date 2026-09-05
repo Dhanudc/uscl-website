@@ -2,7 +2,7 @@ export const siteStats = [
   { value: "8", label: "franchises" },
   { value: "31", label: "matches" },
   { value: "16", label: "days" },
-  { value: "1 Cr", label: "prize pool" },
+  { value: "₹15L", label: "prize pool" },
   { value: "500+", label: "players" },
   { value: "100+", label: "companies" },
 ];
@@ -60,7 +60,43 @@ export const aboutSections = [
   {
     id: "format",
     title: "League Format",
-    body: "8 franchises compete across a league stage, knockouts, semi-finals, and a grand final — 31 matches over 16 days with a ₹1 Cr prize pool.",
+    body: "8 franchises compete across a league stage, knockouts, semi-finals, and a grand final — 31 matches over 16 days with a ₹15L prize pool.",
+    highlights: [
+      { value: "8", label: "Franchises" },
+      { value: "31", label: "Matches" },
+      { value: "16", label: "Days" },
+      { value: "₹15L", label: "Prize pool" },
+    ],
+    stages: [
+      {
+        id: "league-stage",
+        step: "01",
+        title: "League Stage",
+        meta: "24 matches",
+        detail: "All 8 franchises battle through round-robin fixtures to climb the points table.",
+      },
+      {
+        id: "knockouts",
+        step: "02",
+        title: "Knockouts",
+        meta: "4 matches",
+        detail: "Table toppers get a second life; the chasing pack plays sudden-death cricket.",
+      },
+      {
+        id: "semi-finals",
+        step: "03",
+        title: "Semi-Finals",
+        meta: "2 matches",
+        detail: "Two winners survive the pressure and book a place on finals night.",
+      },
+      {
+        id: "grand-final",
+        step: "04",
+        title: "Grand Final",
+        meta: "1 match",
+        detail: "One night, one crown, and a ₹15L prize pool on the line.",
+      },
+    ],
   },
   {
     id: "members",
@@ -284,11 +320,35 @@ export const wesleyContent = {
   title: "Wesley Elite Sports",
   tagline: "Building corporate sports. Creating lasting connections.",
   about:
-    "Wesley Elite Sports is a Hyderabad-based sports management company organizing USCL and previous corporate cricket leagues for industry communities.",
+    "Wesley Elite Sports is a Hyderabad-based sports management organization specializing in professionally managed corporate cricket tournaments. We create sporting experiences that bring together businesses, professionals, and industry leaders while promoting networking, employee engagement, and brand visibility. Our expertise lies in planning and executing premium corporate cricket events with world-class operations and memorable participant experiences.",
   vision:
     "To make corporate sports a national platform for talent, culture, and long-term professional networks.",
   mission:
     "Design and deliver premium tournament experiences — from player registration and auctions to finals and award ceremonies.",
+  services: [
+    "Tournament Management",
+    "Corporate Networking",
+    "Live Streaming",
+    "Sports Marketing",
+  ],
+  trackRecord: {
+    intro:
+      "Over the years, Wesley Elite Sports has successfully organized multiple corporate cricket tournaments across the staffing, IT, and corporate sectors.",
+    stats: [
+      { value: "7+", label: "Major Tournaments" },
+      { value: "100+", label: "Corporate Matches" },
+      { value: "Thousands", label: "Participants" },
+      { value: "Professional", label: "Event Management" },
+    ],
+  },
+  tournamentJourney: [
+    { date: "Nov 2019", event: "Teletext Cricket League" },
+    { date: "Mar 2024", event: "IT Staffing Corporate Cricket League" },
+    { date: "Dec 2024", event: "IT Staffing Corporate Cricket League" },
+    { date: "Feb 2025", event: "Ceipal Cricket League (Co-Sponsored by Intellect)" },
+    { date: "Feb 2026", event: "Corporate Cricket League" },
+    { date: "2026 (USCL)", event: "India's Biggest Staffing Franchise League" },
+  ],
   pastTournaments: [
     "Corporate T20 Challenge",
     "Industry Premier Cup",
@@ -321,4 +381,47 @@ export const socialLinks = [
   { label: "Twitter (X)", href: "#" },
 ];
 
-export const AUCTION_TARGET = new Date("2026-09-05T10:00:00+05:30");
+export const AUCTION_TARGET = new Date("2026-10-07T10:00:00+05:30");
+export const AUCTION_DATE_LABEL = "7 October 2026";
+export const AUCTION_TIME_LABEL = "10:00 AM IST";
+
+/** Key season milestones shown on the home countdown / events section. */
+export const keyEvents = [
+  {
+    id: "registration",
+    dateLabel: "September 10 – 30",
+    timeLabel: "2026",
+    title: "Player Registration Window",
+    body: "Your chance to enter the USCL arena.",
+    target: new Date("2026-09-10T00:00:00+05:30"),
+  },
+  {
+    id: "owners-meet",
+    dateLabel: "September 19",
+    timeLabel: "Saturday · 07:00 PM",
+    title: "Franchise Owners & Captains Meet",
+    body: "Franchises align before the auction battle begins.",
+    target: new Date("2026-09-19T19:00:00+05:30"),
+  },
+  {
+    id: "auction",
+    dateLabel: "October 7 & 8",
+    timeLabel: "Player Auction",
+    title: "The USCL Player Auction",
+    body: "Franchises build their squads. Players find their teams.",
+    target: new Date("2026-10-07T10:00:00+05:30"),
+    highlight: true,
+  },
+  {
+    id: "trophy",
+    dateLabel: "October 17",
+    timeLabel: "Trophy Launch",
+    title: "USCL Trophy Launch",
+    body: "The ultimate prize gets its moment.",
+    target: new Date("2026-10-17T10:00:00+05:30"),
+  },
+];
+
+/** Single source of truth for the league tagline shown across the site. */
+export const LEAGUE_TAGLINE_LEAD = "India's biggest";
+export const LEAGUE_TAGLINE_REST = "staffing franchise cricket league";

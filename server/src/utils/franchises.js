@@ -1,5 +1,5 @@
 export const FRANCHISES = [
-  { id: "arizona-avengers", name: "Arizona Avengers" },
+  { id: "arizona-avengers", name: "Avengers Arizona" },
   { id: "california-chargers", name: "California Chargers" },
   { id: "carolina-crushers", name: "Carolina Crushers" },
   { id: "florida-falcons", name: "Florida Falcons" },

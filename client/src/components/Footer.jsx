@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
+import LeagueTagline from "./LeagueTagline";
 import RegisterCta from "./RegisterCta";
 import { wesleyContent } from "../data/siteContent";
 
@@ -13,9 +14,7 @@ export default function Footer() {
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:py-10 md:grid-cols-2 lg:grid-cols-4">
         <div>
           <p className="font-display text-2xl text-accent">USCL T20</p>
-          <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-            India&apos;s biggest staffing franchise cricket league.
-          </p>
+          <LeagueTagline as="p" variant="compact" className="mt-2" />
           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
             Organized by {wesleyContent.title}
           </p>

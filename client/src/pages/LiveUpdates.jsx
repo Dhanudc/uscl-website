@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import KeyDatesSection from "../components/KeyDatesSection";
 import PageShell from "../components/PageShell";
 import { api } from "../api";
 
@@ -92,6 +93,8 @@ export default function LiveUpdates() {
       title="Live Updates"
       subtitle="Fixtures, schedule, points table, results, and leaderboard for USCL T20 Season 2026."
     >
+      <KeyDatesSection className="mb-10" />
+
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color:var(--border)] pb-3">
         <div className="flex flex-wrap gap-2">
           {TABS.map((t) => (

@@ -12,7 +12,7 @@ const NAV_LINKS = [
   { to: "/media", label: "Media" },
   { to: "/live", label: "Live" },
   { to: "/wesley", label: "Wesley" },
-  { to: "/franchise", label: "Own Team" },
+  { to: "/franchise", label: "Own A Team" },
   { to: "/register", label: "Register", isRegister: true },
   { to: "/player-journey", label: "Player Journey" },
 ];
@@ -44,9 +44,19 @@ export default function Header() {
   return (
     <header className="site-header sticky top-0 z-50 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
-        <Link to="/home" className="flex min-w-0 shrink-0 items-center gap-2.5">
-          <span className="font-display flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-sm text-white">
-            USCL
+        <Link
+          to="/home"
+          className="flex min-w-0 shrink-0 items-center gap-2.5"
+          aria-label="USCL — US Staffing Champions League"
+        >
+          <span className="inline-flex h-10 w-[4.5rem] shrink-0 items-center justify-center overflow-hidden rounded-md bg-white sm:h-11 sm:w-[5.25rem]">
+            <img
+              src="/brand/uscl-logo.png"
+              alt=""
+              className="max-h-full max-w-full object-contain"
+              width={84}
+              height={44}
+            />
           </span>
           <span className="min-w-0">
             <span className="font-display block truncate text-base leading-none text-[color:var(--title)]">

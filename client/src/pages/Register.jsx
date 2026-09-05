@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import PasswordInput from "../components/PasswordInput";
+import PlayerDataConsentForm from "../components/PlayerDataConsentForm";
 import { AlertBanner, EmptyState, PageLoader } from "../components/ui";
 import RegistrationComingSoon from "../components/RegistrationComingSoon";
 import ZoomableImage from "../components/ZoomableImage";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
+import { PLAYER_DATA_CONSENT } from "../data/playerDataConsent";
 import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
 import { compressImageForUpload, paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
@@ -50,6 +52,7 @@ export default function Register() {
   const [sponsorPackageId, setSponsorPackageId] = useState("");
   const [sponsorPackageTitle, setSponsorPackageTitle] = useState("");
   const [showTypePicker, setShowTypePicker] = useState(true);
+  const [showConsentModal, setShowConsentModal] = useState(false);
 
   useEffect(() => {
     const interest = String(searchParams.get("interest") || "").trim().toLowerCase();
@@ -285,6 +288,11 @@ export default function Register() {
         sponsorPackageId: registerInterest === "sponsor" ? sponsorPackageId : "",
       };
       const agreedToTerms = form.agreedToTerms.checked;
+      if (!agreedToTerms) {
+        throw new Error(
+          "Please read and agree to the USCL Player Data Processing & Sharing Consent."
+        );
+      }
 
       if (!user) {
         if (!values.password || values.password.length < 6) {
@@ -437,7 +445,7 @@ export default function Register() {
     <section className="bg-ink px-4 py-8 md:py-10">
       <div className="mx-auto max-w-3xl">
         <p className="eyebrow text-accent">Player Registration</p>
-        <h1 className="page-title mt-1.5">Register. Get Auctioned. Play.</h1>
+        <h1 className="page-title mt-1.5 text-accent">Register. Get Auctioned. Enter into USCL.</h1>
 
         {existing ? (
           <div className="panel mt-5 space-y-3 rounded-lg p-5">
@@ -632,9 +640,25 @@ export default function Register() {
               )}
             </div>
 
-            <label className="sm:col-span-2 flex items-start gap-2 text-sm text-[color:var(--text-muted)]">
-              <input type="checkbox" name="agreedToTerms" required className="mt-1" />
-              <span>I confirm eligibility and agree to the terms.</span>
+            <label className="sm:col-span-2 flex items-start gap-3 text-sm text-[color:var(--text)]">
+              <input
+                type="checkbox"
+                name="agreedToTerms"
+                required
+                className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]"
+              />
+              <span>
+                I have read and agree to the{" "}
+                <button
+                  type="button"
+                  className="font-semibold text-accent underline underline-offset-2 hover:text-accent-soft"
+                  onClick={() => setShowConsentModal(true)}
+                >
+                  Terms and Conditions
+                </button>{" "}
+                (USCL Player Data Processing &amp; Sharing Consent) and authorise Wesley Elite Sports
+                LLP to process and share my information as described.
+              </span>
             </label>
             {error && <p className="sm:col-span-2 text-sm text-accent">{error}</p>}
             <button
@@ -734,6 +758,53 @@ export default function Register() {
           </p>
         ) : null}
       </div>
+
+      {showConsentModal ? (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 p-4"
+          onClick={() => setShowConsentModal(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="consent-modal-title"
+            className="panel relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-5 py-4">
+              <div>
+                <p className="eyebrow text-accent">Required</p>
+                <h2
+                  id="consent-modal-title"
+                  className="mt-1 font-display text-xl text-[color:var(--title)] sm:text-2xl"
+                >
+                  {PLAYER_DATA_CONSENT.title}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="ui-modal-close"
+                aria-label="Close terms and conditions"
+                onClick={() => setShowConsentModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-y-auto px-5 py-4">
+              <PlayerDataConsentForm />
+            </div>
+            <div className="border-t border-[color:var(--border)] px-5 py-4">
+              <button
+                type="button"
+                className="btn-primary w-full sm:w-auto"
+                onClick={() => setShowConsentModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {pendingSave ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
