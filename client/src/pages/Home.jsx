@@ -93,7 +93,7 @@ export default function Home() {
                 Player Journey
               </Link>
               <Link to="/franchise" className="btn-ghost w-full justify-center sm:w-auto">
-                Own Franchise
+                Own A Franchise
               </Link>
             </div>
             <div className="mt-8">

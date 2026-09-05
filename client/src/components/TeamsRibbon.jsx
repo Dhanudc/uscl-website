@@ -22,9 +22,7 @@ export default function TeamsRibbon() {
                     <img src={team.image} alt="" loading="lazy" decoding="async" />
                   </span>
                   <span className="teams-ribbon__meta">
-                    <span className="teams-ribbon__name">
-                      {team.shortName} {team.city}
-                    </span>
+                    <span className="teams-ribbon__name">{team.name}</span>
                   </span>
                 </Link>
               ))}

@@ -288,11 +288,6 @@ export default function Register() {
         sponsorPackageId: registerInterest === "sponsor" ? sponsorPackageId : "",
       };
       const agreedToTerms = form.agreedToTerms.checked;
-      if (!agreedToTerms) {
-        throw new Error(
-          "Please read and agree to the USCL Player Data Processing & Sharing Consent."
-        );
-      }
 
       if (!user) {
         if (!values.password || values.password.length < 6) {

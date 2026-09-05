@@ -13,7 +13,7 @@ import {
   normalizeModuleVisibility,
   SITE_MODULES,
 } from "../data/siteModules";
-import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
+import { paymentScreenshotUrl, profileImageUrl, compressImageForUpload } from "../utils/media";
 import PortalMediaManager from "../components/admin/PortalMediaManager.jsx";
 import SponsorPackagesAdmin from "../components/admin/SponsorPackagesAdmin.jsx";
 import { AlertBanner, PageLoader, StatGridSkeleton } from "../components/ui";
@@ -352,6 +352,7 @@ function PlayersPage() {
   const [ownerTeam, setOwnerTeam] = useState({});
   const [interestFilter, setInterestFilter] = useState("franchise");
   const [loading, setLoading] = useState(true);
+  const [imageBusyId, setImageBusyId] = useState("");
 
   async function load() {
     setLoading(true);
@@ -449,6 +450,33 @@ function PlayersPage() {
       setError(err.message);
     } finally {
       setBusyId("");
+    }
+  }
+
+  async function changeProfileImage(reg, file) {
+    if (!reg?._id || !file) return;
+    setImageBusyId(reg._id);
+    setError("");
+    setMessage("");
+    try {
+      const compressed = await compressImageForUpload(file);
+      const formData = new FormData();
+      formData.set("fullName", reg.fullName || "player");
+      formData.set("photo", compressed, compressed.name || file.name || "photo.jpg");
+
+      const data = await api(`/api/admin/registrations/${reg._id}/profile-image`, {
+        method: "PATCH",
+        body: formData,
+      });
+
+      setRegs((prev) =>
+        prev.map((r) => (String(r._id) === String(data.registration._id) ? data.registration : r))
+      );
+      setMessage(`Profile image updated for ${data.registration.fullName}.`);
+    } catch (err) {
+      setError(err.message || "Unable to update profile image.");
+    } finally {
+      setImageBusyId("");
     }
   }
 
@@ -723,19 +751,45 @@ function PlayersPage() {
           <article key={reg._id} className="rounded-lg border border-[color:var(--border)] bg-ink-card p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
-                {profileImageUrl(reg) ? (
-                  <ZoomableImage
-                    src={profileImageUrl(reg)}
-                    alt={reg.fullName}
-                    className="h-14 w-14 shrink-0 rounded-lg border border-[color:var(--border)] object-cover bg-ink-soft"
-                  />
-                ) : null}
-                <span
-                  className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent"
-                  style={{ display: profileImageUrl(reg) ? "none" : "inline-flex" }}
-                >
-                  <PlayerIcon size={22} />
-                </span>
+                <div className="flex shrink-0 flex-col items-center gap-1.5">
+                  {profileImageUrl(reg) ? (
+                    <ZoomableImage
+                      src={profileImageUrl(reg)}
+                      alt={reg.fullName}
+                      className="h-14 w-14 rounded-lg border border-[color:var(--border)] object-cover bg-ink-soft"
+                    />
+                  ) : (
+                    <span className="inline-flex h-14 w-14 items-center justify-center rounded-lg bg-accent/15 text-accent">
+                      <PlayerIcon size={22} />
+                    </span>
+                  )}
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      disabled={imageBusyId === reg._id || busyId === reg._id}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (file) changeProfileImage(reg, file);
+                      }}
+                    />
+                    <span
+                      className={`inline-flex rounded border border-[color:var(--border-strong)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                        imageBusyId === reg._id
+                          ? "opacity-50"
+                          : "text-accent-soft hover:border-accent hover:text-accent"
+                      }`}
+                    >
+                      {imageBusyId === reg._id
+                        ? "Uploading…"
+                        : profileImageUrl(reg)
+                          ? "Change image"
+                          : "Add image"}
+                    </span>
+                  </label>
+                </div>
                 <div className="min-w-0">
                   <p className="font-semibold text-[color:var(--title)]">{reg.fullName}</p>
                   <p className="text-sm text-[color:var(--text-muted)]">

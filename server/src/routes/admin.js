@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { adminRequired, hashPassword } from "../middleware/auth.js";
-import { socialIconUpload, toSocialIconUrl, mapWithProfileImageUrl, withProfileImageUrl, paymentScreenshotUpload, portalImageUpload, portalVideoUpload } from "../middleware/upload.js";
+import { socialIconUpload, toSocialIconUrl, mapWithProfileImageUrl, withProfileImageUrl, paymentScreenshotUpload, portalImageUpload, portalVideoUpload, profilePhotoUpload, toProfileImageMeta } from "../middleware/upload.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
@@ -503,6 +503,65 @@ router.patch("/registrations/:id/enable-pay-now", adminRequired, async (req, res
     console.error("enable-pay-now error", error);
     return res.status(500).json({ error: "Unable to enable Pay now." });
   }
+});
+
+/** Admin: change / replace a registration profile image. */
+router.patch("/registrations/:id/profile-image", adminRequired, (req, res) => {
+  profilePhotoUpload(req, res, async (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({
+          error: "Image upload failed due to size. Please try again or use a smaller file.",
+        });
+      }
+      return res.status(400).json({ error: err.message || "Upload failed." });
+    }
+
+    try {
+      const registration = await PlayerRegistration.findById(req.params.id);
+      if (!registration) {
+        return res.status(404).json({ error: "Registration not found." });
+      }
+      if (!req.file) {
+        return res.status(400).json({ error: "Please choose a profile picture." });
+      }
+
+      req.body.fullName = registration.fullName;
+      const hadPhoto = Boolean(registration.profileImage || registration.photo?.filename);
+      await persistUploadedFile(req.file, "profile");
+      const photo = toProfileImageMeta(req.file);
+      registration.profileImage = photo.filename;
+      registration.photo = photo;
+      await registration.save();
+
+      const adminName = req.user?.name || req.user?.email || "admin";
+      await recordPlayerActivity({
+        registrationId: registration._id,
+        userId: registration.userId,
+        action: hadPhoto ? "profile.image_updated" : "profile.image_added",
+        summary: `${adminName} (admin) ${hadPhoto ? "changed" : "added"} profile picture for ${registration.fullName}`,
+        actorName: adminName,
+        actorRole: "admin",
+        details: { profileImage: photo.filename },
+      });
+
+      await writeAudit(req, {
+        action: "registration.profile_image",
+        targetType: "registration",
+        targetId: registration._id,
+        targetLabel: registration.fullName,
+        details: {
+          summary: hadPhoto ? "Changed profile image" : "Added profile image",
+          profileImage: photo.filename,
+        },
+      });
+
+      return res.json({ registration: withProfileImageUrl(registration) });
+    } catch (error) {
+      console.error("admin profile-image update error", error);
+      return res.status(500).json({ error: "Unable to update profile picture." });
+    }
+  });
 });
 
 router.patch("/registrations/:id", adminRequired, async (req, res) => {

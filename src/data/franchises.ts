@@ -10,7 +10,7 @@ export type Franchise = {
 export const franchises: Franchise[] = [
   {
     id: "arizona-avengers",
-    name: "Avengers Arizona",
+    name: "Arizona Avengers",
     shortName: "Avengers",
     city: "Arizona",
     image: "/franchises/arizona-avengers.png",

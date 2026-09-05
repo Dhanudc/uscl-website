@@ -14,7 +14,7 @@ export default function FranchisesPage() {
       <PageHero
         eyebrow="8 Exclusive Franchises"
         title="Own the badge. Build the legacy."
-        subtitle="Official USCL franchise identities — from Texas Thunder to Avengers Arizona."
+        subtitle="Official USCL franchise identities — from Texas Thunder to Arizona Avengers."
         cta={{ href: "/franchise", label: "Own a Franchise" }}
         secondaryCta={{ href: "/register", label: "Register to Play" }}
       />
