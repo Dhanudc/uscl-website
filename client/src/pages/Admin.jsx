@@ -8,6 +8,11 @@ import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 import { franchises as franchiseCatalog } from "../data/franchises";
 import { playerRoleLabel } from "../data/playerRoles";
+import {
+  DEFAULT_MODULE_VISIBILITY,
+  normalizeModuleVisibility,
+  SITE_MODULES,
+} from "../data/siteModules";
 import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import PortalMediaManager from "../components/admin/PortalMediaManager.jsx";
 import SponsorPackagesAdmin from "../components/admin/SponsorPackagesAdmin.jsx";
@@ -2074,6 +2079,7 @@ function AuditPage() {
 function SiteSettingsPage() {
   const { refresh } = useSiteSettings();
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
+  const [moduleVisibility, setModuleVisibility] = useState({ ...DEFAULT_MODULE_VISIBILITY });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -2084,10 +2090,15 @@ function SiteSettingsPage() {
     api("/api/admin/settings")
       .then((data) => {
         setRegistrationEnabled(data.settings?.registrationEnabled !== false);
+        setModuleVisibility(normalizeModuleVisibility(data.settings?.moduleVisibility));
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  function toggleModule(key) {
+    setModuleVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   async function onSave(e) {
     e.preventDefault();
@@ -2097,15 +2108,12 @@ function SiteSettingsPage() {
     try {
       const data = await api("/api/admin/settings", {
         method: "PUT",
-        body: JSON.stringify({ registrationEnabled }),
+        body: JSON.stringify({ registrationEnabled, moduleVisibility }),
       });
       setRegistrationEnabled(data.settings?.registrationEnabled !== false);
+      setModuleVisibility(normalizeModuleVisibility(data.settings?.moduleVisibility));
       await refresh();
-      setOk(
-        data.settings?.registrationEnabled !== false
-          ? "Registration is open — form is live on /register."
-          : "Coming soon mode on — button stays visible, form is hidden."
-      );
+      setOk("Settings saved. Module show/hide updates apply site-wide immediately.");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -2121,7 +2129,7 @@ function SiteSettingsPage() {
       {loading ? (
         <PageLoader message="Loading settings…" />
       ) : (
-        <form onSubmit={onSave} className="max-w-xl space-y-5">
+        <form onSubmit={onSave} className="max-w-2xl space-y-5">
           <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
             <div className="border-b border-[color:var(--border)] px-5 py-4">
               <p className="eyebrow text-accent">Registration</p>
@@ -2129,7 +2137,8 @@ function SiteSettingsPage() {
                 Registration mode
               </h2>
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                The button always stays on the site as “Registration” when closed. Choose whether players see the form or the coming-soon page.
+                When the Register module is visible, choose whether players see the form or the
+                coming-soon page.
               </p>
             </div>
             <div className="space-y-3 p-5">
@@ -2165,6 +2174,52 @@ function SiteSettingsPage() {
                   </span>
                 </span>
               </label>
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
+            <div className="border-b border-[color:var(--border)] px-5 py-4">
+              <p className="eyebrow text-accent">Modules</p>
+              <h2 className="font-display mt-1 text-xl text-[color:var(--title)]">
+                Show / hide module buttons
+              </h2>
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                Toggle each module on or off. Hidden modules disappear from header, footer, and
+                related buttons (including Media). Stored in the database.
+              </p>
+            </div>
+            <div className="divide-y divide-[color:var(--border)]">
+              {SITE_MODULES.map((mod) => {
+                const on = moduleVisibility[mod.key] !== false;
+                return (
+                  <label
+                    key={mod.key}
+                    className="flex cursor-pointer items-center justify-between gap-4 px-5 py-3.5 hover:bg-ink-soft/50"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-medium text-[color:var(--title)]">{mod.label}</span>
+                      <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                        {mod.hint}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span
+                        className={`text-[11px] font-bold uppercase tracking-wide ${
+                          on ? "text-emerald-400" : "text-[color:var(--text-muted)]"
+                        }`}
+                      >
+                        {on ? "Show" : "Hide"}
+                      </span>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-[var(--accent)]"
+                        checked={on}
+                        onChange={() => toggleModule(mod.key)}
+                      />
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           </section>
 

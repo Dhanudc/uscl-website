@@ -1,4 +1,8 @@
 import mongoose from "mongoose";
+import {
+  DEFAULT_MODULE_VISIBILITY,
+  normalizeModuleVisibility,
+} from "../constants/siteModules.js";
 
 const socialSchema = new mongoose.Schema(
   {
@@ -26,6 +30,21 @@ const sponsorPackageSettingSchema = new mongoose.Schema(
     priceInr: { type: Number, default: 0 },
     maxSlots: { type: Number, default: 1 },
     enabled: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+const moduleVisibilitySchema = new mongoose.Schema(
+  {
+    about: { type: Boolean, default: true },
+    teams: { type: Boolean, default: true },
+    sponsors: { type: Boolean, default: true },
+    media: { type: Boolean, default: true },
+    live: { type: Boolean, default: true },
+    wesley: { type: Boolean, default: true },
+    franchise: { type: Boolean, default: true },
+    register: { type: Boolean, default: true },
+    playerJourney: { type: Boolean, default: true },
   },
   { _id: false }
 );
@@ -64,6 +83,11 @@ const siteSettingsSchema = new mongoose.Schema(
     },
     /** When false, public Register CTAs are hidden and new registrations are blocked. */
     registrationEnabled: { type: Boolean, default: true },
+    /** Show/hide public module links (Media, Live, Wesley, etc.). */
+    moduleVisibility: {
+      type: moduleVisibilitySchema,
+      default: () => ({ ...DEFAULT_MODULE_VISIBILITY }),
+    },
     /** Active online payment gateway for registrations. */
     paymentGateway: {
       type: String,
@@ -101,6 +125,7 @@ export const DEFAULT_SITE_SETTINGS = {
     videos: [],
   },
   registrationEnabled: true,
+  moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
   paymentGateway: "razorpay",
 };
 
@@ -120,3 +145,9 @@ export async function getSiteSettings() {
 export function isRegistrationEnabled(settings) {
   return settings?.registrationEnabled !== false;
 }
+
+export function getModuleVisibility(settings) {
+  return normalizeModuleVisibility(settings?.moduleVisibility);
+}
+
+export { normalizeModuleVisibility, DEFAULT_MODULE_VISIBILITY };

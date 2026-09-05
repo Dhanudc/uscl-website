@@ -6,7 +6,7 @@ import RegisterCta from "./RegisterCta";
 import { wesleyContent } from "../data/siteContent";
 
 export default function Footer() {
-  const { contact, socials } = useSiteSettings();
+  const { contact, socials, isModuleVisible } = useSiteSettings();
   const { user } = useAuth();
 
   return (
@@ -23,13 +23,17 @@ export default function Footer() {
         <div>
           <p className="eyebrow text-accent">Quick Links</p>
           <div className="mt-3 flex flex-col gap-1.5 text-sm text-[color:var(--text-muted)]">
-            <Link to="/about">About USCL</Link>
-            <Link to="/franchises">Franchises</Link>
-            {user ? <Link to="/sponsorship">Sponsors</Link> : null}
-            <Link to="/media">Media</Link>
-            <Link to="/live">Live Updates</Link>
-            <RegisterCta className="text-left hover:text-[color:var(--text)]" />
-            <Link to="/player-journey">Player Journey</Link>
+            {isModuleVisible("about") ? <Link to="/about">About USCL</Link> : null}
+            {isModuleVisible("teams") ? <Link to="/franchises">Franchises</Link> : null}
+            {user && isModuleVisible("sponsors") ? <Link to="/sponsorship">Sponsors</Link> : null}
+            {isModuleVisible("media") ? <Link to="/media">Media</Link> : null}
+            {isModuleVisible("live") ? <Link to="/live">Live Updates</Link> : null}
+            {isModuleVisible("register") ? (
+              <RegisterCta className="text-left hover:text-[color:var(--text)]" />
+            ) : null}
+            {isModuleVisible("playerJourney") ? (
+              <Link to="/player-journey">Player Journey</Link>
+            ) : null}
           </div>
         </div>
 
@@ -37,9 +41,9 @@ export default function Footer() {
           <p className="eyebrow text-accent">Tournaments</p>
           <div className="mt-3 flex flex-col gap-1.5 text-sm text-[color:var(--text-muted)]">
             <span>USCL T20 2026</span>
-            <Link to="/wesley">Past Tournaments</Link>
-            <Link to="/franchise">Own a Franchise</Link>
-            <Link to="/live">Fixtures & Results</Link>
+            {isModuleVisible("wesley") ? <Link to="/wesley">Past Tournaments</Link> : null}
+            {isModuleVisible("franchise") ? <Link to="/franchise">Own a Franchise</Link> : null}
+            {isModuleVisible("live") ? <Link to="/live">Fixtures & Results</Link> : null}
           </div>
         </div>
 

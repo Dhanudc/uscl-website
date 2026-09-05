@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { getSiteSettings, isRegistrationEnabled } from "../models/SiteSettings.js";
+import {
+  getModuleVisibility,
+  getSiteSettings,
+  isRegistrationEnabled,
+} from "../models/SiteSettings.js";
 import { buildPortalMediaResponse } from "../utils/portalMedia.js";
 
 const router = Router();
@@ -12,6 +16,7 @@ router.get("/", async (_req, res) => {
         contact: settings.contact,
         socials: settings.socials,
         registrationEnabled: isRegistrationEnabled(settings),
+        moduleVisibility: getModuleVisibility(settings),
       },
     });
   } catch (error) {

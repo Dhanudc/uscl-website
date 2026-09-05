@@ -5,7 +5,7 @@ import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { getSiteSettings, getPaymentGateway, isRegistrationEnabled } from "../models/SiteSettings.js";
+import { getSiteSettings, getPaymentGateway, getModuleVisibility, isRegistrationEnabled, normalizeModuleVisibility } from "../models/SiteSettings.js";
 import { getGatewayStatus } from "../utils/paymentGateway.js";
 import { normalizeRegistrationFees, getRegistrationFeeInr } from "../utils/registrationFees.js";
 import { User } from "../models/User.js";
@@ -742,6 +742,7 @@ router.get("/settings", adminRequired, async (_req, res) => {
         registrationFees: normalizeRegistrationFees(settings.registrationFees),
         sponsorPackages: await getSponsorPackageConfig(),
         registrationEnabled: isRegistrationEnabled(settings),
+        moduleVisibility: getModuleVisibility(settings),
         paymentGateway: getPaymentGateway(settings),
         paymentGatewayStatus: getGatewayStatus(),
       },
@@ -795,6 +796,16 @@ router.put("/settings", adminRequired, async (req, res) => {
       );
     }
 
+    if (req.body.moduleVisibility && typeof req.body.moduleVisibility === "object") {
+      settings.moduleVisibility = normalizeModuleVisibility(req.body.moduleVisibility);
+      const hidden = Object.entries(settings.moduleVisibility)
+        .filter(([, on]) => !on)
+        .map(([key]) => key);
+      auditBits.push(
+        hidden.length ? `modules hidden: ${hidden.join(", ")}` : "all modules shown"
+      );
+    }
+
     if (req.body.paymentGateway) {
       const gateway = String(req.body.paymentGateway || "").trim().toLowerCase();
       if (gateway === "razorpay" || gateway === "cashfree") {
@@ -824,6 +835,7 @@ router.put("/settings", adminRequired, async (req, res) => {
         registrationFees: normalizeRegistrationFees(settings.registrationFees),
         sponsorPackages: await getSponsorPackageConfig(),
         registrationEnabled: isRegistrationEnabled(settings),
+        moduleVisibility: getModuleVisibility(settings),
         paymentGateway: getPaymentGateway(settings),
         paymentGatewayStatus: getGatewayStatus(),
       },

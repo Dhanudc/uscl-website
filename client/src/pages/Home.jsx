@@ -50,7 +50,7 @@ function useCountdown(target) {
 export default function Home() {
   const [slide, setSlide] = useState(0);
   const countdown = useCountdown(AUCTION_TARGET);
-  const { socials } = useSiteSettings();
+  const { socials, isModuleVisible } = useSiteSettings();
   const { user } = useAuth();
 
   useEffect(() => {
@@ -189,22 +189,35 @@ export default function Home() {
       <section className="bg-ink px-4 py-12">
         <div className="mx-auto grid max-w-6xl gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            ["/about", "About USCL", "Vision, mission, format & members"],
-            ["/franchises", "Teams", "8 franchise logos & Buy Now"],
-            ...(user
-              ? [["/sponsorship", "Sponsors", "Title, co-sponsor & partners"]]
-              : [["/signin", "Sponsors", "Sign in to view sponsor packages"]]),
-            ["/live", "Live Updates", "Fixtures, points & results"],
-          ].map(([to, title, text]) => (
-            <Link
-              key={to}
-              to={to}
-              className="rounded-lg border border-[color:var(--border)] bg-ink-card px-4 py-5 transition hover:border-accent"
-            >
-              <p className="font-display text-xl text-[color:var(--title)]">{title}</p>
-              <p className="mt-1 text-sm text-[color:var(--text-muted)]">{text}</p>
-            </Link>
-          ))}
+            isModuleVisible("about")
+              ? ["/about", "About USCL", "Vision, mission, format & members"]
+              : null,
+            isModuleVisible("teams")
+              ? ["/franchises", "Teams", "8 franchise logos & Buy Now"]
+              : null,
+            isModuleVisible("sponsors")
+              ? user
+                ? ["/sponsorship", "Sponsors", "Title, co-sponsor & partners"]
+                : ["/signin", "Sponsors", "Sign in to view sponsor packages"]
+              : null,
+            isModuleVisible("live")
+              ? ["/live", "Live Updates", "Fixtures, points & results"]
+              : null,
+            isModuleVisible("media")
+              ? ["/media", "Media", "Gallery photos and season videos"]
+              : null,
+          ]
+            .filter(Boolean)
+            .map(([to, title, text]) => (
+              <Link
+                key={to}
+                to={to}
+                className="rounded-lg border border-[color:var(--border)] bg-ink-card px-4 py-5 transition hover:border-accent"
+              >
+                <p className="font-display text-xl text-[color:var(--title)]">{title}</p>
+                <p className="mt-1 text-sm text-[color:var(--text-muted)]">{text}</p>
+              </Link>
+            ))}
         </div>
       </section>
     </>

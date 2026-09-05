@@ -2,9 +2,9 @@ import { Link } from "react-router-dom";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 
 /**
- * Public Register CTA — always visible.
- * When registration is closed, label is "Registration" and /register
- * shows the coming-soon page instead of the form.
+ * Public Register CTA.
+ * Hidden entirely when the Register module is disabled in admin settings.
+ * When registration is closed (but module visible), label is "Registration".
  */
 export default function RegisterCta({
   className = "btn-primary",
@@ -12,7 +12,10 @@ export default function RegisterCta({
   closedLabel = "Registration",
   children,
 }) {
-  const { registrationEnabled } = useSiteSettings();
+  const { registrationEnabled, isModuleVisible } = useSiteSettings();
+
+  if (!isModuleVisible("register")) return null;
+
   const label = children || (registrationEnabled ? openLabel : closedLabel);
 
   return (

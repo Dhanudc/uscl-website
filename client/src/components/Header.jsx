@@ -1,20 +1,21 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useSiteSettings } from "../context/SiteSettingsContext";
 import RegisterCta from "./RegisterCta";
 import ThemePicker from "./ThemePicker";
 
 const NAV_LINKS = [
   { to: "/home", label: "Home", end: true },
-  { to: "/about", label: "About" },
-  { to: "/franchises", label: "Teams" },
-  { to: "/sponsorship", label: "Sponsors", signedInOnly: true },
-  { to: "/media", label: "Media" },
-  { to: "/live", label: "Live" },
-  { to: "/wesley", label: "Wesley" },
-  { to: "/franchise", label: "Own A Team" },
-  { to: "/register", label: "Register", isRegister: true },
-  { to: "/player-journey", label: "Player Journey" },
+  { to: "/about", label: "About", module: "about" },
+  { to: "/franchises", label: "Teams", module: "teams" },
+  { to: "/sponsorship", label: "Sponsors", module: "sponsors", signedInOnly: true },
+  { to: "/media", label: "Media", module: "media" },
+  { to: "/live", label: "Live", module: "live" },
+  { to: "/wesley", label: "Wesley", module: "wesley" },
+  { to: "/franchise", label: "Own A Team", module: "franchise" },
+  { to: "/register", label: "Register", module: "register", isRegister: true },
+  { to: "/player-journey", label: "Player Journey", module: "playerJourney" },
 ];
 
 function navClass(isActive) {
@@ -27,10 +28,15 @@ function navClass(isActive) {
 
 export default function Header() {
   const { user, loading, logout } = useAuth();
+  const { isModuleVisible } = useSiteSettings();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const links = NAV_LINKS.filter((link) => !link.signedInOnly || user);
+  const links = NAV_LINKS.filter((link) => {
+    if (link.signedInOnly && !user) return false;
+    if (link.module && !isModuleVisible(link.module)) return false;
+    return true;
+  });
 
   useEffect(() => {
     setMenuOpen(false);
@@ -127,7 +133,9 @@ export default function Header() {
                 >
                   Sign in
                 </Link>
-                <RegisterCta className="btn-primary !py-1.5 !text-xs" />
+                {isModuleVisible("register") ? (
+                  <RegisterCta className="btn-primary !py-1.5 !text-xs" />
+                ) : null}
               </>
             )}
           </div>
@@ -193,7 +201,9 @@ export default function Header() {
                   <Link to="/signin" className="btn-ghost w-full justify-center">
                     Sign in
                   </Link>
-                  <RegisterCta className="btn-primary w-full justify-center" />
+                  {isModuleVisible("register") ? (
+                    <RegisterCta className="btn-primary w-full justify-center" />
+                  ) : null}
                 </>
               )}
             </div>
