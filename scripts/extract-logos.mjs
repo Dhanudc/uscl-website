@@ -16,7 +16,7 @@ const map = [
   { file: "Florida Falcons.pdf", out: "florida-falcons.png", dest: outFranchises },
   { file: "New Jersery Jaguars.pdf", out: "new-jersey-jaguars.png", dest: outFranchises },
   { file: "New York Knight.pdf", out: "new-york-knights.png", dest: outFranchises },
-  { file: "Texas Thunder.pdf", out: "texas-thunder.png", dest: outFranchises },
+  { file: "Texas Thunders.pdf", out: "texas-thunder.png", dest: outFranchises },
   { file: "Virginia Vikings.pdf", out: "virginia-vikings.png", dest: outFranchises },
   { file: "WES Logo.pdf", out: "wesley-elite-sports.png", dest: outBrand },
   { file: "logo options .pdf", out: "uscl-logo-options.png", dest: outBrand },

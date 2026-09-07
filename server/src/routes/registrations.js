@@ -606,6 +606,22 @@ router.patch("/:id/payment-details", approvedRequired, (req, res) => {
         },
       });
 
+      const firstTimeDetails = !prevUtr && !prevShot;
+      if (firstTimeDetails) {
+        const needsPlayingRole =
+          registration.interest === "player" || registration.interest === "captain";
+        const feeInr = await getRegistrationFeeInr(registration.interest || "player");
+        sendRegistrationReceivedEmail({
+          to: registration.email,
+          fullName: registration.fullName,
+          interest: registration.interest,
+          role: needsPlayingRole ? playerRoleLabel(registration.role) : "",
+          company: registration.company,
+          paymentStatus: registration.paymentStatus || registration.payment?.status || "pending",
+          feeInr,
+        });
+      }
+
       return res.json({ registration: withProfileImageUrl(registration) });
     } catch (error) {
       console.error("payment-details update error", error);

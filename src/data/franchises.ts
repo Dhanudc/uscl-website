@@ -58,8 +58,8 @@ export const franchises: Franchise[] = [
   },
   {
     id: "texas-thunder",
-    name: "Texas Thunder",
-    shortName: "Thunder",
+    name: "Texas Thunders",
+    shortName: "Thunders",
     city: "Texas",
     image: "/franchises/texas-thunder.png",
     accent: "#1e4fd6",

@@ -315,9 +315,9 @@ export const wesleyContent = {
   about:
     "Wesley Elite Sports is a Hyderabad-based sports management organization specializing in professionally managed corporate cricket tournaments. We create sporting experiences that bring together businesses, professionals, and industry leaders while promoting networking, employee engagement, and brand visibility. Our expertise lies in planning and executing premium corporate cricket events with world-class operations and memorable participant experiences.",
   vision:
-    "To make corporate sports a national platform for talent, culture, and long-term professional networks.",
+    "To become India's leading corporate sports management company by creating franchise-based leagues, premium sporting experiences, and innovative business networking platforms across industries.",
   mission:
-    "Design and deliver premium tournament experiences — from player registration and auctions to finals and award ceremonies.",
+    "To build India's most prestigious corporate sports platform by bringing together businesses, professionals, and industry leaders through world-class sporting events that create lasting business relationships, memorable experiences, and sustainable sporting properties.",
   services: [
     "Tournament Management",
     "Corporate Networking",

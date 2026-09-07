@@ -5,7 +5,7 @@ export const FRANCHISES = [
   { id: "florida-falcons", name: "Florida Falcons" },
   { id: "new-jersey-jaguars", name: "New Jersey Jaguars" },
   { id: "new-york-knights", name: "New York Knights" },
-  { id: "texas-thunder", name: "Texas Thunder" },
+  { id: "texas-thunder", name: "Texas Thunders" },
   { id: "virginia-vikings", name: "Virginia Vikings" },
 ];
 

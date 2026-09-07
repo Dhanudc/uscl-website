@@ -4,6 +4,7 @@ import LeagueFormatShowcase from "../components/LeagueFormatShowcase";
 import LeagueTagline from "../components/LeagueTagline";
 import PageShell from "../components/PageShell";
 import RegisterCta from "../components/RegisterCta";
+import ZoomableImage from "../components/ZoomableImage";
 import { aboutSections, boardMembers, siteStats } from "../data/siteContent";
 
 function FeaturedAboutBlock({ block, imageFirst = true }) {
@@ -121,10 +122,10 @@ export default function About() {
                       key={member.id}
                       className="rounded-xl border border-[color:var(--border)] bg-ink-card p-5"
                     >
-                      <img
+                      <ZoomableImage
                         src={member.image}
                         alt={member.name}
-                        className="mx-auto h-24 w-24 rounded-full border border-[color:var(--border)] object-cover sm:mx-0"
+                        className="mx-auto h-28 w-28 rounded-full border border-[color:var(--border)] object-cover sm:mx-0 sm:h-32 sm:w-32"
                       />
                       <h3 className="mt-4 font-display text-lg text-[color:var(--title)]">{member.name}</h3>
                       <p className="mt-0.5 text-sm italic text-[color:var(--text-muted)]">{member.role}</p>
@@ -166,13 +167,13 @@ export default function About() {
             className="panel max-h-[90vh] w-full max-w-lg overflow-auto rounded-2xl p-5"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start gap-4">
-              <img
+            <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+              <ZoomableImage
                 src={openMember.image}
                 alt={openMember.name}
-                className="h-20 w-20 shrink-0 rounded-full border border-[color:var(--border)] object-cover"
+                className="h-36 w-36 shrink-0 rounded-full border border-[color:var(--border)] object-cover sm:h-40 sm:w-40"
               />
-              <div className="min-w-0">
+              <div className="min-w-0 text-center sm:text-left">
                 <h3 id="member-modal-title" className="font-display text-2xl text-[color:var(--title)]">
                   {openMember.name}
                 </h3>

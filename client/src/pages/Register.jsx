@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import PasswordInput from "../components/PasswordInput";
 import PlayerDataConsentForm from "../components/PlayerDataConsentForm";
@@ -26,7 +26,6 @@ const REGISTER_TYPES = [
 ];
 
 export default function Register() {
-  const navigate = useNavigate();
   const { user, loading, refresh } = useAuth();
   const { registrationEnabled, loading: settingsLoading } = useSiteSettings();
   const [searchParams] = useSearchParams();
@@ -40,13 +39,7 @@ export default function Register() {
   const [feeError, setFeeError] = useState("");
   const [paymentConfigured, setPaymentConfigured] = useState(true);
   const [paymentProvider, setPaymentProvider] = useState("razorpay");
-  const [pendingSave, setPendingSave] = useState(null);
   const pendingSaveRef = useRef(null);
-  const [utrNumber, setUtrNumber] = useState("");
-  const [screenshotFile, setScreenshotFile] = useState(null);
-  const [screenshotPreview, setScreenshotPreview] = useState("");
-  const [modalError, setModalError] = useState("");
-  const [finishing, setFinishing] = useState(false);
   /** Set from the pre-register popup: captain | player | franchise | sponsor */
   const [registerInterest, setRegisterInterest] = useState(null);
   const [sponsorPackageId, setSponsorPackageId] = useState("");
@@ -135,32 +128,14 @@ export default function Register() {
   useEffect(() => {
     return () => {
       if (preview) URL.revokeObjectURL(preview);
-      if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
     };
-  }, [preview, screenshotPreview]);
+  }, [preview]);
 
-  function clearPaymentModalFields() {
-    setUtrNumber("");
-    setScreenshotFile(null);
-    if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
-    setScreenshotPreview("");
-    setModalError("");
-  }
-
-  function openPaymentDetailsPopup(payload) {
-    pendingSaveRef.current = payload;
-    setPendingSave(payload);
-    clearPaymentModalFields();
-  }
-
-  function closePaymentModal({ redirectToDashboard = false } = {}) {
+  function clearPendingSession() {
     pendingSaveRef.current = null;
-    setPendingSave(null);
-    clearPaymentModalFields();
-    if (redirectToDashboard) navigate("/dashboard");
   }
 
-  async function finalizeRegistration({ utr = "", screenshot = null, closeModal = true }) {
+  async function finalizeRegistration({ utr = "", screenshot = null } = {}) {
     const pending = pendingSaveRef.current;
     if (!pending) {
       throw new Error("Registration session expired. Please submit the form again.");
@@ -202,7 +177,7 @@ export default function Register() {
         body: formData,
       });
       setExisting(data.registration);
-      if (closeModal) closePaymentModal({ redirectToDashboard: true });
+      clearPendingSession();
       return data.registration;
     } catch (err) {
       if (/already have an active/i.test(err.message || "")) {
@@ -211,7 +186,7 @@ export default function Register() {
           const reg = data.registrations?.[0] || null;
           if (reg) {
             setExisting(reg);
-            if (closeModal) closePaymentModal({ redirectToDashboard: true });
+            clearPendingSession();
             return reg;
           }
         } catch {
@@ -220,32 +195,6 @@ export default function Register() {
       }
       throw err;
     }
-  }
-
-  async function savePaymentDetails(registration) {
-    const nextUtr = utrNumber.trim();
-    const utrChanged = Boolean(nextUtr);
-    const shotChanged = Boolean(screenshotFile);
-
-    if (!utrChanged && !shotChanged) {
-      throw new Error("No payment changes to save. Enter a UTR or upload a screenshot.");
-    }
-
-    const formData = new FormData();
-    formData.set("fullName", registration.fullName || pendingSave?.fullName || "player");
-    if (utrChanged) formData.set("utrNumber", nextUtr);
-    if (shotChanged) {
-      const compressed = await compressImageForUpload(screenshotFile);
-      formData.set("paymentScreenshot", compressed);
-    }
-
-    const data = await api(`/api/registrations/${registration._id}/payment-details`, {
-      method: "PATCH",
-      body: formData,
-    });
-    setExisting(data.registration);
-    closePaymentModal({ redirectToDashboard: true });
-    return data.registration;
   }
 
   async function onSubmit(e) {
@@ -288,6 +237,11 @@ export default function Register() {
         sponsorPackageId: registerInterest === "sponsor" ? sponsorPackageId : "",
       };
       const agreedToTerms = form.agreedToTerms.checked;
+      if (!agreedToTerms) {
+        throw new Error(
+          "Please read and agree to the USCL Player Data Processing & Sharing Consent."
+        );
+      }
 
       if (!user) {
         if (!values.password || values.password.length < 6) {
@@ -334,12 +288,17 @@ export default function Register() {
           paymentStatus = /cancel/i.test(paymentNote) ? "cancelled" : "failed";
         }
       } else {
-        paymentNote = "Online payment is not configured. Add UTR / screenshot if you paid offline.";
+        paymentNote =
+          "Online payment is not configured on the server. Registration will be saved as pending.";
         paymentStatus = "pending";
       }
 
+      if (paymentConfigured && paymentStatus !== "paid") {
+        throw new Error(paymentNote || "Payment was not completed. Please try again.");
+      }
+
       const compressedPhoto = await compressImageForUpload(photoFile);
-      const payload = {
+      pendingSaveRef.current = {
         values,
         photoFile: compressedPhoto,
         agreedToTerms,
@@ -349,78 +308,13 @@ export default function Register() {
         fullName: values.fullName,
       };
 
-      pendingSaveRef.current = payload;
-
-      if (paymentStatus === "paid") {
-        try {
-          const registration = await finalizeRegistration({
-            utr: "",
-            screenshot: null,
-            closeModal: false,
-          });
-          openPaymentDetailsPopup({
-            ...payload,
-            paymentNote: "",
-            savedRegistration: registration,
-          });
-        } catch (err) {
-          openPaymentDetailsPopup({
-            ...payload,
-            paymentNote: err.message || "Could not save registration.",
-          });
-        }
-      } else {
-        openPaymentDetailsPopup(payload);
-      }
+      await finalizeRegistration();
     } catch (err) {
       setError(err.message);
+      clearPendingSession();
       await refresh();
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function onContinueWithDetails() {
-    if (!pendingSaveRef.current) return;
-    setModalError("");
-    setFinishing(true);
-    try {
-      const saved = pendingSaveRef.current.savedRegistration;
-      if (saved) {
-        await savePaymentDetails(saved);
-      } else {
-        let screenshot = screenshotFile;
-        if (screenshot) screenshot = await compressImageForUpload(screenshot);
-        await finalizeRegistration({
-          utr: utrNumber.trim(),
-          screenshot,
-        });
-      }
-    } catch (err) {
-      setModalError(err.message);
-    } finally {
-      setFinishing(false);
-    }
-  }
-
-  async function onSkipDetails() {
-    if (!pendingSaveRef.current) return;
-    if (pendingSaveRef.current.savedRegistration) {
-      closePaymentModal({ redirectToDashboard: true });
-      return;
-    }
-    setModalError("");
-    setUtrNumber("");
-    setScreenshotFile(null);
-    if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
-    setScreenshotPreview("");
-    setFinishing(true);
-    try {
-      await finalizeRegistration({ utr: "", screenshot: null });
-    } catch (err) {
-      setModalError(err.message);
-    } finally {
-      setFinishing(false);
     }
   }
 
@@ -444,7 +338,12 @@ export default function Register() {
 
         {existing ? (
           <div className="panel mt-5 space-y-3 rounded-lg p-5">
-            <p className="font-display text-xl text-[color:var(--title)]">Details saved</p>
+            <AlertBanner tone="ok">
+              {getPaymentStatus(existing) === "paid"
+                ? "Registration successful. Payment received and a confirmation email has been sent."
+                : "Registration submitted successfully. A confirmation email has been sent."}
+            </AlertBanner>
+            <p className="font-display text-xl text-[color:var(--title)]">Registration successful</p>
             <p className="text-sm text-[color:var(--text-muted)]">
               Status: <strong className="uppercase text-accent">{existing.status}</strong>
             </p>
@@ -625,7 +524,8 @@ export default function Register() {
               ) : null}
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
                 {paymentProviderLabel(paymentProvider)} checkout opens after you click Pay &amp;
-                Submit. Registration is saved after payment (or if you add offline payment details).
+                Submit. After payment succeeds, your registration is saved and a confirmation email
+                is sent.
               </p>
               {!paymentConfigured && (
                 <p className="mt-2 text-xs text-accent">
@@ -658,7 +558,7 @@ export default function Register() {
             {error && <p className="sm:col-span-2 text-sm text-accent">{error}</p>}
             <button
               type="submit"
-              disabled={submitting || Boolean(pendingSave) || feeLoading || feeInr == null}
+              disabled={submitting || feeLoading || feeInr == null}
               className="btn-primary sm:col-span-2"
             >
               {submitting
@@ -795,118 +695,6 @@ export default function Register() {
                 onClick={() => setShowConsentModal(false)}
               >
                 Close
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {pendingSave ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="payment-details-title"
-            className="panel relative w-full max-w-md rounded-2xl p-5"
-          >
-            <p className="eyebrow text-accent">
-              {pendingSave.savedRegistration
-                ? "Almost done"
-                : pendingSave.paymentNote
-                  ? "Payment incomplete"
-                  : "Almost done"}
-            </p>
-            <h2 id="payment-details-title" className="mt-1 font-display text-2xl text-[color:var(--title)]">
-              {pendingSave.savedRegistration ? "Add payment details" : "Save your registration"}
-            </h2>
-            <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-              {pendingSave.fullName}
-            </p>
-            {pendingSave.savedRegistration ? (
-              <AlertBanner tone="ok">
-                Payment received and registration saved. Add UTR and a screenshot now, or skip and add them later from your dashboard.
-              </AlertBanner>
-            ) : pendingSave.paymentNote ? (
-              <AlertBanner tone="error">{pendingSave.paymentNote}</AlertBanner>
-            ) : (
-              <AlertBanner tone="ok">
-                Payment received. You can add UTR and a screenshot now, or skip and add them later.
-              </AlertBanner>
-            )}
-            <p className="mt-3 text-sm text-[color:var(--text-muted)]">
-              {pendingSave.savedRegistration
-                ? "Optional: add bank UTR and payment screenshot so admin can verify faster."
-                : pendingSave.paymentNote
-                  ? "You can still save your registration. Optionally add UTR / screenshot if you paid another way."
-                  : "Optional: add bank UTR and payment screenshot so admin can verify faster."}
-            </p>
-
-            <label className="mt-4 block text-sm">
-              <span className="text-[color:var(--text-muted)]">UTR number (optional)</span>
-              <input
-                type="text"
-                value={utrNumber}
-                onChange={(e) => {
-                  setUtrNumber(e.target.value);
-                  if (modalError) setModalError("");
-                }}
-                className="input-dark mt-1.5"
-                placeholder="Enter UTR number"
-              />
-              {modalError && /utr/i.test(modalError) ? (
-                <p className="mt-1.5 text-xs text-accent">{modalError}</p>
-              ) : null}
-            </label>
-
-            <label className="mt-3 block text-sm">
-              <span className="text-[color:var(--text-muted)]">Payment screenshot (optional)</span>
-              <input
-                type="file"
-                accept="image/*"
-                className="mt-1.5 block w-full text-sm text-[color:var(--text-muted)] file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  setScreenshotFile(file);
-                  if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
-                  setScreenshotPreview(file ? URL.createObjectURL(file) : "");
-                }}
-              />
-              <p className="mt-1.5 text-xs text-[color:var(--text-muted)]">
-                Please add your payment screenshot
-              </p>
-              {screenshotPreview ? (
-                <img
-                  src={screenshotPreview}
-                  alt="Payment screenshot preview"
-                  className="mt-3 h-28 w-auto max-w-full rounded-lg border border-[color:var(--border)] object-contain"
-                />
-              ) : null}
-            </label>
-
-            {modalError && !/utr/i.test(modalError) ? (
-              <p className="mt-3 text-sm text-accent">{modalError}</p>
-            ) : null}
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={finishing}
-                onClick={onContinueWithDetails}
-                className="btn-primary"
-              >
-                {finishing ? "Saving..." : "Save with details"}
-              </button>
-              <button
-                type="button"
-                disabled={finishing}
-                onClick={onSkipDetails}
-                className="btn-ghost"
-              >
-                {finishing
-                  ? "Saving..."
-                  : pendingSave.savedRegistration
-                    ? "Skip for now"
-                    : "Skip and save"}
               </button>
             </div>
           </div>
