@@ -153,11 +153,10 @@ export default function Home() {
 
       <section className="arena border-b border-[color:var(--border)] px-4 py-14">
         <div className="mx-auto max-w-6xl text-center">
-          <p className="eyebrow text-accent">Auction</p>
-          <h2 className="font-display mt-1 text-2xl text-[color:var(--title)] md:text-[1.85rem]">
-            Auction starts in
+          <h2 className="font-display text-[clamp(2.15rem,6.5vw,3.5rem)] leading-none tracking-tight text-[color:var(--title)]">
+            AUCTION
           </h2>
-          <p className="mt-3 inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-full border border-accent/35 bg-accent/10 px-4 py-1.5 text-sm font-semibold text-accent-soft">
+          <p className="mt-4 inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-full border border-accent/35 bg-accent/10 px-4 py-1.5 text-sm font-semibold text-accent-soft">
             <span>{AUCTION_DATE_LABEL}</span>
             <span aria-hidden="true" className="text-[color:var(--text-muted)]">
               ·
