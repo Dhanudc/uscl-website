@@ -2421,3 +2421,65 @@ video {
     animation: none;
   }
 }
+
+.social-side-dock {
+  position: fixed;
+  top: 42%;
+  right: max(0.7rem, env(safe-area-inset-right));
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.social-side-dock:active {
+  cursor: grabbing;
+}
+
+.social-side-dock__btn {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: 0.9rem;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+  transition: transform 0.16s ease, filter 0.16s ease;
+}
+
+.social-side-dock__btn svg {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
+.social-side-dock__btn:hover {
+  transform: scale(1.06);
+  filter: brightness(1.06);
+}
+
+.social-side-dock__btn.is-facebook {
+  background: #1877f2;
+}
+
+.social-side-dock__btn.is-instagram {
+  background: radial-gradient(circle at 30% 110%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285aeb 90%);
+}
+
+.social-side-dock__btn.is-whatsapp {
+  background: #25d366;
+}
+
+@media (max-width: 640px) {
+  .social-side-dock__btn {
+    width: 2.65rem;
+    height: 2.65rem;
+    border-radius: 0.8rem;
+  }
+
+  .social-side-dock__btn svg {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+}

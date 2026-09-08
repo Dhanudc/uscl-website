@@ -21,6 +21,7 @@ export default function RegisterCta({
   return (
     <Link
       to="/register"
+      onClick={() => window.scrollTo(0, 0)}
       className={className}
       title={
         registrationEnabled

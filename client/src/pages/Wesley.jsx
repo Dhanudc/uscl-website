@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 import { wesleyContent } from "../data/siteContent";
+import { phoneToWhatsAppHref } from "../utils/whatsapp";
 
 export default function Wesley() {
   const {
@@ -16,6 +17,7 @@ export default function Wesley() {
     pastTournaments,
   } = wesleyContent;
   const { contact, socials } = useSiteSettings();
+  const phoneWhatsApp = phoneToWhatsAppHref(contact.phone);
 
   return (
     <PageShell eyebrow="Organizer" title={title} subtitle={tagline}>
@@ -126,7 +128,12 @@ export default function Wesley() {
           </p>
           <p>
             Phone:{" "}
-            <a href={`tel:${String(contact.phone || "").replace(/\s/g, "")}`} className="text-accent">
+            <a
+              href={phoneWhatsApp || `tel:${String(contact.phone || "").replace(/\s/g, "")}`}
+              target={phoneWhatsApp ? "_blank" : undefined}
+              rel="noreferrer"
+              className="text-accent"
+            >
               {contact.phone}
             </a>
           </p>

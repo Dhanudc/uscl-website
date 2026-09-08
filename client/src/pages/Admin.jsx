@@ -2490,14 +2490,15 @@ function SocialMediaPage() {
     { label: "Instagram", href: "#" },
     { label: "LinkedIn", href: "#" },
     { label: "YouTube", href: "#" },
-    { label: "Twitter (X)", href: "#" },
+    { label: "WhatsApp", href: "https://wa.me/917386671777" },
   ]);
+  const [whatsappGroupUrl, setWhatsappGroupUrl] = useState("");
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const PLATFORM_ORDER = ["Facebook", "Instagram", "LinkedIn", "YouTube", "Twitter (X)"];
+  const PLATFORM_ORDER = ["Facebook", "Instagram", "LinkedIn", "YouTube", "WhatsApp"];
 
   useEffect(() => {
     setLoading(true);
@@ -2505,13 +2506,24 @@ function SocialMediaPage() {
       .then((data) => {
         setContact(data.settings?.contact || { email: "", phone: "", address: "" });
         const incoming = data.settings?.socials || [];
-        const byLabel = Object.fromEntries(incoming.map((s) => [s.label, s.href || "#"]));
+        const byLabel = Object.fromEntries(
+          incoming.map((s) => {
+            const label = /twitter|^x$/i.test(String(s.label || "").replace(/[^a-zA-Z]/g, ""))
+              ? "WhatsApp"
+              : s.label;
+            return [label, s.href || "#"];
+          })
+        );
         setSocials(
           PLATFORM_ORDER.map((label) => ({
             label,
-            href: byLabel[label] || "#",
+            href:
+              label === "WhatsApp" && (!byLabel[label] || byLabel[label] === "#")
+                ? "https://wa.me/917386671777"
+                : byLabel[label] || "#",
           }))
         );
+        setWhatsappGroupUrl(data.settings?.whatsappGroupUrl || "");
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -2531,6 +2543,7 @@ function SocialMediaPage() {
       const payload = {
         contact,
         socials: socials.map((s) => ({ label: s.label, href: s.href || "#", iconUrl: "" })),
+        whatsappGroupUrl,
       };
       const data = await api("/api/admin/settings", {
         method: "PUT",
@@ -2539,6 +2552,7 @@ function SocialMediaPage() {
       setContact(data.settings.contact);
       const byLabel = Object.fromEntries((data.settings.socials || []).map((s) => [s.label, s.href || "#"]));
       setSocials(PLATFORM_ORDER.map((label) => ({ label, href: byLabel[label] || "#" })));
+      setWhatsappGroupUrl(data.settings.whatsappGroupUrl || "");
       await refresh();
       setOk("Published to the website.");
     } catch (err) {
@@ -2584,6 +2598,9 @@ function SocialMediaPage() {
                     placeholder="+91 99999 99999"
                     required
                   />
+                  <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+                    Opens WhatsApp chat on the public site.
+                  </span>
                 </label>
                 <label className="block text-sm">
                   <span className="font-medium text-[color:var(--text)]">Address</span>
@@ -2620,6 +2637,28 @@ function SocialMediaPage() {
                     />
                   </label>
                 ))}
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
+              <div className="border-b border-[color:var(--border)] px-5 py-4">
+                <p className="eyebrow text-accent">Floating WhatsApp</p>
+                <h2 className="font-display mt-1 text-xl text-[color:var(--title)]">Group join link</h2>
+                <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                  Used by the WhatsApp icon on the right side of the public site. Paste a group invite such as
+                  https://chat.whatsapp.com/...
+                </p>
+              </div>
+              <div className="p-5">
+                <label className="block text-sm">
+                  <span className="font-medium text-[color:var(--text)]">WhatsApp group link</span>
+                  <input
+                    className="input-dark mt-1.5"
+                    value={whatsappGroupUrl}
+                    onChange={(e) => setWhatsappGroupUrl(e.target.value)}
+                    placeholder="https://chat.whatsapp.com/..."
+                  />
+                </label>
               </div>
             </section>
 
@@ -2665,6 +2704,15 @@ function SocialMediaPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              <div className="border-t border-[color:var(--border)] pt-4">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+                  WhatsApp group
+                </p>
+                <p className="mt-2 break-all text-xs text-[color:var(--text)]">
+                  {whatsappGroupUrl || "Uses the phone number until a group link is saved."}
+                </p>
               </div>
             </div>
           </aside>

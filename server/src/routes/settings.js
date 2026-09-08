@@ -17,6 +17,7 @@ router.get("/", async (_req, res) => {
         socials: settings.socials,
         registrationEnabled: isRegistrationEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
+        whatsappGroupUrl: settings.whatsappGroupUrl || "",
       },
     });
   } catch (error) {

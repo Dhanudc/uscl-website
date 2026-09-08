@@ -64,7 +64,7 @@ const siteSettingsSchema = new mongoose.Schema(
         { label: "Instagram", href: "#", iconUrl: "" },
         { label: "LinkedIn", href: "#", iconUrl: "" },
         { label: "YouTube", href: "#", iconUrl: "" },
-        { label: "Twitter (X)", href: "#", iconUrl: "" },
+        { label: "WhatsApp", href: "https://wa.me/917386671777", iconUrl: "" },
       ],
     },
     registrationFees: {
@@ -94,12 +94,57 @@ const siteSettingsSchema = new mongoose.Schema(
       enum: ["razorpay", "cashfree"],
       default: "razorpay",
     },
+    /** Invite URL opened by the floating WhatsApp button. */
+    whatsappGroupUrl: { type: String, default: "" },
   },
   { timestamps: true }
 );
 
 export const SiteSettings =
   mongoose.models.SiteSettings || mongoose.model("SiteSettings", siteSettingsSchema);
+
+const DEFAULT_WHATSAPP_HREF = "https://wa.me/917386671777";
+
+function isTwitterLabel(label) {
+  const key = String(label || "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  return key === "twitter" || key === "twitterx" || key === "x";
+}
+
+function isWhatsAppHref(href) {
+  return /wa\.me|whatsapp\.com|api\.whatsapp/i.test(String(href || ""));
+}
+
+export function normalizeSocials(socials, contact) {
+  const phoneDigits = String(contact?.phone || "").replace(/\D/g, "");
+  const fallbackHref =
+    phoneDigits.length >= 10 && !/^91?9{5,}/.test(phoneDigits)
+      ? `https://wa.me/${phoneDigits}`
+      : DEFAULT_WHATSAPP_HREF;
+
+  const mapped = (Array.isArray(socials) ? socials : []).map((item) => {
+    const label = String(item?.label || "").trim();
+    const href = String(item?.href || "").trim() || "#";
+    const iconUrl = String(item?.iconUrl || "").trim();
+    if (isTwitterLabel(label) || /^whatsapp$/i.test(label)) {
+      return {
+        label: "WhatsApp",
+        href: isWhatsAppHref(href) ? href : fallbackHref,
+        iconUrl,
+      };
+    }
+    return { label, href, iconUrl };
+  });
+
+  const seen = new Set();
+  return mapped.filter((item) => {
+    const key = item.label.toLowerCase();
+    if (!item.label || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 export const DEFAULT_SITE_SETTINGS = {
   contact: {
@@ -112,7 +157,7 @@ export const DEFAULT_SITE_SETTINGS = {
     { label: "Instagram", href: "#", iconUrl: "" },
     { label: "LinkedIn", href: "#", iconUrl: "" },
     { label: "YouTube", href: "#", iconUrl: "" },
-    { label: "Twitter (X)", href: "#", iconUrl: "" },
+    { label: "WhatsApp", href: DEFAULT_WHATSAPP_HREF, iconUrl: "" },
   ],
   registrationFees: {
     captain: 999,
@@ -127,6 +172,7 @@ export const DEFAULT_SITE_SETTINGS = {
   registrationEnabled: true,
   moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
   paymentGateway: "razorpay",
+  whatsappGroupUrl: "",
 };
 
 export function getPaymentGateway(settings) {
@@ -139,6 +185,15 @@ export async function getSiteSettings() {
   if (!doc) {
     doc = await SiteSettings.create({ key: "default", ...DEFAULT_SITE_SETTINGS });
   }
+
+  const nextSocials = normalizeSocials(doc.socials, doc.contact);
+  const prev = JSON.stringify((doc.socials || []).map((s) => ({ label: s.label, href: s.href, iconUrl: s.iconUrl || "" })));
+  const next = JSON.stringify(nextSocials);
+  if (prev !== next) {
+    doc.socials = nextSocials;
+    await doc.save();
+  }
+
   return doc;
 }
 

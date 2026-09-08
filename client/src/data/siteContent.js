@@ -371,7 +371,7 @@ export const socialLinks = [
   { label: "Instagram", href: "#" },
   { label: "LinkedIn", href: "#" },
   { label: "YouTube", href: "#" },
-  { label: "Twitter (X)", href: "#" },
+  { label: "WhatsApp", href: "https://wa.me/917386671777" },
 ];
 
 export const AUCTION_TARGET = new Date("2026-10-07T10:00:00+05:30");

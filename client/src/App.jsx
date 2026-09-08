@@ -1,10 +1,11 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { SiteSettingsProvider } from "./context/SiteSettingsContext";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import SocialSideDock from "./components/SocialSideDock";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Wesley from "./pages/Wesley";
@@ -45,6 +46,7 @@ function PublicShell({ children }) {
       <Header />
       <main className="flex-1">{children}</main>
       <Footer />
+      <SocialSideDock />
     </div>
   );
 }
@@ -53,6 +55,15 @@ function AppRoutes() {
   const location = useLocation();
   const { refresh } = useAuth();
   const isAdminArea = location.pathname.startsWith("/admin");
+
+  useLayoutEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [location.pathname, location.search, location.key]);
 
   useEffect(() => {
     refresh();

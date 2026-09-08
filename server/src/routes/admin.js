@@ -5,7 +5,7 @@ import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { getSiteSettings, getPaymentGateway, getModuleVisibility, isRegistrationEnabled, normalizeModuleVisibility } from "../models/SiteSettings.js";
+import { getSiteSettings, getPaymentGateway, getModuleVisibility, isRegistrationEnabled, normalizeModuleVisibility, normalizeSocials } from "../models/SiteSettings.js";
 import { getGatewayStatus } from "../utils/paymentGateway.js";
 import { normalizeRegistrationFees, getRegistrationFeeInr } from "../utils/registrationFees.js";
 import { User } from "../models/User.js";
@@ -804,6 +804,7 @@ router.get("/settings", adminRequired, async (_req, res) => {
         moduleVisibility: getModuleVisibility(settings),
         paymentGateway: getPaymentGateway(settings),
         paymentGatewayStatus: getGatewayStatus(),
+        whatsappGroupUrl: settings.whatsappGroupUrl || "",
       },
     });
   } catch (error) {
@@ -828,14 +829,20 @@ router.put("/settings", adminRequired, async (req, res) => {
     }
 
     if (Array.isArray(req.body.socials)) {
-      settings.socials = req.body.socials
-        .map((s) => ({
+      settings.socials = normalizeSocials(
+        req.body.socials.map((s) => ({
           label: String(s.label || "").trim(),
           href: String(s.href || "#").trim() || "#",
           iconUrl: String(s.iconUrl || "").trim(),
-        }))
-        .filter((s) => s.label);
+        })),
+        req.body.contact || settings.contact
+      );
       auditBits.push(`${settings.socials.length} social links`);
+    }
+
+    if (typeof req.body.whatsappGroupUrl === "string") {
+      settings.whatsappGroupUrl = String(req.body.whatsappGroupUrl).trim();
+      auditBits.push("WhatsApp group link");
     }
 
     if (req.body.registrationFees) {
@@ -897,6 +904,7 @@ router.put("/settings", adminRequired, async (req, res) => {
         moduleVisibility: getModuleVisibility(settings),
         paymentGateway: getPaymentGateway(settings),
         paymentGatewayStatus: getGatewayStatus(),
+        whatsappGroupUrl: settings.whatsappGroupUrl || "",
       },
     });
   } catch (error) {

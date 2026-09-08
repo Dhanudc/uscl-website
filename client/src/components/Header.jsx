@@ -92,6 +92,7 @@ export default function Header() {
                 key={`${link.label}-${link.to}`}
                 to={link.to}
                 end={link.end}
+                onClick={() => window.scrollTo(0, 0)}
                 className={({ isActive }) =>
                   `rounded px-2.5 py-1.5 text-[13px] font-medium whitespace-nowrap ${
                     isActive
@@ -172,6 +173,7 @@ export default function Header() {
                     key={`mobile-${link.label}-${link.to}`}
                     to={link.to}
                     end={link.end}
+                    onClick={() => window.scrollTo(0, 0)}
                     className={({ isActive }) => navClass(isActive)}
                   >
                     {link.label}
