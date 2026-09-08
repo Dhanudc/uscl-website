@@ -2459,8 +2459,8 @@ video {
   filter: brightness(1.06);
 }
 
-.social-side-dock__btn.is-facebook {
-  background: #1877f2;
+.social-side-dock__btn.is-linkedin {
+  background: #0a66c2;
 }
 
 .social-side-dock__btn.is-instagram {

@@ -11,12 +11,12 @@ function socialHref(socials, label) {
   return href && href !== "#" ? href : "";
 }
 
-function FacebookMark() {
+function LinkedInMark() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path
         fill="#fff"
-        d="M14.6 8.2h2.1V5.4h-2.1c-2.6 0-4.3 1.6-4.3 4.3v1.7H8.3v2.9h2v7.4h3.3v-7.4h2.4l.5-2.9h-2.9V9.9c0-.9.4-1.7 1.6-1.7Z"
+        d="M7.4 9.3H4.6V19h2.8V9.3ZM6 4.2A1.6 1.6 0 1 0 6 7.4 1.6 1.6 0 0 0 6 4.2ZM19.4 19h-2.8v-4.7c0-1.3-.5-2.1-1.6-2.1-.9 0-1.4.6-1.6 1.2-.1.2-.1.5-.1.8V19h-2.8s.04-8.8 0-9.7h2.8v1.4c.4-.6 1.1-1.5 2.7-1.5 2 0 3.4 1.3 3.4 4.1V19Z"
       />
     </svg>
   );
@@ -66,13 +66,13 @@ export default function SocialSideDock() {
     setPos(readStoredPos());
   }, []);
 
-  const facebook = socialHref(socials, "facebook");
+  const linkedin = socialHref(socials, "linkedin");
   const instagram = socialHref(socials, "instagram");
   const whatsapp =
     (isHttpUrl(whatsappGroupUrl) ? whatsappGroupUrl.trim() : "") || phoneToWhatsAppHref(contact.phone);
 
   const items = [
-    { key: "facebook", href: facebook, label: "Facebook", className: "is-facebook", icon: <FacebookMark /> },
+    { key: "linkedin", href: linkedin, label: "LinkedIn", className: "is-linkedin", icon: <LinkedInMark /> },
     { key: "instagram", href: instagram, label: "Instagram", className: "is-instagram", icon: <InstagramMark /> },
     { key: "whatsapp", href: whatsapp, label: "WhatsApp", className: "is-whatsapp", icon: <WhatsAppMark /> },
   ];
