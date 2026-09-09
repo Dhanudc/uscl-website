@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, apiDownload } from "../api";
 import PasswordInput from "../components/PasswordInput";
@@ -355,6 +355,7 @@ function PlayersPage() {
   const [markingPaid, setMarkingPaid] = useState(false);
   const [ownerTeam, setOwnerTeam] = useState({});
   const [interestFilter, setInterestFilter] = useState("franchise");
+  const [playerSearch, setPlayerSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [imageBusyId, setImageBusyId] = useState("");
   const [editReg, setEditReg] = useState(null);
@@ -738,46 +739,82 @@ function PlayersPage() {
     rejected: ["Rejected players", "Players you already rejected."],
   };
 
+  const filteredRegs = useMemo(() => {
+    const q = playerSearch.trim().toLowerCase();
+    if (!q) return regs;
+    const qDigits = q.replace(/\D/g, "");
+    return regs.filter((reg) => {
+      const code = String(reg.playerCode || "").toLowerCase();
+      const name = String(reg.fullName || "").toLowerCase();
+      const email = String(reg.email || "").toLowerCase();
+      const phone = String(reg.phone || "").toLowerCase();
+      const phoneDigits = phone.replace(/\D/g, "");
+      return (
+        code.includes(q) ||
+        name.includes(q) ||
+        email.includes(q) ||
+        phone.includes(q) ||
+        (qDigits.length >= 3 && phoneDigits.includes(qDigits))
+      );
+    });
+  }, [regs, playerSearch]);
+
   return (
     <AdminShell title={titles[page][0]} subtitle={titles[page][1]}>
-      <div className="mb-3 flex flex-wrap gap-2">
-        {[
-          ["all", "All"],
-          ["captain", "Captain"],
-          ["player", "Player"],
-          ["franchise", "Franchise"],
-          ["sponsor", "Sponsor"],
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setInterestFilter(key)}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
-              interestFilter === key
-                ? "bg-accent text-white"
-                : "border border-[color:var(--border-strong)] text-[color:var(--text-muted)]"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-      <div className="mb-4 flex flex-wrap gap-2">
-        {[
-          ["pending", "Pending"],
-          ["accepted", "Accepted"],
-          ["rejected", "Rejected"],
-        ].map(([key, label]) => (
-          <Link
-            key={key}
-            to={`/admin/players/${key}`}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
-              page === key ? "bg-accent text-white" : "border border-[color:var(--border-strong)] text-[color:var(--text-muted)]"
-            }`}
-          >
-            {label}
-          </Link>
-        ))}
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {[
+              ["all", "All"],
+              ["captain", "Captain"],
+              ["player", "Player"],
+              ["franchise", "Franchise"],
+              ["sponsor", "Sponsor"],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setInterestFilter(key)}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+                  interestFilter === key
+                    ? "bg-accent text-white"
+                    : "border border-[color:var(--border-strong)] text-[color:var(--text-muted)]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[
+              ["pending", "Pending"],
+              ["accepted", "Accepted"],
+              ["rejected", "Rejected"],
+            ].map(([key, label]) => (
+              <Link
+                key={key}
+                to={`/admin/players/${key}`}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+                  page === key
+                    ? "bg-accent text-white"
+                    : "border border-[color:var(--border-strong)] text-[color:var(--text-muted)]"
+                }`}
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <label className="block w-full shrink-0 lg:max-w-sm">
+          <span className="sr-only">Search players</span>
+          <input
+            value={playerSearch}
+            onChange={(e) => setPlayerSearch(e.target.value)}
+            placeholder="Search player ID, name, mobile, or email"
+            className="input-dark w-full"
+          />
+        </label>
       </div>
 
       {error ? (
@@ -795,13 +832,17 @@ function PlayersPage() {
         <PageLoader message="Loading registrations…" />
       ) : (
       <div className="space-y-3">
-        {regs.length === 0 && (
+        {filteredRegs.length === 0 && (
           <p className="rounded-lg border border-[color:var(--border)] bg-ink-card p-4 text-sm text-[color:var(--text-muted)]">
-            No {page} {interestFilter === "all" ? "registrations" : `${interestFilter}s`} yet.
-            {interestFilter !== "all" ? " Switch to All to see every type." : ""}
+            {playerSearch.trim()
+              ? `No matches for “${playerSearch.trim()}”.`
+              : `No ${page} ${interestFilter === "all" ? "registrations" : `${interestFilter}s`} yet.`}
+            {!playerSearch.trim() && interestFilter !== "all"
+              ? " Switch to All to see every type."
+              : ""}
           </p>
         )}
-        {regs.map((reg) => {
+        {filteredRegs.map((reg) => {
           const shotUrl = paymentScreenshotUrl(reg);
           return (
           <article key={reg._id} className="rounded-lg border border-[color:var(--border)] bg-ink-card p-4">
