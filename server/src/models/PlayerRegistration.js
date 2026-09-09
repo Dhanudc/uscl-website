@@ -14,10 +14,14 @@ const fileSchema = new mongoose.Schema(
 const registrationSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    /** Public serial ID shown everywhere, e.g. 0001, 0002. */
+    playerCode: { type: String, index: true, unique: true, sparse: true },
     fullName: { type: String, required: true },
     email: { type: String, required: true },
     phone: { type: String, required: true },
     company: { type: String, required: true },
+    /** Job title / company designation (e.g. Software Engineer). */
+    designation: { type: String, default: "" },
     role: { type: String, required: true, index: true },
     experienceYears: { type: Number, default: 0, min: 0 },
     city: { type: String, default: "" },

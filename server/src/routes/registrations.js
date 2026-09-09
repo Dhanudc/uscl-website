@@ -26,6 +26,7 @@ import {
 import { sendRegistrationReceivedEmail } from "../utils/mail.js";
 import { getSiteSettings, isRegistrationEnabled } from "../models/SiteSettings.js";
 import { User } from "../models/User.js";
+import { allocateNextPlayerCode } from "../utils/playerCode.js";
 
 const router = Router();
 
@@ -219,7 +220,7 @@ router.get("/squad", approvedRequired, async (req, res) => {
       interest: { $in: ["player", "captain"] },
     })
       .select(
-        "fullName email phone company role interest photo profileImage soldPrice franchiseName auctionStatus paymentStatus payment"
+        "playerCode fullName email phone company designation role interest photo profileImage soldPrice franchiseName auctionStatus paymentStatus payment"
       )
       .sort({ fullName: 1 })
       .lean();
@@ -288,6 +289,7 @@ router.post("/", approvedRequired, (req, res) => {
       const email = String(req.body.email || "").trim().toLowerCase();
       const phone = String(req.body.phone || "").trim();
       const company = String(req.body.company || "").trim();
+      const designation = String(req.body.designation || "").trim();
       const interestRaw = String(req.body.interest || "player").trim().toLowerCase();
       const interest = ["player", "captain", "franchise", "sponsor"].includes(interestRaw)
         ? interestRaw
@@ -424,12 +426,15 @@ router.post("/", approvedRequired, (req, res) => {
       }
 
       const photo = toProfileImageMeta(photoFile);
+      const playerCode = await allocateNextPlayerCode();
       const registration = await PlayerRegistration.create({
         userId: req.user.userId,
+        playerCode,
         fullName,
         email,
         phone,
         company,
+        designation,
         role,
         interest,
         sponsorPackageId: interest === "sponsor" ? sponsorPackageId : "",

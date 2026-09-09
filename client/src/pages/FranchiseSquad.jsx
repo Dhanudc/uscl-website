@@ -80,6 +80,9 @@ export default function FranchiseSquad() {
                   )}
                   <div className="min-w-0">
                     <p className="font-semibold text-[color:var(--title)]">{p.fullName}</p>
+                    {p.playerCode ? (
+                      <p className="text-xs font-semibold text-accent">ID: {p.playerCode}</p>
+                    ) : null}
                     <p className="truncate text-sm text-[color:var(--text-muted)]">
                       {playerRoleLabel(p.role) || p.interest}
                       {p.company ? ` · ${p.company}` : ""}

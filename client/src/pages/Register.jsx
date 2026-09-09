@@ -146,6 +146,7 @@ export default function Register() {
     formData.set("email", pending.values.email);
     formData.set("phone", pending.values.phone);
     formData.set("company", pending.values.company);
+    formData.set("designation", pending.values.designation || "");
     formData.set("role", pending.values.role);
     formData.set("interest", pending.values.interest);
     if (pending.values.sponsorPackageId) {
@@ -232,6 +233,7 @@ export default function Register() {
         phone: form.phone.value.trim(),
         password: form.password?.value || "",
         company: form.company.value.trim(),
+        designation: form.designation?.value?.trim() || "",
         role,
         interest,
         sponsorPackageId: registerInterest === "sponsor" ? sponsorPackageId : "",
@@ -357,9 +359,11 @@ export default function Register() {
               ) : null}
               <div className="grid min-w-0 flex-1 gap-2 text-sm text-[color:var(--text)] sm:grid-cols-2">
                 <p>Name: {existing.fullName}</p>
+                <p>Player ID: {existing.playerCode || "—"}</p>
                 <p>Email: {existing.email}</p>
                 <p>Phone: {existing.phone}</p>
                 <p>Company: {existing.company}</p>
+                <p>Designation: {existing.designation || "—"}</p>
                 <p>
                   Interest:{" "}
                   <strong className="uppercase text-accent-soft">
@@ -460,6 +464,7 @@ export default function Register() {
               <PasswordInput label="Password" name="password" required minLength={6} className="input-dark" />
             ) : null}
             <Field label="Company" name="company" required />
+            <Field label="Designation" name="designation" placeholder="e.g. Software Engineer" required />
             {registerInterest === "player" || registerInterest === "captain" ? (
               <label className="block text-sm">
                 <span className="text-[color:var(--text-muted)]">Role</span>
@@ -704,7 +709,7 @@ export default function Register() {
   );
 }
 
-function Field({ label, name, type = "text", required, defaultValue, minLength }) {
+function Field({ label, name, type = "text", required, defaultValue, minLength, placeholder }) {
   return (
     <label className="block text-sm">
       <span className="text-[color:var(--text-muted)]">{label}</span>
@@ -714,6 +719,7 @@ function Field({ label, name, type = "text", required, defaultValue, minLength }
         required={required}
         defaultValue={defaultValue}
         minLength={minLength}
+        placeholder={placeholder}
         className="input-dark mt-1.5"
       />
     </label>

@@ -335,8 +335,14 @@ export default function Dashboard() {
                       )}
                       <div className="min-w-0">
                         <p className="text-lg font-semibold text-[color:var(--title)]">{reg.fullName}</p>
+                        {reg.playerCode ? (
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">
+                            Player ID: {reg.playerCode}
+                          </p>
+                        ) : null}
                         <p className="text-sm text-[color:var(--text-muted)]">
                           {reg.company}
+                          {reg.designation ? ` · ${reg.designation}` : ""}
                           {reg.interest === "player" || reg.interest === "captain"
                             ? ` · ${playerRoleLabel(reg.role)}`
                             : ""}

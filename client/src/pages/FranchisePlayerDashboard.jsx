@@ -67,9 +67,11 @@ export default function FranchisePlayerDashboard() {
               )}
               <div className="grid min-w-0 flex-1 gap-1.5 text-sm text-[color:var(--text)] sm:grid-cols-2">
                 <p>Name: {player.fullName}</p>
+                <p>Player ID: {player.playerCode || "—"}</p>
                 <p>Email: {player.email}</p>
                 <p>Phone: {player.phone}</p>
                 <p>Company: {player.company}</p>
+                <p>Designation: {player.designation || "—"}</p>
                 <p>Role: {playerRoleLabel(player.role) || "—"}</p>
                 <p>
                   Interest:{" "}

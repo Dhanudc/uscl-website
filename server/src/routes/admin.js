@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { adminRequired, hashPassword } from "../middleware/auth.js";
-import { socialIconUpload, toSocialIconUrl, mapWithProfileImageUrl, withProfileImageUrl, paymentScreenshotUpload, portalImageUpload, portalVideoUpload, profilePhotoUpload, toProfileImageMeta } from "../middleware/upload.js";
+import { socialIconUpload, toSocialIconUrl, mapWithProfileImageUrl, withProfileImageUrl, paymentScreenshotUpload, portalImageUpload, portalVideoUpload, profilePhotoUpload, playerRegistrationUpload, toProfileImageMeta } from "../middleware/upload.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
@@ -19,6 +19,8 @@ import { recordPlayerActivity } from "../utils/activity.js";
 import { FRANCHISES, getFranchiseName } from "../utils/franchises.js";
 import { buildPointsTable } from "../utils/points.js";
 import { persistUploadedFile } from "../utils/mediaStore.js";
+import { isValidPlayerRole, playerRoleLabel } from "../constants/playerRoles.js";
+import { allocateNextPlayerCode, backfillMissingPlayerCodes, buildRegistrationsCsv } from "../utils/playerCode.js";
 import {
   isValidImageSectionId,
   isValidVideoSectionId,
@@ -38,6 +40,7 @@ import {
   getSponsorPackageConfig,
   listSponsorPackagesPublic,
   normalizeSponsorPackagesInput,
+  getSponsorPackageById,
 } from "../utils/sponsorPackages.js";
 
 function statusLabel(status) {
@@ -194,6 +197,67 @@ router.post("/users/:id/password", adminRequired, async (req, res) => {
   }
 });
 
+router.patch("/users/:id/contact", adminRequired, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: "User not found." });
+    if (user.role === "admin") {
+      return res.status(400).json({ error: "Cannot edit admin account from this panel." });
+    }
+
+    const name = String(req.body.name || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const phone = String(req.body.phone || "").trim();
+
+    if (!name || !email) {
+      return res.status(400).json({ error: "Name and email are required." });
+    }
+
+    if (email !== user.email) {
+      const taken = await User.findOne({ email, _id: { $ne: user._id } }).lean();
+      if (taken) {
+        return res.status(409).json({ error: "Another account already uses this email." });
+      }
+    }
+
+    const prev = { name: user.name, email: user.email, phone: user.phone || "" };
+    user.name = name;
+    user.email = email;
+    user.phone = phone;
+    await user.save();
+
+    await PlayerRegistration.updateMany(
+      { userId: user._id },
+      { $set: { fullName: name, email, phone } }
+    );
+
+    await writeAudit(req, {
+      action: "user.contact_update",
+      targetType: "user",
+      targetId: user._id,
+      targetLabel: `${user.name} <${user.email}>`,
+      details: { from: prev, to: { name, email, phone } },
+    });
+
+    return res.json({
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        status: user.status,
+        adminNotes: user.adminNotes,
+        createdAt: user.createdAt,
+        reviewedAt: user.reviewedAt,
+      },
+    });
+  } catch (error) {
+    console.error("admin user contact update error", error);
+    return res.status(500).json({ error: "Unable to update user details." });
+  }
+});
+
 router.get("/registrations", adminRequired, async (req, res) => {
   const filter = {};
   if (["pending", "verified", "rejected"].includes(req.query.status)) {
@@ -211,6 +275,400 @@ router.get("/registrations", adminRequired, async (req, res) => {
 
   const registrations = await PlayerRegistration.find(filter).sort({ createdAt: -1 }).lean();
   return res.json({ registrations: mapWithProfileImageUrl(registrations) });
+});
+
+router.get("/reports/preview", adminRequired, async (req, res) => {
+  try {
+    await backfillMissingPlayerCodes();
+    const filter = buildReportFilter(req.query);
+    const registrations = await PlayerRegistration.find(filter).sort({ playerCode: 1, createdAt: 1 }).lean();
+    return res.json({
+      count: registrations.length,
+      registrations: mapWithProfileImageUrl(registrations).slice(0, 50),
+    });
+  } catch (error) {
+    console.error("reports preview error", error);
+    return res.status(500).json({ error: "Unable to load report preview." });
+  }
+});
+
+router.get("/reports/export", adminRequired, async (req, res) => {
+  try {
+    await backfillMissingPlayerCodes();
+    const filter = buildReportFilter(req.query);
+    const registrations = await PlayerRegistration.find(filter).sort({ playerCode: 1, createdAt: 1 }).lean();
+    const csv = buildRegistrationsCsv(registrations);
+
+    const bits = ["uscl-report"];
+    if (filter.status) bits.push(filter.status === "verified" ? "accepted" : filter.status);
+    if (filter.interest) bits.push(filter.interest);
+    if (filter.paymentStatus) bits.push(`pay-${filter.paymentStatus}`);
+    if (filter.auctionStatus) bits.push(filter.auctionStatus);
+    const stamp = new Date().toISOString().slice(0, 10);
+    const filename = `${bits.join("-")}-${stamp}.csv`;
+
+    await writeAudit(req, {
+      action: "reports.export",
+      targetType: "report",
+      targetId: null,
+      targetLabel: filename,
+      details: {
+        summary: `Exported ${registrations.length} row(s)`,
+        filter,
+        count: registrations.length,
+      },
+    });
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    return res.send(csv);
+  } catch (error) {
+    console.error("reports export error", error);
+    return res.status(500).json({ error: "Unable to export report." });
+  }
+});
+
+function buildReportFilter(query = {}) {
+  const filter = {};
+  const status = String(query.status || "").trim().toLowerCase();
+  if (status === "accepted") filter.status = "verified";
+  else if (["pending", "verified", "rejected"].includes(status)) filter.status = status;
+
+  const interest = String(query.interest || "").trim().toLowerCase();
+  if (["player", "captain", "franchise", "sponsor"].includes(interest)) {
+    filter.interest = interest;
+  }
+
+  const paymentStatus = String(query.paymentStatus || "").trim().toLowerCase();
+  if (["pending", "paid", "failed", "cancelled"].includes(paymentStatus)) {
+    filter.paymentStatus = paymentStatus;
+  }
+
+  const auctionStatus = String(query.auctionStatus || "").trim().toLowerCase();
+  if (["not_listed", "unsold", "sold"].includes(auctionStatus)) {
+    filter.auctionStatus = auctionStatus;
+  }
+
+  return filter;
+}
+
+router.post("/registrations", adminRequired, (req, res) => {
+  playerRegistrationUpload(req, res, async (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({
+          error: "Image upload failed due to size. Please try again or use a smaller file.",
+        });
+      }
+      return res.status(400).json({ error: err.message || "Upload failed." });
+    }
+
+    try {
+      const fullName = String(req.body.fullName || "").trim();
+      const email = String(req.body.email || "").trim().toLowerCase();
+      const phone = String(req.body.phone || "").trim();
+      const company = String(req.body.company || "").trim();
+      const designation = String(req.body.designation || "").trim();
+      const password = String(req.body.password || "");
+      const interestRaw = String(req.body.interest || "player").trim().toLowerCase();
+      const interest = ["player", "captain", "franchise", "sponsor"].includes(interestRaw)
+        ? interestRaw
+        : "player";
+      const needsPlayingRole = interest === "player" || interest === "captain";
+      const role = needsPlayingRole
+        ? String(req.body.role || "").trim()
+        : interest;
+      const requirePaymentRaw = String(req.body.requirePayment || "").toLowerCase();
+      const requirePayment =
+        ["true", "on", "1", "yes"].includes(requirePaymentRaw) || req.body.requirePayment === true;
+      const statusRaw = String(req.body.status || "verified").trim().toLowerCase();
+      const status = ["pending", "verified", "rejected"].includes(statusRaw) ? statusRaw : "verified";
+      const adminName = req.user?.name || req.user?.email || "admin";
+      const photoFile = req.files?.photo?.[0];
+
+      if (!fullName || !email || !phone || !company) {
+        return res.status(400).json({ error: "Name, email, phone, and company are required." });
+      }
+      if (needsPlayingRole && !isValidPlayerRole(role)) {
+        return res.status(400).json({ error: "Please select a valid playing role." });
+      }
+
+      let user = await User.findOne({ email });
+      let createdUser = false;
+      if (!user) {
+        if (password.length < 6) {
+          return res.status(400).json({
+            error: "Password (min 6 characters) is required when creating a new account.",
+          });
+        }
+        user = await User.create({
+          name: fullName,
+          email,
+          phone,
+          passwordHash: await hashPassword(password),
+          role: "user",
+          status: status === "verified" ? "approved" : status === "rejected" ? "rejected" : "pending",
+        });
+        createdUser = true;
+      } else {
+        if (user.role === "admin") {
+          return res.status(400).json({ error: "Cannot create a registration for an admin account." });
+        }
+        user.name = fullName;
+        user.phone = phone || user.phone;
+        if (password.length >= 6) {
+          user.passwordHash = await hashPassword(password);
+          user.resetPasswordTokenHash = null;
+          user.resetPasswordExpires = null;
+        }
+        if (status === "verified") user.status = "approved";
+        else if (status === "rejected") user.status = "rejected";
+        await user.save();
+      }
+
+      const existing = await PlayerRegistration.findOne({
+        userId: user._id,
+        interest,
+        status: { $in: ["pending", "verified"] },
+      });
+      if (existing) {
+        return res.status(409).json({
+          error: `This user already has an active ${interest} registration.`,
+        });
+      }
+
+      let feeInr = await getRegistrationFeeInr(interest);
+      let sponsorPackageId = "";
+      let sponsorPackageTitle = "";
+      if (interest === "sponsor") {
+        sponsorPackageId = String(req.body.sponsorPackageId || "").trim();
+        if (!sponsorPackageId) {
+          return res.status(400).json({ error: "Sponsor package is required for sponsor registrations." });
+        }
+        const pkg = await getSponsorPackageById(sponsorPackageId);
+        if (!pkg) {
+          return res.status(400).json({ error: "Invalid sponsor package." });
+        }
+        feeInr = pkg.priceInr;
+        sponsorPackageTitle = pkg.title;
+      }
+
+      let photo = null;
+      let profileImage = "";
+      if (photoFile) {
+        await persistUploadedFile(photoFile, "profile");
+        photo = toProfileImageMeta(photoFile);
+        profileImage = photo.filename;
+      }
+
+      const paymentStatus = requirePayment ? "pending" : "paid";
+      let registration = null;
+      let lastCreateError = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const playerCode = await allocateNextPlayerCode();
+          const payload = {
+            userId: user._id,
+            playerCode,
+            fullName,
+            email,
+            phone,
+            company,
+            designation,
+            role,
+            interest,
+            sponsorPackageId,
+            sponsorPackageTitle,
+            agreedToTerms: true,
+            paymentStatus,
+            payNowEnabled: requirePayment,
+            payNowEnabledBy: requirePayment ? adminName : "",
+            payNowEnabledAt: requirePayment ? new Date() : null,
+            payment: {
+              provider: "admin",
+              status: paymentStatus === "paid" ? "paid" : "pending",
+              amountInr: feeInr,
+              currency: "INR",
+              orderId: "",
+              paymentId: requirePayment ? "" : `admin-waived-${Date.now()}`,
+              signature: "",
+              paidAt: paymentStatus === "paid" ? new Date() : null,
+            },
+            status,
+            auctionStatus: "not_listed",
+            adminNotes: String(req.body.adminNotes || "").trim(),
+            reviewedAt: status !== "pending" ? new Date() : null,
+          };
+          if (photo && profileImage) {
+            payload.photo = photo;
+            payload.profileImage = profileImage;
+          }
+          registration = await PlayerRegistration.create(payload);
+          lastCreateError = null;
+          break;
+        } catch (createErr) {
+          lastCreateError = createErr;
+          // Retry only on duplicate playerCode collisions.
+          if (createErr?.code !== 11000 || !/playerCode/i.test(String(createErr?.message || ""))) {
+            throw createErr;
+          }
+        }
+      }
+      if (!registration) {
+        throw lastCreateError || new Error("Unable to allocate a unique player ID.");
+      }
+
+      await recordPlayerActivity({
+        registrationId: registration._id,
+        userId: user._id,
+        action: "registration.admin_created",
+        summary: `${adminName} (admin) created ${interest} registration for ${fullName}${
+          requirePayment ? " (payment required)" : " (payment waived)"
+        }`,
+        actorName: adminName,
+        actorRole: "admin",
+        details: {
+          email,
+          company,
+          designation,
+          role,
+          paymentStatus,
+          requirePayment,
+          createdUser,
+          playerCode: registration.playerCode,
+        },
+      });
+
+      await writeAudit(req, {
+        action: "registration.admin_created",
+        targetType: "registration",
+        targetId: registration._id,
+        targetLabel: `${fullName} <${email}>`,
+        details: {
+          interest,
+          requirePayment,
+          paymentStatus,
+          createdUser,
+          status,
+          playerCode: registration.playerCode,
+        },
+      });
+
+      return res.status(201).json({
+        registration: withProfileImageUrl(registration),
+        createdUser,
+        message: requirePayment
+          ? "Registration created. Player can pay from their dashboard."
+          : "Registration created without payment.",
+      });
+    } catch (error) {
+      console.error("admin create registration error", error);
+      if (error?.code === 11000) {
+        return res.status(409).json({
+          error: "A registration or account with these details already exists.",
+        });
+      }
+      if (error?.name === "ValidationError") {
+        const first = Object.values(error.errors || {})[0];
+        return res.status(400).json({
+          error: first?.message || "Invalid registration data.",
+        });
+      }
+      return res.status(500).json({
+        error: error?.message || "Unable to create registration.",
+      });
+    }
+  });
+});
+
+router.patch("/registrations/:id/details", adminRequired, async (req, res) => {
+  try {
+    const registration = await PlayerRegistration.findById(req.params.id);
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+
+    const fullName = String(req.body.fullName ?? registration.fullName).trim();
+    const email = String(req.body.email ?? registration.email).trim().toLowerCase();
+    const phone = String(req.body.phone ?? registration.phone).trim();
+    const company = String(req.body.company ?? registration.company).trim();
+    const designation = String(req.body.designation ?? registration.designation ?? "").trim();
+    const needsPlayingRole =
+      registration.interest === "player" || registration.interest === "captain";
+    let role = String(req.body.role ?? registration.role).trim();
+
+    if (!fullName || !email || !phone || !company) {
+      return res.status(400).json({ error: "Name, email, phone, and company are required." });
+    }
+    if (needsPlayingRole) {
+      if (!isValidPlayerRole(role)) {
+        return res.status(400).json({ error: "Please select a valid playing role." });
+      }
+    } else {
+      role = registration.interest || registration.role;
+    }
+
+    if (registration.userId) {
+      const user = await User.findById(registration.userId);
+      if (user && user.role !== "admin" && email !== user.email) {
+        const taken = await User.findOne({ email, _id: { $ne: user._id } }).lean();
+        if (taken) {
+          return res.status(409).json({ error: "Another account already uses this email." });
+        }
+      }
+    }
+
+    const prev = {
+      fullName: registration.fullName,
+      email: registration.email,
+      phone: registration.phone,
+      company: registration.company,
+      designation: registration.designation || "",
+      role: registration.role,
+    };
+
+    registration.fullName = fullName;
+    registration.email = email;
+    registration.phone = phone;
+    registration.company = company;
+    registration.designation = designation;
+    registration.role = role;
+    await registration.save();
+
+    if (registration.userId) {
+      const user = await User.findById(registration.userId);
+      if (user && user.role !== "admin") {
+        user.name = fullName;
+        user.email = email;
+        user.phone = phone;
+        await user.save();
+      }
+    }
+
+    const adminName = req.user?.name || req.user?.email || "admin";
+    await recordPlayerActivity({
+      registrationId: registration._id,
+      userId: registration.userId,
+      action: "registration.details_updated",
+      summary: `${adminName} (admin) updated details for ${fullName}`,
+      actorName: adminName,
+      actorRole: "admin",
+      details: { from: prev, to: { fullName, email, phone, company, designation, role } },
+    });
+
+    await writeAudit(req, {
+      action: "registration.details_update",
+      targetType: "registration",
+      targetId: registration._id,
+      targetLabel: `${fullName} <${email}>`,
+      details: { from: prev, to: { fullName, email, phone, company, designation, role } },
+    });
+
+    return res.json({ registration: withProfileImageUrl(registration) });
+  } catch (error) {
+    console.error("admin registration details update error", error);
+    return res.status(500).json({ error: "Unable to update registration details." });
+  }
 });
 
 router.get("/teams", adminRequired, async (_req, res) => {

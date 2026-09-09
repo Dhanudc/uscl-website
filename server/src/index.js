@@ -15,6 +15,7 @@ import teamsRoutes from "./routes/teams.js";
 import sponsorRoutes from "./routes/sponsors.js";
 import { backfillProfileImageColumn } from "./utils/backfillProfileImage.js";
 import { backfillPaymentStatusColumn } from "./utils/backfillPaymentStatus.js";
+import { backfillMissingPlayerCodes } from "./utils/playerCode.js";
 import { serveMediaFromDb } from "./utils/mediaStore.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -125,6 +126,8 @@ async function start() {
   await ensureAdminUser();
   await backfillProfileImageColumn();
   await backfillPaymentStatusColumn();
+  const playerCodesAssigned = await backfillMissingPlayerCodes();
+  console.log(`[server] Player IDs: backfilled ${playerCodesAssigned} registration(s)`);
   const razorpayReady = Boolean(
     String(process.env.RAZORPAY_KEY_ID || "").trim() &&
       String(process.env.RAZORPAY_KEY_SECRET || "").trim()

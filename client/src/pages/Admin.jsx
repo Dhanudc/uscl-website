@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
-import { api } from "../api";
+import { api, apiDownload } from "../api";
 import PasswordInput from "../components/PasswordInput";
 import ThemePicker from "../components/ThemePicker";
 import ZoomableImage from "../components/ZoomableImage";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 import { franchises as franchiseCatalog } from "../data/franchises";
-import { playerRoleLabel } from "../data/playerRoles";
+import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
 import {
   DEFAULT_MODULE_VISIBILITY,
   normalizeModuleVisibility,
@@ -81,6 +81,8 @@ function AdminShell({ children, title, subtitle }) {
         { to: "/admin/players/pending", label: "Pending players" },
         { to: "/admin/players/accepted", label: "Accepted players" },
         { to: "/admin/players/rejected", label: "Rejected players" },
+        { to: "/admin/register", label: "Register player" },
+        { to: "/admin/reports", label: "Reports" },
       ],
     },
     {
@@ -311,6 +313,8 @@ function OverviewPage() {
           <StatCard label="Unsold" value={stats?.auctionUnsold} to="/admin/auction" />
           <StatCard label="Teams roster" value="8" to="/admin/teams" />
           <StatCard label="Settings" shortcut to="/admin/settings" />
+          <StatCard label="Register player" shortcut to="/admin/register" />
+          <StatCard label="Reports" shortcut to="/admin/reports" />
           <StatCard label="Reset passwords" shortcut to="/admin/passwords" />
           <StatCard label="Registration fees" shortcut to="/admin/fees" />
           <StatCard label="Sponsor packages" shortcut to="/admin/sponsors" />
@@ -353,6 +357,17 @@ function PlayersPage() {
   const [interestFilter, setInterestFilter] = useState("franchise");
   const [loading, setLoading] = useState(true);
   const [imageBusyId, setImageBusyId] = useState("");
+  const [editReg, setEditReg] = useState(null);
+  const [editForm, setEditForm] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    company: "",
+    designation: "",
+    role: "",
+  });
+  const [editError, setEditError] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -414,6 +429,47 @@ function PlayersPage() {
     setActivityModal(null);
     setActivities([]);
     setActivityError("");
+  }
+
+  function openEditModal(reg) {
+    setEditReg(reg);
+    setEditError("");
+    setEditForm({
+      fullName: reg.fullName || "",
+      email: reg.email || "",
+      phone: reg.phone || "",
+      company: reg.company || "",
+      designation: reg.designation || "",
+      role: reg.role || "",
+    });
+  }
+
+  function closeEditModal() {
+    setEditReg(null);
+    setEditError("");
+    setSavingEdit(false);
+  }
+
+  async function saveEditDetails(e) {
+    e.preventDefault();
+    if (!editReg) return;
+    setSavingEdit(true);
+    setEditError("");
+    try {
+      const data = await api(`/api/admin/registrations/${editReg._id}/details`, {
+        method: "PATCH",
+        body: JSON.stringify(editForm),
+      });
+      setRegs((prev) =>
+        prev.map((r) => (String(r._id) === String(data.registration._id) ? data.registration : r))
+      );
+      setMessage(`Details updated for ${data.registration.fullName}.`);
+      closeEditModal();
+    } catch (err) {
+      setEditError(err.message || "Unable to update details.");
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   async function updateReg(id, nextStatus) {
@@ -792,8 +848,14 @@ function PlayersPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="font-semibold text-[color:var(--title)]">{reg.fullName}</p>
+                  {reg.playerCode ? (
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">
+                      Player ID: {reg.playerCode}
+                    </p>
+                  ) : null}
                   <p className="text-sm text-[color:var(--text-muted)]">
-                    {reg.company} · {reg.interest}
+                    {reg.company}
+                    {reg.designation ? ` · ${reg.designation}` : ""} · {reg.interest}
                     {reg.sponsorPackageTitle ? ` · ${reg.sponsorPackageTitle}` : ""} · {reg.email}
                   </p>
                   <p className="mt-1 text-xs text-[color:var(--text-muted)]">
@@ -992,6 +1054,13 @@ function PlayersPage() {
                   <button
                     type="button"
                     className="btn-ghost !py-1.5 !text-xs"
+                    onClick={() => openEditModal(reg)}
+                  >
+                    Edit details
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost !py-1.5 !text-xs"
                     onClick={() => openActivityModal(reg)}
                   >
                     View activity
@@ -1020,6 +1089,13 @@ function PlayersPage() {
                   <button
                     type="button"
                     className="btn-ghost !py-1.5 !text-xs"
+                    onClick={() => openEditModal(reg)}
+                  >
+                    Edit details
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost !py-1.5 !text-xs"
                     onClick={() => openActivityModal(reg)}
                   >
                     View activity
@@ -1032,6 +1108,109 @@ function PlayersPage() {
         })}
       </div>
       )}
+
+      {editReg ? (
+        <div className="fixed inset-0 z-[95] flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-4">
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-edit-details-title"
+            className="modal-sheet panel max-h-[90vh] w-full overflow-auto rounded-t-2xl p-4 sm:max-w-lg sm:rounded-2xl sm:p-5"
+            onSubmit={saveEditDetails}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="eyebrow text-accent">Edit details</p>
+            <h2 id="admin-edit-details-title" className="font-display mt-1 text-xl text-[color:var(--title)]">
+              {editReg.fullName}
+            </h2>
+            {editReg.playerCode ? (
+              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-accent">
+                Player ID: {editReg.playerCode}
+              </p>
+            ) : null}
+            <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+              Updates registration and the linked login email / phone.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm sm:col-span-2">
+                <span className="text-[color:var(--text-muted)]">Full name</span>
+                <input
+                  className="input-dark mt-1.5"
+                  value={editForm.fullName}
+                  onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))}
+                  required
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-[color:var(--text-muted)]">Email</span>
+                <input
+                  type="email"
+                  className="input-dark mt-1.5"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                  required
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-[color:var(--text-muted)]">Phone / mobile</span>
+                <input
+                  className="input-dark mt-1.5"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                  required
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-[color:var(--text-muted)]">Company</span>
+                <input
+                  className="input-dark mt-1.5"
+                  value={editForm.company}
+                  onChange={(e) => setEditForm((f) => ({ ...f, company: e.target.value }))}
+                  required
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-[color:var(--text-muted)]">Designation</span>
+                <input
+                  className="input-dark mt-1.5"
+                  value={editForm.designation}
+                  onChange={(e) => setEditForm((f) => ({ ...f, designation: e.target.value }))}
+                  placeholder="e.g. Software Engineer"
+                />
+              </label>
+              {editReg.interest === "player" || editReg.interest === "captain" ? (
+                <label className="block text-sm sm:col-span-2">
+                  <span className="text-[color:var(--text-muted)]">Playing role</span>
+                  <select
+                    className="input-dark mt-1.5"
+                    value={editForm.role}
+                    onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+                    required
+                  >
+                    <option value="" disabled>
+                      Select playing role
+                    </option>
+                    {PLAYER_ROLES.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+            </div>
+            {editError ? <p className="mt-3 text-sm text-accent">{editError}</p> : null}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="submit" disabled={savingEdit} className="btn-primary">
+                {savingEdit ? "Saving…" : "Save details"}
+              </button>
+              <button type="button" className="btn-ghost" onClick={closeEditModal}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
 
       {paymentModalReg ? (
         <div className="fixed inset-0 z-[95] flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-4">
@@ -1605,6 +1784,9 @@ function PasswordsPage() {
   const [message, setMessage] = useState("");
   const [busyId, setBusyId] = useState("");
   const [search, setSearch] = useState("");
+  const [editId, setEditId] = useState("");
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "" });
+  const [savingContact, setSavingContact] = useState(false);
 
   async function load() {
     const data = await api("/api/admin/users");
@@ -1632,6 +1814,33 @@ function PasswordsPage() {
     }
   }
 
+  function openContactEdit(u) {
+    setEditId(u._id);
+    setEditForm({ name: u.name || "", email: u.email || "", phone: u.phone || "" });
+    setError("");
+  }
+
+  async function saveContact(e) {
+    e.preventDefault();
+    if (!editId) return;
+    setSavingContact(true);
+    setError("");
+    setMessage("");
+    try {
+      const data = await api(`/api/admin/users/${editId}/contact`, {
+        method: "PATCH",
+        body: JSON.stringify(editForm),
+      });
+      setUsers((prev) => prev.map((u) => (String(u._id) === String(data.user._id) ? { ...u, ...data.user } : u)));
+      setMessage(`Updated login details for ${data.user.email}.`);
+      setEditId("");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingContact(false);
+    }
+  }
+
   const filtered = users.filter((u) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
@@ -1645,7 +1854,7 @@ function PasswordsPage() {
   return (
     <AdminShell
       title="Reset player passwords"
-      subtitle="When a player forgets their password, set a new one here and share it with them."
+      subtitle="Reset passwords and update login email or mobile number for each player."
     >
       <input
         value={search}
@@ -1675,10 +1884,329 @@ function PasswordsPage() {
               </div>
               <StatusBadge status={u.status || "pending"} />
             </div>
+
+            {editId === u._id ? (
+              <form onSubmit={saveContact} className="mt-3 grid gap-2 sm:grid-cols-3">
+                <label className="block text-sm">
+                  <span className="text-[color:var(--text-muted)]">Name</span>
+                  <input
+                    className="input-dark mt-1"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                    required
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="text-[color:var(--text-muted)]">Email</span>
+                  <input
+                    type="email"
+                    className="input-dark mt-1"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                    required
+                  />
+                </label>
+                <label className="block text-sm">
+                  <span className="text-[color:var(--text-muted)]">Mobile</span>
+                  <input
+                    className="input-dark mt-1"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2 sm:col-span-3">
+                  <button type="submit" disabled={savingContact} className="btn-primary !py-1.5 !text-xs">
+                    {savingContact ? "Saving…" : "Save email / mobile"}
+                  </button>
+                  <button type="button" className="btn-ghost !py-1.5 !text-xs" onClick={() => setEditId("")}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="mt-3">
+                <button type="button" className="btn-ghost !py-1.5 !text-xs" onClick={() => openContactEdit(u)}>
+                  Edit email / mobile
+                </button>
+              </div>
+            )}
+
             <PasswordResetBox userId={u._id} busyId={busyId} onSave={setPassword} />
           </article>
         ))}
       </div>
+    </AdminShell>
+  );
+}
+
+function AdminRegisterPage() {
+  const [form, setForm] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+    company: "",
+    designation: "",
+    password: "",
+    interest: "player",
+    role: "",
+    sponsorPackageId: "",
+    requirePayment: false,
+    status: "verified",
+    adminNotes: "",
+  });
+  const [photoFile, setPhotoFile] = useState(null);
+  const [preview, setPreview] = useState("");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
+
+  function updateField(key, value) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setMessage("");
+    setSaving(true);
+    try {
+      const needsRole = form.interest === "player" || form.interest === "captain";
+      if (needsRole && !form.role) {
+        throw new Error("Select a playing role.");
+      }
+      if (form.interest === "sponsor" && !form.sponsorPackageId.trim()) {
+        throw new Error("Enter a sponsor package id for sponsor registrations.");
+      }
+      if (form.password && form.password.length < 6) {
+        throw new Error("Password must be at least 6 characters.");
+      }
+
+      const body = new FormData();
+      Object.entries(form).forEach(([key, value]) => {
+        if (key === "requirePayment") {
+          body.set(key, value ? "true" : "false");
+        } else {
+          body.set(key, String(value ?? ""));
+        }
+      });
+      if (photoFile) {
+        const compressed = await compressImageForUpload(photoFile);
+        body.set("photo", compressed, compressed.name || photoFile.name || "photo.jpg");
+      }
+
+      const data = await api("/api/admin/registrations", {
+        method: "POST",
+        body,
+      });
+      setMessage(data.message || "Registration created.");
+      setForm({
+        fullName: "",
+        email: "",
+        phone: "",
+        company: "",
+        designation: "",
+        password: "",
+        interest: "player",
+        role: "",
+        sponsorPackageId: "",
+        requirePayment: false,
+        status: "verified",
+        adminNotes: "",
+      });
+      setPhotoFile(null);
+      if (preview) URL.revokeObjectURL(preview);
+      setPreview("");
+    } catch (err) {
+      setError(err.message || "Unable to create registration.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <AdminShell
+      title="Register player"
+      subtitle="Create a registration from admin. Use the checkbox if payment should be collected from the player."
+    >
+      <form onSubmit={onSubmit} className="panel max-w-3xl space-y-4 rounded-2xl p-5">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="text-[color:var(--text-muted)]">Full name</span>
+            <input
+              className="input-dark mt-1.5"
+              value={form.fullName}
+              onChange={(e) => updateField("fullName", e.target.value)}
+              required
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="text-[color:var(--text-muted)]">Email (login)</span>
+            <input
+              type="email"
+              className="input-dark mt-1.5"
+              value={form.email}
+              onChange={(e) => updateField("email", e.target.value)}
+              required
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="text-[color:var(--text-muted)]">Phone / mobile</span>
+            <input
+              className="input-dark mt-1.5"
+              value={form.phone}
+              onChange={(e) => updateField("phone", e.target.value)}
+              required
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="text-[color:var(--text-muted)]">Password (login)</span>
+            <input
+              type="password"
+              className="input-dark mt-1.5"
+              value={form.password}
+              onChange={(e) => updateField("password", e.target.value)}
+              minLength={6}
+              placeholder="Required for new email accounts"
+            />
+            <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+              Required when the email is new. Optional if the account already exists.
+            </span>
+          </label>
+          <label className="block text-sm">
+            <span className="text-[color:var(--text-muted)]">Company</span>
+            <input
+              className="input-dark mt-1.5"
+              value={form.company}
+              onChange={(e) => updateField("company", e.target.value)}
+              required
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="text-[color:var(--text-muted)]">Designation</span>
+            <input
+              className="input-dark mt-1.5"
+              value={form.designation}
+              onChange={(e) => updateField("designation", e.target.value)}
+              placeholder="e.g. Software Engineer"
+              required
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="text-[color:var(--text-muted)]">Interest</span>
+            <select
+              className="input-dark mt-1.5"
+              value={form.interest}
+              onChange={(e) => updateField("interest", e.target.value)}
+            >
+              <option value="player">Player</option>
+              <option value="captain">Captain</option>
+              <option value="franchise">Franchise</option>
+              <option value="sponsor">Sponsor</option>
+            </select>
+          </label>
+          {form.interest === "player" || form.interest === "captain" ? (
+            <label className="block text-sm">
+              <span className="text-[color:var(--text-muted)]">Playing role</span>
+              <select
+                className="input-dark mt-1.5"
+                value={form.role}
+                onChange={(e) => updateField("role", e.target.value)}
+                required
+              >
+                <option value="" disabled>
+                  Select playing role
+                </option>
+                {PLAYER_ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {form.interest === "sponsor" ? (
+            <label className="block text-sm">
+              <span className="text-[color:var(--text-muted)]">Sponsor package id</span>
+              <input
+                className="input-dark mt-1.5"
+                value={form.sponsorPackageId}
+                onChange={(e) => updateField("sponsorPackageId", e.target.value)}
+                placeholder="From Sponsor packages page"
+                required
+              />
+            </label>
+          ) : null}
+          <label className="block text-sm">
+            <span className="text-[color:var(--text-muted)]">Registration status</span>
+            <select
+              className="input-dark mt-1.5"
+              value={form.status}
+              onChange={(e) => updateField("status", e.target.value)}
+            >
+              <option value="verified">Accepted</option>
+              <option value="pending">Pending</option>
+            </select>
+          </label>
+          <label className="block text-sm sm:col-span-2">
+            <span className="text-[color:var(--text-muted)]">Photo (optional)</span>
+            <input
+              type="file"
+              accept="image/*"
+              className="mt-1.5 block w-full text-sm text-[color:var(--text-muted)] file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setPhotoFile(file);
+                if (preview) URL.revokeObjectURL(preview);
+                setPreview(file ? URL.createObjectURL(file) : "");
+              }}
+            />
+            {preview ? (
+              <img
+                src={preview}
+                alt="Preview"
+                className="mt-3 h-24 w-24 rounded-lg border border-[color:var(--border)] object-cover"
+              />
+            ) : null}
+          </label>
+          <label className="sm:col-span-2 flex items-start gap-3 rounded-lg border border-[color:var(--border)] bg-ink-soft px-4 py-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 accent-[var(--accent)]"
+              checked={form.requirePayment}
+              onChange={(e) => updateField("requirePayment", e.target.checked)}
+            />
+            <span>
+              <strong className="text-[color:var(--title)]">Require payment</strong>
+              <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+                Checked: registration is saved unpaid and Pay now is enabled on the player dashboard.
+                Unchecked: payment is marked paid / waived (no payment needed).
+              </span>
+            </span>
+          </label>
+          <label className="block text-sm sm:col-span-2">
+            <span className="text-[color:var(--text-muted)]">Admin notes (optional)</span>
+            <textarea
+              className="input-dark mt-1.5"
+              rows={2}
+              value={form.adminNotes}
+              onChange={(e) => updateField("adminNotes", e.target.value)}
+            />
+          </label>
+        </div>
+
+        {error ? <p className="text-sm text-accent">{error}</p> : null}
+        {message ? <p className="text-sm text-emerald-300">{message}</p> : null}
+
+        <button type="submit" disabled={saving} className="btn-primary">
+          {saving ? "Creating…" : "Create registration"}
+        </button>
+      </form>
     </AdminShell>
   );
 }
@@ -1789,6 +2317,9 @@ function AuctionPage() {
                   ) : null}
                   <div className="min-w-0">
                     <p className="font-semibold text-[color:var(--title)]">{reg.fullName}</p>
+                    {reg.playerCode ? (
+                      <p className="text-xs font-semibold text-accent">Player ID: {reg.playerCode}</p>
+                    ) : null}
                     <p className="text-sm text-[color:var(--text-muted)]">
                       {reg.company}
                       {reg.role ? ` · ${playerRoleLabel(reg.role)}` : ""} · {reg.email}
@@ -2057,6 +2588,7 @@ function TeamsPage() {
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[color:var(--title)]">{p.fullName}</p>
                         <p className="truncate text-xs text-[color:var(--text-muted)]">
+                          {p.playerCode ? `${p.playerCode} · ` : ""}
                           {playerRoleLabel(p.role)}
                           {p.company ? ` · ${p.company}` : ""}
                           {` · Pay ${paymentStatusLabel(getPaymentStatus(p))}`}
@@ -2722,6 +3254,193 @@ function SocialMediaPage() {
   );
 }
 
+function ReportsPage() {
+  const [filters, setFilters] = useState({
+    status: "",
+    interest: "",
+    paymentStatus: "",
+    auctionStatus: "",
+  });
+  const [rows, setRows] = useState([]);
+  const [count, setCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  function updateFilter(key, value) {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function buildQuery() {
+    const qs = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) qs.set(key, value);
+    });
+    const text = qs.toString();
+    return text ? `?${text}` : "";
+  }
+
+  async function loadPreview() {
+    setLoading(true);
+    setError("");
+    setMessage("");
+    try {
+      const data = await api(`/api/admin/reports/preview${buildQuery()}`);
+      setRows(data.registrations || []);
+      setCount(Number(data.count || 0));
+      setMessage(`Found ${data.count || 0} matching registration(s). Showing up to 50 below.`);
+    } catch (err) {
+      setError(err.message || "Unable to load report.");
+      setRows([]);
+      setCount(0);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function downloadExcel() {
+    setExporting(true);
+    setError("");
+    setMessage("");
+    try {
+      await apiDownload(`/api/admin/reports/export${buildQuery()}`);
+      setMessage("Excel report downloaded.");
+    } catch (err) {
+      setError(err.message || "Unable to download report.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  useEffect(() => {
+    loadPreview().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <AdminShell
+      title="Reports"
+      subtitle="Filter registrations and download an Excel-compatible CSV report."
+    >
+      <div className="panel space-y-4 rounded-2xl p-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="block text-sm">
+            <span className="text-[color:var(--text-muted)]">Status</span>
+            <select
+              className="input-dark mt-1.5"
+              value={filters.status}
+              onChange={(e) => updateFilter("status", e.target.value)}
+            >
+              <option value="">All statuses</option>
+              <option value="accepted">Accepted / confirmed</option>
+              <option value="pending">Pending</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="text-[color:var(--text-muted)]">Type</span>
+            <select
+              className="input-dark mt-1.5"
+              value={filters.interest}
+              onChange={(e) => updateFilter("interest", e.target.value)}
+            >
+              <option value="">All types</option>
+              <option value="player">Players</option>
+              <option value="captain">Captains</option>
+              <option value="sponsor">Sponsors</option>
+              <option value="franchise">Franchise owners</option>
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="text-[color:var(--text-muted)]">Payment</span>
+            <select
+              className="input-dark mt-1.5"
+              value={filters.paymentStatus}
+              onChange={(e) => updateFilter("paymentStatus", e.target.value)}
+            >
+              <option value="">All payments</option>
+              <option value="paid">Paid</option>
+              <option value="pending">Pending</option>
+              <option value="failed">Failed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </label>
+          <label className="block text-sm">
+            <span className="text-[color:var(--text-muted)]">Auction</span>
+            <select
+              className="input-dark mt-1.5"
+              value={filters.auctionStatus}
+              onChange={(e) => updateFilter("auctionStatus", e.target.value)}
+            >
+              <option value="">All auction states</option>
+              <option value="not_listed">Not listed</option>
+              <option value="unsold">Unsold</option>
+              <option value="sold">Sold</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-primary" disabled={loading} onClick={loadPreview}>
+            {loading ? "Loading…" : "Preview"}
+          </button>
+          <button type="button" className="btn-ghost" disabled={exporting || count === 0} onClick={downloadExcel}>
+            {exporting ? "Downloading…" : "Download Excel report"}
+          </button>
+        </div>
+
+        {error ? <p className="text-sm text-accent">{error}</p> : null}
+        {message ? <p className="text-sm text-emerald-300">{message}</p> : null}
+      </div>
+
+      <div className="mt-6 overflow-x-auto rounded-xl border border-[color:var(--border)] bg-ink-card">
+        <table className="min-w-full text-left text-sm">
+          <thead className="border-b border-[color:var(--border)] text-xs uppercase tracking-wide text-[color:var(--text-muted)]">
+            <tr>
+              <th className="px-3 py-3">Player ID</th>
+              <th className="px-3 py-3">Name</th>
+              <th className="px-3 py-3">Type</th>
+              <th className="px-3 py-3">Company</th>
+              <th className="px-3 py-3">Status</th>
+              <th className="px-3 py-3">Payment</th>
+              <th className="px-3 py-3">Email</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-3 py-6 text-[color:var(--text-muted)]">
+                  No rows for this filter yet. Click Preview.
+                </td>
+              </tr>
+            ) : (
+              rows.map((reg) => (
+                <tr key={reg._id} className="border-t border-[color:var(--border)]">
+                  <td className="px-3 py-2.5 font-semibold text-accent">{reg.playerCode || "—"}</td>
+                  <td className="px-3 py-2.5 text-[color:var(--title)]">{reg.fullName}</td>
+                  <td className="px-3 py-2.5 capitalize text-[color:var(--text-muted)]">{reg.interest}</td>
+                  <td className="px-3 py-2.5 text-[color:var(--text-muted)]">
+                    {reg.company}
+                    {reg.designation ? ` · ${reg.designation}` : ""}
+                  </td>
+                  <td className="px-3 py-2.5 text-[color:var(--text-muted)]">
+                    {reg.status === "verified" ? "accepted" : reg.status}
+                  </td>
+                  <td className="px-3 py-2.5 text-[color:var(--text-muted)]">
+                    {paymentStatusLabel(getPaymentStatus(reg))}
+                  </td>
+                  <td className="px-3 py-2.5 text-[color:var(--text-muted)]">{reg.email}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </AdminShell>
+  );
+}
+
 export default function Admin() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
@@ -2744,6 +3463,8 @@ export default function Admin() {
     <Routes>
       <Route index element={<OverviewPage />} />
       <Route path="players/:status" element={<PlayersPage />} />
+      <Route path="register" element={<AdminRegisterPage />} />
+      <Route path="reports" element={<ReportsPage />} />
       <Route path="teams" element={<TeamsPage />} />
       <Route path="passwords" element={<PasswordsPage />} />
       <Route path="auction" element={<AuctionPage />} />

@@ -29,3 +29,35 @@ export async function api(path, options = {}) {
   }
   return data;
 }
+
+/** Download a binary/text file from an API path (e.g. CSV export). */
+export async function apiDownload(path, { filename } = {}) {
+  const headers = {};
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/admin")) {
+    headers["X-USCL-Portal"] = "admin";
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
+    headers,
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Download failed");
+  }
+
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^"]+)"?/i);
+  const finalName = filename || match?.[1] || "download.csv";
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = finalName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
