@@ -110,7 +110,7 @@ export default function Sponsorship() {
                       Buy now →
                     </Link>
                   )}
-                  <a href="/brand/wesley-elite-sports.png" download className="btn-ghost">
+                  <a href="/brand/Sponsorship.pdf" download="Sponsorship.pdf" className="btn-ghost">
                     Download deck
                   </a>
                 </div>
