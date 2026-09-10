@@ -13,7 +13,7 @@ import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
 import { compressImageForUpload, paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
 import {
-  buildRegistrationPaymentFields,
+  buildConfirmPaymentPayload,
   openPaymentCheckout,
   paymentProviderLabel,
 } from "../utils/payments";
@@ -135,67 +135,48 @@ export default function Register() {
     pendingSaveRef.current = null;
   }
 
-  async function finalizeRegistration({ utr = "", screenshot = null } = {}) {
-    const pending = pendingSaveRef.current;
-    if (!pending) {
-      throw new Error("Registration session expired. Please submit the form again.");
-    }
-
+  async function createRegistration(values, photoFile, agreedToTerms) {
     const formData = new FormData();
-    formData.set("fullName", pending.values.fullName);
-    formData.set("email", pending.values.email);
-    formData.set("phone", pending.values.phone);
-    formData.set("company", pending.values.company);
-    formData.set("designation", pending.values.designation || "");
-    formData.set("role", pending.values.role);
-    formData.set("interest", pending.values.interest);
-    if (pending.values.sponsorPackageId) {
-      formData.set("sponsorPackageId", pending.values.sponsorPackageId);
+    formData.set("fullName", values.fullName);
+    formData.set("email", values.email);
+    formData.set("phone", values.phone);
+    formData.set("company", values.company);
+    formData.set("designation", values.designation || "");
+    formData.set("role", values.role);
+    formData.set("interest", values.interest);
+    if (values.sponsorPackageId) {
+      formData.set("sponsorPackageId", values.sponsorPackageId);
     }
-    formData.set("agreedToTerms", pending.agreedToTerms ? "true" : "false");
-    formData.set("paymentStatus", pending.paymentStatus || "pending");
-    formData.set("utrNumber", utr || "");
-    formData.set("photo", pending.photoFile);
+    formData.set("agreedToTerms", agreedToTerms ? "true" : "false");
+    formData.set("paymentStatus", "pending");
+    formData.set("photo", photoFile);
 
-    if (pending.gatewayPayment) {
-      const fields = buildRegistrationPaymentFields(pending.gatewayPayment);
-      Object.entries(fields).forEach(([key, value]) => {
-        if (value) formData.set(key, value);
-      });
-    } else if (pending.razorpay?.orderId) {
-      formData.set("razorpayOrderId", pending.razorpay.orderId);
-      formData.set("razorpayPaymentId", pending.razorpay.paymentId);
-      formData.set("razorpaySignature", pending.razorpay.signature);
-    }
+    const data = await api("/api/registrations", {
+      method: "POST",
+      body: formData,
+    });
+    return data.registration;
+  }
 
-    if (screenshot) {
-      formData.set("paymentScreenshot", screenshot);
-    }
+  async function collectPaymentForRegistration(registration, values) {
+    const order = await api(`/api/registrations/${registration._id}/create-payment-order`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
 
-    try {
-      const data = await api("/api/registrations", {
-        method: "POST",
-        body: formData,
-      });
-      setExisting(data.registration);
-      clearPendingSession();
-      return data.registration;
-    } catch (err) {
-      if (/already have an active/i.test(err.message || "")) {
-        try {
-          const data = await api("/api/registrations");
-          const reg = data.registrations?.[0] || null;
-          if (reg) {
-            setExisting(reg);
-            clearPendingSession();
-            return reg;
-          }
-        } catch {
-          /* fall through */
-        }
-      }
-      throw err;
-    }
+    const payment = await openPaymentCheckout(order, values);
+    const payload = buildConfirmPaymentPayload(payment);
+
+    const data = await api(`/api/registrations/${registration._id}/confirm-payment`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+
+    return {
+      registration: data.registration,
+      paymentOk: Boolean(payment.ok),
+      paymentReason: payment.reason || "",
+    };
   }
 
   async function onSubmit(e) {
@@ -245,6 +226,9 @@ export default function Register() {
         );
       }
 
+      // Compress before any network/payment work so we never lose a paid checkout to image errors.
+      const compressedPhoto = await compressImageForUpload(photoFile);
+
       if (!user) {
         if (!values.password || values.password.length < 6) {
           throw new Error("Password must be at least 6 characters.");
@@ -261,56 +245,53 @@ export default function Register() {
         await refresh();
       }
 
-      let paymentNote = "";
-      let paymentStatus = "pending";
-      let gatewayPayment = null;
+      // 1) Always create the registration first (unpaid). Admin can Mark as paid from Cashfree.
+      let registration;
+      try {
+        registration = await createRegistration(values, compressedPhoto, agreedToTerms);
+      } catch (createErr) {
+        if (/already have an active/i.test(createErr.message || "")) {
+          const data = await api("/api/registrations");
+          registration =
+            (data.registrations || []).find((r) => r.interest === interest) ||
+            data.registrations?.[0] ||
+            null;
+          if (!registration) throw createErr;
+        } else {
+          throw createErr;
+        }
+      }
 
+      setExisting(registration);
+
+      // 2) Then collect payment and mark this same registration paid.
       if (paymentConfigured) {
+        if (getPaymentStatus(registration) === "paid") {
+          clearPendingSession();
+          return;
+        }
+
         try {
-          const order = await api("/api/registrations/create-order", {
-            method: "POST",
-            body: JSON.stringify({
-              interest,
-              sponsorPackageId: registerInterest === "sponsor" ? sponsorPackageId : "",
-              phone: values.phone,
-              email: values.email,
-            }),
-          });
-          const payment = await openPaymentCheckout(order, values);
-          if (payment.ok) {
-            gatewayPayment = payment;
-            paymentStatus = "paid";
-          } else {
-            const reason = payment.reason || "Payment failed.";
-            paymentNote = reason;
-            paymentStatus = /cancel/i.test(reason) ? "cancelled" : "failed";
+          const result = await collectPaymentForRegistration(registration, values);
+          setExisting(result.registration);
+          if (!result.paymentOk) {
+            setError(
+              `${result.paymentReason || "Payment was not completed."} Your registration is saved (Player ID: ${
+                result.registration.playerCode || "—"
+              }). Complete payment from Dashboard, or ask admin to Mark as paid after Cashfree confirmation.`
+            );
           }
         } catch (payErr) {
-          paymentNote = payErr.message || "Payment failed.";
-          paymentStatus = /cancel/i.test(paymentNote) ? "cancelled" : "failed";
+          setExisting(registration);
+          setError(
+            `${payErr.message || "Payment could not be completed."} Your registration is saved (Player ID: ${
+              registration.playerCode || "—"
+            }). Open Dashboard to pay again, or ask admin to Mark as paid after checking Cashfree.`
+          );
         }
-      } else {
-        paymentNote =
-          "Online payment is not configured on the server. Registration will be saved as pending.";
-        paymentStatus = "pending";
       }
 
-      if (paymentConfigured && paymentStatus !== "paid") {
-        throw new Error(paymentNote || "Payment was not completed. Please try again.");
-      }
-
-      const compressedPhoto = await compressImageForUpload(photoFile);
-      pendingSaveRef.current = {
-        values,
-        photoFile: compressedPhoto,
-        agreedToTerms,
-        paymentNote,
-        paymentStatus,
-        gatewayPayment,
-        fullName: values.fullName,
-      };
-
-      await finalizeRegistration();
+      clearPendingSession();
     } catch (err) {
       setError(err.message);
       clearPendingSession();
@@ -340,14 +321,27 @@ export default function Register() {
 
         {existing ? (
           <div className="panel mt-5 space-y-3 rounded-lg p-5">
-            <AlertBanner tone="ok">
+            <AlertBanner tone={getPaymentStatus(existing) === "paid" ? "ok" : "info"}>
               {getPaymentStatus(existing) === "paid"
                 ? "Registration successful. Payment received and a confirmation email has been sent."
-                : "Registration submitted successfully. A confirmation email has been sent."}
+                : "Registration saved. Complete payment from your dashboard, or wait for admin to confirm Cashfree payment."}
             </AlertBanner>
-            <p className="font-display text-xl text-[color:var(--title)]">Registration successful</p>
+            {error && getPaymentStatus(existing) !== "paid" ? (
+              <AlertBanner tone="error">{error}</AlertBanner>
+            ) : null}
+            <p className="font-display text-xl text-[color:var(--title)]">
+              {getPaymentStatus(existing) === "paid"
+                ? "Registration successful"
+                : "Registration saved — payment pending"}
+            </p>
             <p className="text-sm text-[color:var(--text-muted)]">
               Status: <strong className="uppercase text-accent">{existing.status}</strong>
+              {existing.playerCode ? (
+                <>
+                  {" · "}
+                  Player ID: <strong className="text-accent">{existing.playerCode}</strong>
+                </>
+              ) : null}
             </p>
             <div className="flex flex-wrap items-start gap-4">
               {profileImageUrl(existing) ? (
@@ -407,7 +401,7 @@ export default function Register() {
               </div>
             </div>
             <Link to="/dashboard" className="btn-primary inline-flex">
-              Open Dashboard
+              {getPaymentStatus(existing) === "paid" ? "Open Dashboard" : "Open Dashboard to pay"}
             </Link>
           </div>
         ) : registerInterest ? (
@@ -528,9 +522,9 @@ export default function Register() {
                 </div>
               ) : null}
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                {paymentProviderLabel(paymentProvider)} checkout opens after you click Pay &amp;
-                Submit. After payment succeeds, your registration is saved and a confirmation email
-                is sent.
+                Your registration is saved first, then {paymentProviderLabel(paymentProvider)} checkout
+                opens. If payment is interrupted, your player record stays in admin so payment can be
+                completed from Dashboard or marked paid after Cashfree confirmation.
               </p>
               {!paymentConfigured && (
                 <p className="mt-2 text-xs text-accent">

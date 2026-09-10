@@ -93,10 +93,19 @@ async function openCashfreeCheckout(order) {
   }
 
   const details = result?.paymentDetails || {};
+  const orderId = details.orderId || order.orderId;
+  if (!orderId) {
+    return {
+      ok: false,
+      reason:
+        "Payment reference missing after checkout. Your registration may still be unpaid — complete Pay now from Dashboard or ask admin to Mark as paid after checking Cashfree.",
+    };
+  }
+
   return {
     ok: true,
     provider: "cashfree",
-    orderId: details.orderId || order.orderId,
+    orderId,
     paymentId: details.paymentId || "",
     signature: "",
   };

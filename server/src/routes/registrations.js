@@ -408,21 +408,12 @@ router.post("/", approvedRequired, (req, res) => {
         if (!sponsorPackageId) {
           return res.status(400).json({ error: "Please select a sponsor package to buy." });
         }
-        if (paymentStatus === "paid") {
-          const check = await assertSponsorPackageAvailable(sponsorPackageId);
-          if (!check.ok) {
-            return res.status(400).json({ error: check.error });
-          }
-          feeInr = check.pkg.priceInr;
-          sponsorPackageTitle = check.pkg.title;
-        } else {
-          const pkg = await getSponsorPackageById(sponsorPackageId);
-          if (!pkg) {
-            return res.status(400).json({ error: "Invalid sponsor package." });
-          }
-          feeInr = pkg.priceInr;
-          sponsorPackageTitle = pkg.title;
+        const check = await assertSponsorPackageAvailable(sponsorPackageId);
+        if (!check.ok) {
+          return res.status(400).json({ error: check.error });
         }
+        feeInr = check.pkg.priceInr;
+        sponsorPackageTitle = check.pkg.title;
       }
 
       const photo = toProfileImageMeta(photoFile);
@@ -445,6 +436,10 @@ router.post("/", approvedRequired, (req, res) => {
         utrNumber,
         paymentScreenshot: screenshotFile?.filename || "",
         paymentStatus,
+        /** Allow immediate / dashboard checkout while unpaid. */
+        payNowEnabled: paymentStatus !== "paid",
+        payNowEnabledBy: paymentStatus !== "paid" ? "registration" : "",
+        payNowEnabledAt: paymentStatus !== "paid" ? new Date() : null,
         paymentDetailsAddedBy:
           utrNumber || screenshotFile?.filename ? fullName : "",
         paymentDetailsAddedAt:
@@ -653,14 +648,11 @@ router.post("/:id/create-payment-order", approvedRequired, async (req, res) => {
     if (status === "paid") {
       return res.status(400).json({ error: "Payment is already completed for this registration." });
     }
-    if (!registration.payNowEnabled) {
-      return res.status(400).json({
-        error: "Online payment is not enabled yet. Please wait for admin to enable Pay now.",
-      });
-    }
 
     const gateway = await getActivePaymentGateway();
-    const feeInr = await getRegistrationFeeInr(registration.interest || "player");
+    const feeInr =
+      Number(registration.payment?.amountInr) ||
+      (await getRegistrationFeeInr(registration.interest || "player"));
     const receipt = `uscl_pay_${String(registration._id).slice(-8)}_${Date.now()}`.slice(0, 40);
     const order = await createGatewayOrder(gateway, {
       feeInr,
@@ -668,14 +660,28 @@ router.post("/:id/create-payment-order", approvedRequired, async (req, res) => {
       notes: {
         userId: String(req.user.userId),
         registrationId: String(registration._id),
-        purpose: "player_registration_retry",
+        playerCode: String(registration.playerCode || ""),
+        purpose: "player_registration_payment",
       },
       customer: {
         id: String(req.user.userId),
         email: registration.email || req.user.email || "",
-        phone: registration.phone || req.user.phone || "",
+        phone: registration.phone || "",
       },
     });
+
+    // Keep latest order id on the registration for Cashfree reconciliation.
+    registration.payment = {
+      ...(registration.payment?.toObject?.() || registration.payment || {}),
+      provider: gateway,
+      status: "pending",
+      amountInr: feeInr,
+      currency: "INR",
+      orderId: order.orderId || registration.payment?.orderId || "",
+    };
+    registration.paymentStatus = "pending";
+    registration.payNowEnabled = true;
+    await registration.save();
 
     return res.json(order);
   } catch (error) {

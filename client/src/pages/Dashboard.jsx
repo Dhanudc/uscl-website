@@ -37,7 +37,7 @@ function missingPaymentDetails(reg) {
 }
 
 function needsOnlinePayment(reg) {
-  return Boolean(reg?.payNowEnabled) && getPaymentStatus(reg) !== "paid";
+  return getPaymentStatus(reg) !== "paid";
 }
 
 function missingProfileImage(reg, brokenIds) {
