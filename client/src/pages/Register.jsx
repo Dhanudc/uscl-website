@@ -5,6 +5,7 @@ import PasswordInput from "../components/PasswordInput";
 import PlayerDataConsentForm from "../components/PlayerDataConsentForm";
 import { AlertBanner, EmptyState, PageLoader } from "../components/ui";
 import RegistrationComingSoon from "../components/RegistrationComingSoon";
+import PaymentQrModal from "../components/PaymentQrModal";
 import ZoomableImage from "../components/ZoomableImage";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
@@ -12,11 +13,6 @@ import { PLAYER_DATA_CONSENT } from "../data/playerDataConsent";
 import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
 import { compressImageForUpload, paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
-import {
-  buildConfirmPaymentPayload,
-  openPaymentCheckout,
-  paymentProviderLabel,
-} from "../utils/payments";
 
 const REGISTER_TYPES = [
   { value: "captain", label: "Captain", hint: "Register as team captain for the auction", badge: "C" },
@@ -37,8 +33,6 @@ export default function Register() {
   const [feeInr, setFeeInr] = useState(null);
   const [feeLoading, setFeeLoading] = useState(false);
   const [feeError, setFeeError] = useState("");
-  const [paymentConfigured, setPaymentConfigured] = useState(true);
-  const [paymentProvider, setPaymentProvider] = useState("razorpay");
   const pendingSaveRef = useRef(null);
   /** Set from the pre-register popup: captain | player | franchise | sponsor */
   const [registerInterest, setRegisterInterest] = useState(null);
@@ -46,6 +40,12 @@ export default function Register() {
   const [sponsorPackageTitle, setSponsorPackageTitle] = useState("");
   const [showTypePicker, setShowTypePicker] = useState(true);
   const [showConsentModal, setShowConsentModal] = useState(false);
+  const [paymentStepReg, setPaymentStepReg] = useState(null);
+  const [utrNumber, setUtrNumber] = useState("");
+  const [screenshotFile, setScreenshotFile] = useState(null);
+  const [screenshotPreview, setScreenshotPreview] = useState("");
+  const [payModalOpen, setPayModalOpen] = useState(false);
+  const formRef = useRef(null);
 
   useEffect(() => {
     const interest = String(searchParams.get("interest") || "").trim().toLowerCase();
@@ -59,15 +59,6 @@ export default function Register() {
       setShowTypePicker(false);
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    api("/api/registrations/payment-config")
-      .then((data) => {
-        setPaymentConfigured(Boolean(data.configured));
-        setPaymentProvider(data.provider || "razorpay");
-      })
-      .catch(() => setPaymentConfigured(false));
-  }, []);
 
   useEffect(() => {
     if (!registerInterest) {
@@ -97,8 +88,6 @@ export default function Register() {
           setFeeInr(null);
           setFeeError("Fee could not be loaded. Check that the server is running.");
         }
-        setPaymentConfigured(Boolean(data.configured));
-        setPaymentProvider(data.provider || "razorpay");
         if (data.sponsorPackage?.title) {
           setSponsorPackageTitle(data.sponsorPackage.title);
         } else if (registerInterest !== "sponsor") {
@@ -115,21 +104,48 @@ export default function Register() {
   useEffect(() => {
     if (!user) {
       setExisting(null);
+      setPaymentStepReg(null);
       setExistingLoaded(true);
       return;
     }
     setExistingLoaded(false);
     api("/api/registrations")
-      .then((data) => setExisting(data.registrations?.[0] || null))
-      .catch(() => setExisting(null))
+      .then((data) => {
+        const first = data.registrations?.[0] || null;
+        if (!first) {
+          setExisting(null);
+          setPaymentStepReg(null);
+          return;
+        }
+        const hasProof =
+          Boolean(String(first.utrNumber || "").trim()) && Boolean(paymentScreenshotUrl(first));
+        if (getPaymentStatus(first) === "paid" || hasProof) {
+          setExisting(first);
+          setPaymentStepReg(null);
+          return;
+        }
+        setExisting(null);
+        setPaymentStepReg(first);
+        setPayModalOpen(true);
+        if (first.interest) {
+          setRegisterInterest(first.interest);
+          setShowTypePicker(false);
+        }
+        if (first.sponsorPackageId) setSponsorPackageId(String(first.sponsorPackageId));
+      })
+      .catch(() => {
+        setExisting(null);
+        setPaymentStepReg(null);
+      })
       .finally(() => setExistingLoaded(true));
   }, [user]);
 
   useEffect(() => {
     return () => {
       if (preview) URL.revokeObjectURL(preview);
+      if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
     };
-  }, [preview]);
+  }, [preview, screenshotPreview]);
 
   function clearPendingSession() {
     pendingSaveRef.current = null;
@@ -158,57 +174,39 @@ export default function Register() {
     return data.registration;
   }
 
-  async function collectPaymentForRegistration(registration, values) {
-    const order = await api(`/api/registrations/${registration._id}/create-payment-order`, {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
+  function readFormValues(form) {
+    const photoFile = form.photo.files?.[0];
+    if (!photoFile) {
+      throw new Error("Please upload a photo.");
+    }
 
-    const payment = await openPaymentCheckout(order, values);
-    const payload = buildConfirmPaymentPayload(payment);
+    const needsPlayingRole =
+      registerInterest === "player" || registerInterest === "captain";
+    const interest = registerInterest || "player";
+    const role = needsPlayingRole ? form.role.value.trim() : interest;
 
-    const data = await api(`/api/registrations/${registration._id}/confirm-payment`, {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    });
+    if (!registerInterest) {
+      throw new Error("Please choose Captain, Player, Franchise, or Sponsor first.");
+    }
+    if (registerInterest === "sponsor" && !sponsorPackageId) {
+      throw new Error("Please choose a sponsor package on the Sponsors page first.");
+    }
+    if (needsPlayingRole && !role) {
+      throw new Error("Please select a playing role.");
+    }
+
+    const agreedToTerms = form.agreedToTerms.checked;
+    if (!agreedToTerms) {
+      throw new Error(
+        "Please read and agree to the USCL Player Data Processing & Sharing Consent."
+      );
+    }
 
     return {
-      registration: data.registration,
-      paymentOk: Boolean(payment.ok),
-      paymentReason: payment.reason || "",
-    };
-  }
-
-  async function onSubmit(e) {
-    e.preventDefault();
-    setError("");
-    setSubmitting(true);
-    const form = e.currentTarget;
-
-    try {
-      const photoFile = form.photo.files?.[0];
-      if (!photoFile) {
-        throw new Error("Please upload a photo.");
-      }
-
-      const needsPlayingRole =
-        registerInterest === "player" || registerInterest === "captain";
-      const interest = registerInterest || "player";
-      const role = needsPlayingRole
-        ? form.role.value.trim()
-        : interest;
-
-      if (!registerInterest) {
-        throw new Error("Please choose Captain, Player, Franchise, or Sponsor first.");
-      }
-      if (registerInterest === "sponsor" && !sponsorPackageId) {
-        throw new Error("Please choose a sponsor package on the Sponsors page first.");
-      }
-      if (needsPlayingRole && !role) {
-        throw new Error("Please select a playing role.");
-      }
-
-      const values = {
+      photoFile,
+      agreedToTerms,
+      interest,
+      values: {
         fullName: form.fullName.value.trim(),
         email: form.email.value.trim(),
         phone: form.phone.value.trim(),
@@ -218,15 +216,19 @@ export default function Register() {
         role,
         interest,
         sponsorPackageId: registerInterest === "sponsor" ? sponsorPackageId : "",
-      };
-      const agreedToTerms = form.agreedToTerms.checked;
-      if (!agreedToTerms) {
-        throw new Error(
-          "Please read and agree to the USCL Player Data Processing & Sharing Consent."
-        );
-      }
+      },
+    };
+  }
 
-      // Compress before any network/payment work so we never lose a paid checkout to image errors.
+  async function handlePayNow() {
+    const form = formRef.current;
+    if (!form) return;
+    setError("");
+    if (!form.reportValidity()) return;
+    setSubmitting(true);
+
+    try {
+      const { photoFile, agreedToTerms, interest, values } = readFormValues(form);
       const compressedPhoto = await compressImageForUpload(photoFile);
 
       if (!user) {
@@ -245,7 +247,6 @@ export default function Register() {
         await refresh();
       }
 
-      // 1) Always create the registration first (unpaid). Admin can Mark as paid from Cashfree.
       let registration;
       try {
         registration = await createRegistration(values, compressedPhoto, agreedToTerms);
@@ -262,40 +263,52 @@ export default function Register() {
         }
       }
 
-      setExisting(registration);
-
-      // 2) Then collect payment and mark this same registration paid.
-      if (paymentConfigured) {
-        if (getPaymentStatus(registration) === "paid") {
-          clearPendingSession();
-          return;
-        }
-
-        try {
-          const result = await collectPaymentForRegistration(registration, values);
-          setExisting(result.registration);
-          if (!result.paymentOk) {
-            setError(
-              `${result.paymentReason || "Payment was not completed."} Your registration is saved (Player ID: ${
-                result.registration.playerCode || "—"
-              }). Complete payment from Dashboard, or ask admin to Mark as paid after Cashfree confirmation.`
-            );
-          }
-        } catch (payErr) {
-          setExisting(registration);
-          setError(
-            `${payErr.message || "Payment could not be completed."} Your registration is saved (Player ID: ${
-              registration.playerCode || "—"
-            }). Open Dashboard to pay again, or ask admin to Mark as paid after checking Cashfree.`
-          );
-        }
-      }
-
+      setPaymentStepReg(registration);
+      setPayModalOpen(true);
       clearPendingSession();
     } catch (err) {
       setError(err.message);
       clearPendingSession();
       await refresh();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function savePaymentProof() {
+    setError("");
+    setSubmitting(true);
+
+    try {
+      if (!paymentStepReg?._id) {
+        throw new Error("Tap Pay now to save your registration first.");
+      }
+      const utr = utrNumber.trim();
+      if (!utr) {
+        throw new Error("Enter the UTR number from your UPI payment.");
+      }
+      if (!screenshotFile) {
+        throw new Error("Upload a screenshot of your UPI payment.");
+      }
+
+      const compressedScreenshot = await compressImageForUpload(screenshotFile);
+      const formData = new FormData();
+      formData.set("fullName", paymentStepReg.fullName || user?.name || "player");
+      formData.set("utrNumber", utr);
+      formData.set("paymentScreenshot", compressedScreenshot);
+
+      const data = await api(`/api/registrations/${paymentStepReg._id}/payment-details`, {
+        method: "PATCH",
+        body: formData,
+      });
+
+      setExisting(data.registration);
+      setPaymentStepReg(null);
+      setPayModalOpen(false);
+      clearPendingSession();
+    } catch (err) {
+      setError(err.message);
+      clearPendingSession();
     } finally {
       setSubmitting(false);
     }
@@ -309,7 +322,7 @@ export default function Register() {
     );
   }
 
-  if (!registrationEnabled && !existing) {
+  if (!registrationEnabled && !existing && !paymentStepReg) {
     return <RegistrationComingSoon />;
   }
 
@@ -324,7 +337,7 @@ export default function Register() {
             <AlertBanner tone={getPaymentStatus(existing) === "paid" ? "ok" : "info"}>
               {getPaymentStatus(existing) === "paid"
                 ? "Registration successful. Payment received and a confirmation email has been sent."
-                : "Registration saved. Complete payment from your dashboard, or wait for admin to confirm Cashfree payment."}
+                : "Registration saved. Admin will mark it paid after confirming your UTR and screenshot."}
             </AlertBanner>
             {error && getPaymentStatus(existing) !== "paid" ? (
               <AlertBanner tone="error">{error}</AlertBanner>
@@ -401,12 +414,16 @@ export default function Register() {
               </div>
             </div>
             <Link to="/dashboard" className="btn-primary inline-flex">
-              {getPaymentStatus(existing) === "paid" ? "Open Dashboard" : "Open Dashboard to pay"}
+              {getPaymentStatus(existing) === "paid" ? "Open Dashboard" : "Open Dashboard"}
             </Link>
           </div>
         ) : registerInterest ? (
           <form
-            onSubmit={onSubmit}
+            ref={formRef}
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (paymentStepReg) savePaymentProof();
+            }}
             encType="multipart/form-data"
             className="panel mt-8 grid gap-3 rounded-2xl p-6 sm:grid-cols-2"
           >
@@ -415,18 +432,26 @@ export default function Register() {
                 Registering as{" "}
                 <strong className="uppercase text-accent">{registerInterest}</strong>
               </p>
-              <button
-                type="button"
-                className="text-xs font-semibold text-accent-soft underline"
-                onClick={() => {
-                  setRegisterInterest(null);
-                  setSponsorPackageId("");
-                  setSponsorPackageTitle("");
-                  setShowTypePicker(true);
-                }}
-              >
-                Change
-              </button>
+              {!paymentStepReg ? (
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-accent-soft underline"
+                  onClick={() => {
+                    setRegisterInterest(null);
+                    setSponsorPackageId("");
+                    setSponsorPackageTitle("");
+                    setShowTypePicker(true);
+                    setUtrNumber("");
+                    setScreenshotFile(null);
+                    setScreenshotPreview((prev) => {
+                      if (prev) URL.revokeObjectURL(prev);
+                      return "";
+                    });
+                  }}
+                >
+                  Change
+                </button>
+              ) : null}
             </div>
             {registerInterest === "sponsor" && sponsorPackageId ? (
               <div className="sm:col-span-2 rounded-lg border border-accent/35 bg-accent/10 px-4 py-3">
@@ -522,16 +547,9 @@ export default function Register() {
                 </div>
               ) : null}
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                Your registration is saved first, then {paymentProviderLabel(paymentProvider)} checkout
-                opens. If payment is interrupted, your player record stays in admin so payment can be
-                completed from Dashboard or marked paid after Cashfree confirmation.
+                Tap Pay now to save your registration, then scan the UPI QR, enter UTR, and upload
+                your payment screenshot. Admin will mark it paid after confirmation.
               </p>
-              {!paymentConfigured && (
-                <p className="mt-2 text-xs text-accent">
-                  {paymentProviderLabel(paymentProvider)} keys are missing on the server. Add them in
-                  server `.env`.
-                </p>
-              )}
             </div>
 
             <label className="sm:col-span-2 flex items-start gap-3 text-sm text-[color:var(--text)]">
@@ -555,17 +573,36 @@ export default function Register() {
               </span>
             </label>
             {error && <p className="sm:col-span-2 text-sm text-accent">{error}</p>}
-            <button
-              type="submit"
-              disabled={submitting || feeLoading || feeInr == null}
-              className="btn-primary sm:col-span-2"
-            >
-              {submitting
-                ? "Processing payment..."
-                : feeLoading || feeInr == null
-                  ? "Loading fee…"
-                  : `Pay ₹${feeInr.toLocaleString("en-IN")} & Submit`}
-            </button>
+
+            {!paymentStepReg ? (
+              <button
+                type="button"
+                disabled={submitting || feeLoading || feeInr == null}
+                className="btn-primary sm:col-span-2"
+                onClick={handlePayNow}
+              >
+                {submitting
+                  ? "Saving registration..."
+                  : feeLoading || feeInr == null
+                    ? "Loading fee…"
+                    : `Pay now ₹${feeInr.toLocaleString("en-IN")}`}
+              </button>
+            ) : (
+              <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3">
+                <p className="text-sm text-[color:var(--text)]">
+                  Registration saved
+                  {paymentStepReg.playerCode ? ` · Player ID ${paymentStepReg.playerCode}` : ""}.
+                  Complete UPI payment in the popup.
+                </p>
+                <button
+                  type="button"
+                  className="btn-primary !py-2 !text-xs"
+                  onClick={() => setPayModalOpen(true)}
+                >
+                  Open payment
+                </button>
+              </div>
+            )}
           </form>
         ) : (
           <div className="mt-8">
@@ -652,6 +689,28 @@ export default function Register() {
           </p>
         ) : null}
       </div>
+
+      <PaymentQrModal
+        open={Boolean(paymentStepReg) && payModalOpen}
+        playerCode={paymentStepReg?.playerCode}
+        amountInr={feeInr ?? paymentStepReg?.payment?.amountInr}
+        utrNumber={utrNumber}
+        onUtrChange={setUtrNumber}
+        screenshotFile={screenshotFile}
+        screenshotPreview={screenshotPreview}
+        onScreenshotChange={(file) => {
+          setScreenshotFile(file);
+          setScreenshotPreview((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return file ? URL.createObjectURL(file) : "";
+          });
+        }}
+        error={error}
+        submitting={submitting}
+        submitLabel="Register"
+        onSubmit={savePaymentProof}
+        onClose={() => setPayModalOpen(false)}
+      />
 
       {showConsentModal ? (
         <div

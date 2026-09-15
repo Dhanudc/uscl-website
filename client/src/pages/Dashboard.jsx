@@ -4,11 +4,11 @@ import { api } from "../api";
 import { AlertBanner, PageLoader, StatusPill } from "../components/ui";
 import RegisterCta from "../components/RegisterCta";
 import ZoomableImage from "../components/ZoomableImage";
+import PaymentQrModal from "../components/PaymentQrModal";
 import { useAuth } from "../context/AuthContext";
 import { playerRoleLabel } from "../data/playerRoles";
 import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
-import { buildConfirmPaymentPayload, openPaymentCheckout } from "../utils/payments";
 
 function paymentPillTone(status) {
   const s = String(status || "pending").toLowerCase();
@@ -52,9 +52,6 @@ export default function Dashboard() {
   const [regsLoading, setRegsLoading] = useState(true);
   const [regsError, setRegsError] = useState("");
   const [brokenProfileIds, setBrokenProfileIds] = useState(() => new Set());
-  const [payError, setPayError] = useState("");
-  const [payErrorId, setPayErrorId] = useState("");
-  const [payingId, setPayingId] = useState("");
 
   const [paymentModalReg, setPaymentModalReg] = useState(null);
   const [utrNumber, setUtrNumber] = useState("");
@@ -109,48 +106,6 @@ export default function Dashboard() {
     setUtrNumber(String(paymentModalReg.utrNumber || "").trim());
   }, [paymentModalReg]);
 
-  async function payRegistration(reg) {
-    if (!reg?._id || payingId) return;
-    setPayError("");
-    setPayErrorId("");
-    setPayingId(String(reg._id));
-    try {
-      const order = await api(`/api/registrations/${reg._id}/create-payment-order`, {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-
-      const payment = await openPaymentCheckout(order, {
-        fullName: reg.fullName || user?.name || "",
-        email: reg.email || user?.email || "",
-        phone: reg.phone || user?.phone || "",
-      });
-
-      const payload = buildConfirmPaymentPayload(payment);
-
-      const data = await api(`/api/registrations/${reg._id}/confirm-payment`, {
-        method: "PATCH",
-        body: JSON.stringify(payload),
-      });
-
-      setRegs((prev) =>
-        prev.map((r) => (String(r._id) === String(data.registration._id) ? data.registration : r))
-      );
-
-      if (payment.ok && missingPaymentDetails(data.registration)) {
-        openPaymentModal(data.registration);
-      } else if (!payment.ok) {
-        setPayErrorId(String(reg._id));
-        setPayError(payment.reason || "Payment was not completed.");
-      }
-    } catch (err) {
-      setPayErrorId(String(reg._id));
-      setPayError(err.message || "Unable to start payment.");
-    } finally {
-      setPayingId("");
-    }
-  }
-
   function openPaymentModal(reg) {
     const existingUtr = String(reg?.utrNumber || "").trim();
     setPaymentModalReg(reg);
@@ -175,17 +130,20 @@ export default function Dashboard() {
     setModalError("");
     setSaving(true);
     try {
-      const nextUtr = utrNumber.trim().toUpperCase();
+      const nextUtr = utrNumber.trim();
+      if (!nextUtr) {
+        throw new Error("Enter the UTR number from your UPI payment.");
+      }
+      if (!screenshotFile && !paymentScreenshotUrl(paymentModalReg)) {
+        throw new Error("Upload a screenshot of your UPI payment.");
+      }
+
       const prevUtr = String(paymentModalReg.utrNumber || "").trim().toUpperCase();
-      const utrChanged = Boolean(nextUtr) && nextUtr !== prevUtr;
+      const utrChanged = nextUtr.toUpperCase() !== prevUtr;
       const shotChanged = Boolean(screenshotFile);
 
       if (!utrChanged && !shotChanged) {
         throw new Error("No payment changes to save. Update UTR or upload a new screenshot.");
-      }
-
-      if (!utrNumber.trim() && !screenshotFile && !paymentScreenshotUrl(paymentModalReg)) {
-        throw new Error("Please add a UTR number or payment screenshot.");
       }
 
       const formData = new FormData();
@@ -408,13 +366,12 @@ export default function Dashboard() {
                             <button
                               type="button"
                               className="btn-primary !py-2 !text-xs"
-                              disabled={payingId === String(reg._id)}
-                              onClick={() => payRegistration(reg)}
+                              onClick={() => openPaymentModal(reg)}
                             >
-                              {payingId === String(reg._id) ? "Opening payment..." : "Pay now"}
+                              Pay now
                             </button>
                           ) : null}
-                          {missingPaymentDetails(reg) ? (
+                          {!needsOnlinePayment(reg) && missingPaymentDetails(reg) ? (
                             <button
                               type="button"
                               className="btn-ghost !py-2 !text-xs"
@@ -424,9 +381,6 @@ export default function Dashboard() {
                             </button>
                           ) : null}
                         </div>
-                        {payError && payErrorId === String(reg._id) ? (
-                          <p className="mt-2 text-xs text-accent">{payError}</p>
-                        ) : null}
                         {reg.paymentDetailsAddedBy || reg.paymentDetailsAddedAt ? (
                           <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                             Payment details by {reg.paymentDetailsAddedBy || "—"}
@@ -514,99 +468,30 @@ export default function Dashboard() {
         </div>
       ) : null}
 
-      {paymentModalReg ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="dash-payment-details-title"
-            className="panel w-full max-w-md rounded-2xl p-5"
-          >
-            <p className="eyebrow text-accent">Payment details</p>
-            <h2
-              id="dash-payment-details-title"
-              className="mt-1 font-display text-2xl text-[color:var(--title)]"
-            >
-              {paymentModalReg.fullName}
-            </h2>
-            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              Add UTR and payment screenshot. You can update either or both.
-            </p>
-
-            <label className="mt-4 block text-sm">
-              <span className="text-[color:var(--text-muted)]">UTR number</span>
-              <input
-                type="text"
-                value={utrNumber}
-                onChange={(e) => {
-                  setUtrNumber(e.target.value);
-                  if (modalError) setModalError("");
-                }}
-                className="input-dark mt-1.5"
-                placeholder="Enter UTR number"
-                autoComplete="off"
-              />
-              {modalError && /utr/i.test(modalError) ? (
-                <p className="mt-1.5 text-xs text-accent">{modalError}</p>
-              ) : null}
-            </label>
-
-            <label className="mt-3 block text-sm">
-              <span className="text-[color:var(--text-muted)]">Payment screenshot</span>
-              <input
-                type="file"
-                accept="image/*"
-                className="mt-1.5 block w-full text-sm text-[color:var(--text-muted)] file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  setScreenshotFile(file);
-                  if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
-                  setScreenshotPreview(file ? URL.createObjectURL(file) : "");
-                }}
-              />
-              <p className="mt-1.5 text-xs text-[color:var(--text-muted)]">
-                Please add your payment screenshot
-              </p>
-              {screenshotPreview ? (
-                <img
-                  src={screenshotPreview}
-                  alt="Payment screenshot preview"
-                  className="mt-3 h-28 w-auto max-w-full rounded-lg border border-[color:var(--border)] object-contain"
-                />
-              ) : paymentScreenshotUrl(paymentModalReg) ? (
-                <img
-                  src={paymentScreenshotUrl(paymentModalReg)}
-                  alt="Current payment screenshot"
-                  className="mt-3 h-28 w-auto max-w-full rounded-lg border border-[color:var(--border)] object-contain"
-                />
-              ) : null}
-            </label>
-
-            {modalError && !/utr/i.test(modalError) ? (
-              <p className="mt-3 text-sm text-accent">{modalError}</p>
-            ) : null}
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={saving}
-                onClick={savePaymentDetails}
-                className="btn-primary"
-              >
-                {saving ? "Saving..." : "Save"}
-              </button>
-              <button
-                type="button"
-                disabled={saving}
-                onClick={closePaymentModal}
-                className="btn-ghost"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <PaymentQrModal
+        open={Boolean(paymentModalReg)}
+        playerCode={paymentModalReg?.playerCode}
+        amountInr={paymentModalReg?.payment?.amountInr}
+        utrNumber={utrNumber}
+        onUtrChange={(value) => {
+          setUtrNumber(value);
+          if (modalError) setModalError("");
+        }}
+        screenshotFile={screenshotFile}
+        screenshotPreview={screenshotPreview}
+        existingScreenshotUrl={paymentScreenshotUrl(paymentModalReg)}
+        onScreenshotChange={(file) => {
+          setScreenshotFile(file);
+          if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
+          setScreenshotPreview(file ? URL.createObjectURL(file) : "");
+          if (modalError) setModalError("");
+        }}
+        error={modalError}
+        submitting={saving}
+        submitLabel="Save"
+        onSubmit={savePaymentDetails}
+        onClose={closePaymentModal}
+      />
     </section>
   );
 }
