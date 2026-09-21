@@ -6,6 +6,7 @@ import RegisterCta from "../components/RegisterCta";
 import ZoomableImage from "../components/ZoomableImage";
 import PaymentQrModal from "../components/PaymentQrModal";
 import { useAuth } from "../context/AuthContext";
+import { useSiteSettings } from "../context/SiteSettingsContext";
 import { playerRoleLabel } from "../data/playerRoles";
 import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
@@ -47,6 +48,7 @@ function missingProfileImage(reg, brokenIds) {
 
 export default function Dashboard() {
   const { user, loading, logout } = useAuth();
+  const { referralProgramEnabled } = useSiteSettings();
   const navigate = useNavigate();
   const [regs, setRegs] = useState([]);
   const [regsLoading, setRegsLoading] = useState(true);
@@ -65,6 +67,11 @@ export default function Dashboard() {
   const [profilePreview, setProfilePreview] = useState("");
   const [profileError, setProfileError] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+
+  const [refsOpen, setRefsOpen] = useState(false);
+  const [refsLoading, setRefsLoading] = useState(false);
+  const [refsError, setRefsError] = useState("");
+  const [referrals, setReferrals] = useState({ playerCodes: [], referred: [], count: 0 });
 
   useEffect(() => {
     if (!loading && !user) navigate("/register");
@@ -93,6 +100,29 @@ export default function Dashboard() {
   useEffect(() => {
     loadRegistrations();
   }, [loadRegistrations]);
+
+  const loadReferrals = useCallback(async () => {
+    if (!user || user.role === "admin") return;
+    setRefsLoading(true);
+    setRefsError("");
+    try {
+      const data = await api("/api/registrations/referrals");
+      setReferrals({
+        playerCodes: data.playerCodes || [],
+        referred: data.referred || [],
+        count: Number(data.count || 0),
+      });
+    } catch (err) {
+      setReferrals({ playerCodes: [], referred: [], count: 0 });
+      setRefsError(err.message || "Unable to load references.");
+    } finally {
+      setRefsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadReferrals();
+  }, [loadReferrals]);
 
   useEffect(() => {
     return () => {
@@ -236,6 +266,18 @@ export default function Dashboard() {
             <p className="text-sm text-[color:var(--text-muted)]">{user.email}</p>
           </div>
           <div className="flex gap-2">
+            {referralProgramEnabled || referrals.count > 0 ? (
+              <button
+                type="button"
+                className="btn-primary !py-2 !text-xs"
+                onClick={() => {
+                  setRefsOpen(true);
+                  loadReferrals();
+                }}
+              >
+                References{referrals.count ? ` (${referrals.count})` : ""}
+              </button>
+            ) : null}
             <RegisterCta
               className="btn-ghost !py-2 !text-xs"
               openLabel="Registration"
@@ -381,6 +423,12 @@ export default function Dashboard() {
                             </button>
                           ) : null}
                         </div>
+                        {reg.referredByPlayerCode ? (
+                          <p className="mt-2 text-xs text-[color:var(--text-muted)]">
+                            Referred by Player ID: {reg.referredByPlayerCode}
+                            {reg.referredByName ? ` · ${reg.referredByName}` : ""}
+                          </p>
+                        ) : null}
                         {reg.paymentDetailsAddedBy || reg.paymentDetailsAddedAt ? (
                           <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                             Payment details by {reg.paymentDetailsAddedBy || "—"}
@@ -462,6 +510,77 @@ export default function Dashboard() {
                 className="btn-ghost"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {refsOpen ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dash-references-title"
+            className="panel max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl p-5"
+          >
+            <p className="eyebrow text-accent">Referral program</p>
+            <h2 id="dash-references-title" className="mt-1 font-display text-2xl text-[color:var(--title)]">
+              References
+            </h2>
+            {referralProgramEnabled && referrals.playerCodes.length ? (
+              <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                Share your Player ID{" "}
+                <strong className="text-accent">{referrals.playerCodes.join(", ")}</strong> so
+                others can enter it as an optional referral code at registration.
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+                Players who registered using your Player ID appear here.
+              </p>
+            )}
+
+            {refsError ? (
+              <div className="mt-4">
+                <AlertBanner tone="error">{refsError}</AlertBanner>
+              </div>
+            ) : null}
+
+            {refsLoading ? (
+              <p className="mt-4 text-sm text-[color:var(--text-muted)]">Loading references…</p>
+            ) : referrals.referred.length === 0 ? (
+              <p className="mt-4 rounded-lg border border-[color:var(--border)] bg-ink-soft px-4 py-3 text-sm text-[color:var(--text-muted)]">
+                No references yet.
+              </p>
+            ) : (
+              <div className="mt-4 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+                  {referrals.count} referred player{referrals.count === 1 ? "" : "s"}
+                </p>
+                {referrals.referred.map((row) => (
+                  <article
+                    key={row._id}
+                    className="rounded-lg border border-[color:var(--border)] bg-ink-soft px-4 py-3"
+                  >
+                    <p className="font-semibold text-[color:var(--title)]">{row.fullName}</p>
+                    <p className="text-xs text-[color:var(--text-muted)]">
+                      Player ID: {row.playerCode || "—"}
+                      {row.interest ? ` · ${row.interest}` : ""}
+                      {row.status ? ` · ${row.status}` : ""}
+                    </p>
+                    {row.createdAt ? (
+                      <p className="mt-1 text-[11px] text-[color:var(--text-muted)]">
+                        {new Date(row.createdAt).toLocaleString()}
+                      </p>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-5">
+              <button type="button" className="btn-ghost" onClick={() => setRefsOpen(false)}>
+                Close
               </button>
             </div>
           </div>

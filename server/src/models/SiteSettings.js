@@ -83,6 +83,8 @@ const siteSettingsSchema = new mongoose.Schema(
     },
     /** When false, public Register CTAs are hidden and new registrations are blocked. */
     registrationEnabled: { type: Boolean, default: true },
+    /** When false, referral field is hidden and new referral codes are ignored. */
+    referralProgramEnabled: { type: Boolean, default: true },
     /** Show/hide public module links (Media, Live, Wesley, etc.). */
     moduleVisibility: {
       type: moduleVisibilitySchema,
@@ -170,6 +172,7 @@ export const DEFAULT_SITE_SETTINGS = {
     videos: [],
   },
   registrationEnabled: true,
+  referralProgramEnabled: true,
   moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
   paymentGateway: "razorpay",
   whatsappGroupUrl: "",
@@ -199,6 +202,10 @@ export async function getSiteSettings() {
 
 export function isRegistrationEnabled(settings) {
   return settings?.registrationEnabled !== false;
+}
+
+export function isReferralProgramEnabled(settings) {
+  return settings?.referralProgramEnabled !== false;
 }
 
 export function getModuleVisibility(settings) {

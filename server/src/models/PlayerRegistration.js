@@ -16,6 +16,16 @@ const registrationSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     /** Public serial ID shown everywhere, e.g. 0001, 0002. */
     playerCode: { type: String, index: true, unique: true, sparse: true },
+    /** Optional referral: stored Player ID of the person who referred this registration. */
+    referredByPlayerCode: { type: String, default: "", index: true },
+    /** User account that owns the referring Player ID. */
+    referredByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null, index: true },
+    referredByRegistrationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "PlayerRegistration",
+      default: null,
+    },
+    referredByName: { type: String, default: "" },
     fullName: { type: String, required: true },
     email: { type: String, required: true },
     phone: { type: String, required: true },

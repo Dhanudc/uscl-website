@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getModuleVisibility,
   getSiteSettings,
+  isReferralProgramEnabled,
   isRegistrationEnabled,
 } from "../models/SiteSettings.js";
 import { buildPortalMediaResponse } from "../utils/portalMedia.js";
@@ -16,6 +17,7 @@ router.get("/", async (_req, res) => {
         contact: settings.contact,
         socials: settings.socials,
         registrationEnabled: isRegistrationEnabled(settings),
+        referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
         whatsappGroupUrl: settings.whatsappGroupUrl || "",
       },

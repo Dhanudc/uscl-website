@@ -27,6 +27,7 @@ import { sendRegistrationReceivedEmail } from "../utils/mail.js";
 import { getSiteSettings, isRegistrationEnabled } from "../models/SiteSettings.js";
 import { User } from "../models/User.js";
 import { allocateNextPlayerCode } from "../utils/playerCode.js";
+import { isReferralProgramEnabled, mapReferredPlayer, resolveReferralCode } from "../utils/referrals.js";
 
 const router = Router();
 
@@ -185,6 +186,31 @@ router.get("/", approvedRequired, async (req, res) => {
   return res.json({ registrations: mapWithProfileImageUrl(registrations) });
 });
 
+router.get("/referrals", approvedRequired, async (req, res) => {
+  try {
+    const settings = await getSiteSettings();
+    const mine = await PlayerRegistration.find({ userId: req.user.userId })
+      .select("playerCode")
+      .lean();
+    const playerCodes = mine.map((row) => String(row.playerCode || "").trim()).filter(Boolean);
+
+    const referred = await PlayerRegistration.find({ referredByUserId: req.user.userId })
+      .select("playerCode fullName email phone interest status createdAt referredByPlayerCode referredByName")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({
+      referralProgramEnabled: isReferralProgramEnabled(settings),
+      playerCodes,
+      count: referred.length,
+      referred: referred.map(mapReferredPlayer),
+    });
+  } catch (error) {
+    console.error("player referrals error", error);
+    return res.status(500).json({ error: "Unable to load references." });
+  }
+});
+
 function isPaid(reg) {
   const top = String(reg?.paymentStatus || "").toLowerCase();
   const nested = String(reg?.payment?.status || "").toLowerCase();
@@ -327,6 +353,13 @@ router.post("/", approvedRequired, (req, res) => {
         return res.status(400).json({ error: "Please upload a photo." });
       }
 
+      const referralResult = await resolveReferralCode(req.body.referralPlayerCode || req.body.referredByPlayerCode, {
+        currentUserId: req.user.userId,
+      });
+      if (!referralResult.ok) {
+        return res.status(400).json({ error: referralResult.error });
+      }
+
       await persistUploadedFile(photoFile, "profile");
       if (screenshotFile) await persistUploadedFile(screenshotFile, "payment");
 
@@ -456,6 +489,7 @@ router.post("/", approvedRequired, (req, res) => {
         },
         status: "pending",
         auctionStatus: "not_listed",
+        ...referralResult.referral,
       });
 
       await recordPlayerActivity({
@@ -472,6 +506,7 @@ router.post("/", approvedRequired, (req, res) => {
           paymentStatus,
           hasUtr: Boolean(utrNumber),
           hasPaymentScreenshot: Boolean(screenshotFile?.filename),
+          referredByPlayerCode: referralResult.referral.referredByPlayerCode || "",
         },
       });
 

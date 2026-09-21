@@ -23,7 +23,7 @@ const REGISTER_TYPES = [
 
 export default function Register() {
   const { user, loading, refresh } = useAuth();
-  const { registrationEnabled, loading: settingsLoading } = useSiteSettings();
+  const { registrationEnabled, referralProgramEnabled, loading: settingsLoading } = useSiteSettings();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState("");
   const [existing, setExisting] = useState(null);
@@ -166,6 +166,9 @@ export default function Register() {
     formData.set("agreedToTerms", agreedToTerms ? "true" : "false");
     formData.set("paymentStatus", "pending");
     formData.set("photo", photoFile);
+    if (values.referralPlayerCode) {
+      formData.set("referralPlayerCode", values.referralPlayerCode);
+    }
 
     const data = await api("/api/registrations", {
       method: "POST",
@@ -216,6 +219,7 @@ export default function Register() {
         role,
         interest,
         sponsorPackageId: registerInterest === "sponsor" ? sponsorPackageId : "",
+        referralPlayerCode: form.referralPlayerCode?.value?.trim() || "",
       },
     };
   }
@@ -387,6 +391,13 @@ export default function Register() {
                   </strong>
                   {existing.payment?.amountInr ? ` · ₹${existing.payment.amountInr}` : ""}
                 </p>
+                {existing.referredByPlayerCode ? (
+                  <p>
+                    Referred by Player ID:{" "}
+                    <strong className="text-accent">{existing.referredByPlayerCode}</strong>
+                    {existing.referredByName ? ` · ${existing.referredByName}` : ""}
+                  </p>
+                ) : null}
                 {existing.utrNumber ? <p>UTR: {existing.utrNumber}</p> : null}
                 {paymentScreenshotUrl(existing) ? (
                   <p className="sm:col-span-2">
@@ -484,6 +495,23 @@ export default function Register() {
             ) : null}
             <Field label="Company" name="company" required />
             <Field label="Designation" name="designation" placeholder="e.g. Software Engineer" required />
+            {referralProgramEnabled ? (
+              <label className="block text-sm sm:col-span-2">
+                <span className="text-[color:var(--text-muted)]">Referral code (optional)</span>
+                <input
+                  name="referralPlayerCode"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  defaultValue={searchParams.get("ref") || ""}
+                  placeholder="e.g. 0001"
+                  className="input-dark mt-1.5"
+                />
+                <span className="mt-1.5 block text-xs text-[color:var(--text-muted)]">
+                  Enter the Player ID of the person who referred you. Leave blank if nobody referred you.
+                </span>
+              </label>
+            ) : null}
             {registerInterest === "player" || registerInterest === "captain" ? (
               <label className="block text-sm">
                 <span className="text-[color:var(--text-muted)]">Role</span>

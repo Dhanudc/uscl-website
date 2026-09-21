@@ -5,7 +5,7 @@ import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { getSiteSettings, getPaymentGateway, getModuleVisibility, isRegistrationEnabled, normalizeModuleVisibility, normalizeSocials } from "../models/SiteSettings.js";
+import { getSiteSettings, getPaymentGateway, getModuleVisibility, isRegistrationEnabled, isReferralProgramEnabled, normalizeModuleVisibility, normalizeSocials } from "../models/SiteSettings.js";
 import { getGatewayStatus } from "../utils/paymentGateway.js";
 import { normalizeRegistrationFees, getRegistrationFeeInr } from "../utils/registrationFees.js";
 import { User } from "../models/User.js";
@@ -21,6 +21,7 @@ import { buildPointsTable } from "../utils/points.js";
 import { persistUploadedFile } from "../utils/mediaStore.js";
 import { isValidPlayerRole, playerRoleLabel } from "../constants/playerRoles.js";
 import { allocateNextPlayerCode, backfillMissingPlayerCodes, buildRegistrationsCsv } from "../utils/playerCode.js";
+import { mapReferredPlayer, resolveReferralCode } from "../utils/referrals.js";
 import {
   isValidImageSectionId,
   isValidVideoSectionId,
@@ -62,6 +63,8 @@ router.get("/stats", adminRequired, async (_req, res) => {
     rejectedRegs,
     auctionSold,
     auctionUnsold,
+    referralCount,
+    referrerCount,
   ] = await Promise.all([
     User.countDocuments({ role: { $ne: "admin" } }),
     User.countDocuments({ role: { $ne: "admin" }, status: "pending" }),
@@ -73,6 +76,8 @@ router.get("/stats", adminRequired, async (_req, res) => {
     PlayerRegistration.countDocuments({ status: "rejected" }),
     PlayerRegistration.countDocuments({ auctionStatus: "sold" }),
     PlayerRegistration.countDocuments({ auctionStatus: "unsold" }),
+    PlayerRegistration.countDocuments({ referredByPlayerCode: { $type: "string", $ne: "" } }),
+    PlayerRegistration.distinct("referredByUserId", { referredByUserId: { $ne: null } }),
   ]);
 
   return res.json({
@@ -87,6 +92,8 @@ router.get("/stats", adminRequired, async (_req, res) => {
       rejectedRegs,
       auctionSold,
       auctionUnsold,
+      referralCount,
+      referrerCount: Array.isArray(referrerCount) ? referrerCount.length : 0,
     },
   });
 });
@@ -437,6 +444,14 @@ router.post("/registrations", adminRequired, (req, res) => {
         });
       }
 
+      const referralResult = await resolveReferralCode(
+        req.body.referralPlayerCode || req.body.referredByPlayerCode,
+        { currentUserId: user._id }
+      );
+      if (!referralResult.ok) {
+        return res.status(400).json({ error: referralResult.error });
+      }
+
       let feeInr = await getRegistrationFeeInr(interest);
       let sponsorPackageId = "";
       let sponsorPackageTitle = "";
@@ -498,6 +513,7 @@ router.post("/registrations", adminRequired, (req, res) => {
             auctionStatus: "not_listed",
             adminNotes: String(req.body.adminNotes || "").trim(),
             reviewedAt: status !== "pending" ? new Date() : null,
+            ...referralResult.referral,
           };
           if (photo && profileImage) {
             payload.photo = photo;
@@ -1249,6 +1265,83 @@ router.get("/audit-logs", adminRequired, async (req, res) => {
   return res.json({ logs });
 });
 
+router.get("/referrals", adminRequired, async (_req, res) => {
+  try {
+    const settings = await getSiteSettings();
+    const referred = await PlayerRegistration.find({
+      referredByPlayerCode: { $type: "string", $ne: "" },
+    })
+      .select(
+        "playerCode fullName email phone interest status createdAt userId referredByPlayerCode referredByUserId referredByName"
+      )
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const grouped = new Map();
+    for (const row of referred) {
+      const key = String(row.referredByUserId || row.referredByPlayerCode);
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          userId: row.referredByUserId || null,
+          playerCode: row.referredByPlayerCode || "",
+          name: row.referredByName || "",
+          count: 0,
+        });
+      }
+      const bucket = grouped.get(key);
+      bucket.count += 1;
+      if (!bucket.playerCode && row.referredByPlayerCode) bucket.playerCode = row.referredByPlayerCode;
+      if (!bucket.name && row.referredByName) bucket.name = row.referredByName;
+    }
+
+    const topReferrers = Array.from(grouped.values())
+      .sort((a, b) => b.count - a.count || String(a.playerCode).localeCompare(String(b.playerCode)))
+      .slice(0, 50);
+
+    const referrerIds = topReferrers.map((r) => r.userId).filter(Boolean);
+    const [users, referrerRegs] = await Promise.all([
+      referrerIds.length
+        ? User.find({ _id: { $in: referrerIds } }).select("name email").lean()
+        : [],
+      referrerIds.length
+        ? PlayerRegistration.find({ userId: { $in: referrerIds } })
+            .select("userId playerCode email")
+            .lean()
+        : [],
+    ]);
+    const userById = new Map(users.map((u) => [String(u._id), u]));
+    const codesByUser = new Map();
+    for (const reg of referrerRegs) {
+      const id = String(reg.userId);
+      if (!codesByUser.has(id)) codesByUser.set(id, []);
+      if (reg.playerCode) codesByUser.get(id).push(reg.playerCode);
+    }
+
+    return res.json({
+      referralProgramEnabled: isReferralProgramEnabled(settings),
+      stats: {
+        referredCount: referred.length,
+        referrerCount: grouped.size,
+      },
+      topReferrers: topReferrers.map((row) => {
+        const user = row.userId ? userById.get(String(row.userId)) : null;
+        return {
+          userId: row.userId,
+          playerCode: row.playerCode,
+          playerCodes: row.userId ? codesByUser.get(String(row.userId)) || [row.playerCode] : [row.playerCode],
+          name: user?.name || row.name || "",
+          email: user?.email || "",
+          count: row.count,
+        };
+      }),
+      referrals: referred.map(mapReferredPlayer),
+    });
+  } catch (error) {
+    console.error("admin referrals error", error);
+    return res.status(500).json({ error: "Unable to load referrals." });
+  }
+});
+
 router.get("/settings", adminRequired, async (_req, res) => {
   try {
     const settings = await getSiteSettings();
@@ -1259,6 +1352,7 @@ router.get("/settings", adminRequired, async (_req, res) => {
         registrationFees: normalizeRegistrationFees(settings.registrationFees),
         sponsorPackages: await getSponsorPackageConfig(),
         registrationEnabled: isRegistrationEnabled(settings),
+        referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
         paymentGateway: getPaymentGateway(settings),
         paymentGatewayStatus: getGatewayStatus(),
@@ -1320,6 +1414,13 @@ router.put("/settings", adminRequired, async (req, res) => {
       );
     }
 
+    if (typeof req.body.referralProgramEnabled === "boolean") {
+      settings.referralProgramEnabled = req.body.referralProgramEnabled;
+      auditBits.push(
+        req.body.referralProgramEnabled ? "referral program on" : "referral program off"
+      );
+    }
+
     if (req.body.moduleVisibility && typeof req.body.moduleVisibility === "object") {
       settings.moduleVisibility = normalizeModuleVisibility(req.body.moduleVisibility);
       const hidden = Object.entries(settings.moduleVisibility)
@@ -1359,6 +1460,7 @@ router.put("/settings", adminRequired, async (req, res) => {
         registrationFees: normalizeRegistrationFees(settings.registrationFees),
         sponsorPackages: await getSponsorPackageConfig(),
         registrationEnabled: isRegistrationEnabled(settings),
+        referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
         paymentGateway: getPaymentGateway(settings),
         paymentGatewayStatus: getGatewayStatus(),

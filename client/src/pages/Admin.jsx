@@ -16,6 +16,7 @@ import {
 import { paymentScreenshotUrl, profileImageUrl, compressImageForUpload } from "../utils/media";
 import PortalMediaManager from "../components/admin/PortalMediaManager.jsx";
 import SponsorPackagesAdmin from "../components/admin/SponsorPackagesAdmin.jsx";
+import ReferralsAdmin from "../components/admin/ReferralsAdmin.jsx";
 import { AlertBanner, PageLoader, StatGridSkeleton } from "../components/ui";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
 import AdminLivePage from "./AdminLive";
@@ -83,6 +84,7 @@ function AdminShell({ children, title, subtitle }) {
         { to: "/admin/players/rejected", label: "Rejected players" },
         { to: "/admin/register", label: "Register player" },
         { to: "/admin/reports", label: "Reports" },
+        { to: "/admin/referrals", label: "Referrals" },
       ],
     },
     {
@@ -315,6 +317,7 @@ function OverviewPage() {
           <StatCard label="Settings" shortcut to="/admin/settings" />
           <StatCard label="Register player" shortcut to="/admin/register" />
           <StatCard label="Reports" shortcut to="/admin/reports" />
+          <StatCard label="Referrals" value={stats?.referralCount} to="/admin/referrals" />
           <StatCard label="Reset passwords" shortcut to="/admin/passwords" />
           <StatCard label="Registration fees" shortcut to="/admin/fees" />
           <StatCard label="Sponsor packages" shortcut to="/admin/sponsors" />
@@ -749,11 +752,15 @@ function PlayersPage() {
       const email = String(reg.email || "").toLowerCase();
       const phone = String(reg.phone || "").toLowerCase();
       const phoneDigits = phone.replace(/\D/g, "");
+      const referrer = String(reg.referredByPlayerCode || "").toLowerCase();
+      const referrerName = String(reg.referredByName || "").toLowerCase();
       return (
         code.includes(q) ||
         name.includes(q) ||
         email.includes(q) ||
         phone.includes(q) ||
+        referrer.includes(q) ||
+        referrerName.includes(q) ||
         (qDigits.length >= 3 && phoneDigits.includes(qDigits))
       );
     });
@@ -892,6 +899,11 @@ function PlayersPage() {
                   {reg.playerCode ? (
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">
                       Player ID: {reg.playerCode}
+                    </p>
+                  ) : null}
+                  {reg.referredByPlayerCode ? (
+                    <p className="text-xs text-[color:var(--text-muted)]">
+                      Referred by: {reg.referredByName || "Player"} ({reg.referredByPlayerCode})
                     </p>
                   ) : null}
                   <p className="text-sm text-[color:var(--text-muted)]">
@@ -1994,6 +2006,7 @@ function AdminRegisterPage() {
     requirePayment: false,
     status: "verified",
     adminNotes: "",
+    referralPlayerCode: "",
   });
   const [photoFile, setPhotoFile] = useState(null);
   const [preview, setPreview] = useState("");
@@ -2059,6 +2072,7 @@ function AdminRegisterPage() {
         requirePayment: false,
         status: "verified",
         adminNotes: "",
+        referralPlayerCode: "",
       });
       setPhotoFile(null);
       if (preview) URL.revokeObjectURL(preview);
@@ -2193,6 +2207,18 @@ function AdminRegisterPage() {
               <option value="verified">Accepted</option>
               <option value="pending">Pending</option>
             </select>
+          </label>
+          <label className="block text-sm sm:col-span-2">
+            <span className="text-[color:var(--text-muted)]">Referral Player ID (optional)</span>
+            <input
+              className="input-dark mt-1.5"
+              value={form.referralPlayerCode}
+              onChange={(e) => updateField("referralPlayerCode", e.target.value)}
+              placeholder="e.g. 0001"
+            />
+            <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+              Player ID of the person who referred this registration. Leave blank if none.
+            </span>
           </label>
           <label className="block text-sm sm:col-span-2">
             <span className="text-[color:var(--text-muted)]">Photo (optional)</span>
@@ -3445,13 +3471,14 @@ function ReportsPage() {
               <th className="px-3 py-3">Company</th>
               <th className="px-3 py-3">Status</th>
               <th className="px-3 py-3">Payment</th>
+              <th className="px-3 py-3">Referred by</th>
               <th className="px-3 py-3">Email</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-[color:var(--text-muted)]">
+                <td colSpan={8} className="px-3 py-6 text-[color:var(--text-muted)]">
                   No rows for this filter yet. Click Preview.
                 </td>
               </tr>
@@ -3470,6 +3497,11 @@ function ReportsPage() {
                   </td>
                   <td className="px-3 py-2.5 text-[color:var(--text-muted)]">
                     {paymentStatusLabel(getPaymentStatus(reg))}
+                  </td>
+                  <td className="px-3 py-2.5 text-[color:var(--text-muted)]">
+                    {reg.referredByPlayerCode
+                      ? `${reg.referredByPlayerCode}${reg.referredByName ? ` · ${reg.referredByName}` : ""}`
+                      : "—"}
                   </td>
                   <td className="px-3 py-2.5 text-[color:var(--text-muted)]">{reg.email}</td>
                 </tr>
@@ -3506,6 +3538,7 @@ export default function Admin() {
       <Route path="players/:status" element={<PlayersPage />} />
       <Route path="register" element={<AdminRegisterPage />} />
       <Route path="reports" element={<ReportsPage />} />
+      <Route path="referrals" element={<ReferralsAdmin AdminShell={AdminShell} />} />
       <Route path="teams" element={<TeamsPage />} />
       <Route path="passwords" element={<PasswordsPage />} />
       <Route path="auction" element={<AuctionPage />} />

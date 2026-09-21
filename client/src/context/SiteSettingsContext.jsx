@@ -51,6 +51,7 @@ const DEFAULTS = {
     { label: "WhatsApp", href: DEFAULT_WHATSAPP_HREF, iconUrl: "" },
   ],
   registrationEnabled: true,
+  referralProgramEnabled: true,
   moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
   whatsappGroupUrl: "",
 };
@@ -59,6 +60,7 @@ const SiteSettingsContext = createContext({
   contact: DEFAULTS.contact,
   socials: DEFAULTS.socials,
   registrationEnabled: true,
+  referralProgramEnabled: true,
   moduleVisibility: DEFAULTS.moduleVisibility,
   whatsappGroupUrl: "",
   isModuleVisible: () => true,
@@ -70,6 +72,7 @@ export function SiteSettingsProvider({ children }) {
   const [contact, setContact] = useState(DEFAULTS.contact);
   const [socials, setSocials] = useState(DEFAULTS.socials);
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
+  const [referralProgramEnabled, setReferralProgramEnabled] = useState(true);
   const [moduleVisibility, setModuleVisibility] = useState(DEFAULTS.moduleVisibility);
   const [whatsappGroupUrl, setWhatsappGroupUrl] = useState("");
   const [loading, setLoading] = useState(true);
@@ -82,6 +85,7 @@ export function SiteSettingsProvider({ children }) {
         setSocials(normalizeSocials(data.settings.socials, data.settings.contact));
       }
       setRegistrationEnabled(data.settings?.registrationEnabled !== false);
+      setReferralProgramEnabled(data.settings?.referralProgramEnabled !== false);
       setModuleVisibility(normalizeModuleVisibility(data.settings?.moduleVisibility));
       setWhatsappGroupUrl(String(data.settings?.whatsappGroupUrl || "").trim());
     } catch {
@@ -108,13 +112,14 @@ export function SiteSettingsProvider({ children }) {
       contact,
       socials,
       registrationEnabled,
+      referralProgramEnabled,
       moduleVisibility,
       whatsappGroupUrl,
       isModuleVisible,
       loading,
       refresh,
     }),
-    [contact, socials, registrationEnabled, moduleVisibility, whatsappGroupUrl, isModuleVisible, loading, refresh]
+    [contact, socials, registrationEnabled, referralProgramEnabled, moduleVisibility, whatsappGroupUrl, isModuleVisible, loading, refresh]
   );
 
   return <SiteSettingsContext.Provider value={value}>{children}</SiteSettingsContext.Provider>;
