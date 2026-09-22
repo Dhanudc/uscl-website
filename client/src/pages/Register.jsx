@@ -13,6 +13,11 @@ import { PLAYER_DATA_CONSENT } from "../data/playerDataConsent";
 import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
 import { compressImageForUpload, paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
+import {
+  buildConfirmPaymentPayload,
+  openPaymentCheckout,
+  paymentProviderLabel,
+} from "../utils/payments";
 
 const REGISTER_TYPES = [
   { value: "captain", label: "Captain", hint: "Register as team captain for the auction", badge: "C" },
@@ -33,7 +38,10 @@ export default function Register() {
   const [feeInr, setFeeInr] = useState(null);
   const [feeLoading, setFeeLoading] = useState(false);
   const [feeError, setFeeError] = useState("");
+  const [paymentProvider, setPaymentProvider] = useState("razorpay");
+  const [paymentConfigured, setPaymentConfigured] = useState(true);
   const pendingSaveRef = useRef(null);
+  const isQrPayment = paymentProvider === "qr";
   /** Set from the pre-register popup: captain | player | franchise | sponsor */
   const [registerInterest, setRegisterInterest] = useState(null);
   const [sponsorPackageId, setSponsorPackageId] = useState("");
@@ -88,6 +96,8 @@ export default function Register() {
           setFeeInr(null);
           setFeeError("Fee could not be loaded. Check that the server is running.");
         }
+        setPaymentProvider(data.provider || "razorpay");
+        setPaymentConfigured(data.provider === "qr" ? true : Boolean(data.configured));
         if (data.sponsorPackage?.title) {
           setSponsorPackageTitle(data.sponsorPackage.title);
         } else if (registerInterest !== "sponsor") {
@@ -109,8 +119,12 @@ export default function Register() {
       return;
     }
     setExistingLoaded(false);
-    api("/api/registrations")
-      .then((data) => {
+    Promise.all([api("/api/registrations"), api("/api/registrations/payment-config")])
+      .then(([data, config]) => {
+        const provider = config.provider || "razorpay";
+        setPaymentProvider(provider);
+        setPaymentConfigured(provider === "qr" ? true : Boolean(config.configured));
+
         const first = data.registrations?.[0] || null;
         if (!first) {
           setExisting(null);
@@ -124,9 +138,19 @@ export default function Register() {
           setPaymentStepReg(null);
           return;
         }
-        setExisting(null);
-        setPaymentStepReg(first);
-        setPayModalOpen(true);
+        if (provider === "qr") {
+          setExisting(null);
+          setPaymentStepReg(first);
+          setPayModalOpen(true);
+          if (first.interest) {
+            setRegisterInterest(first.interest);
+            setShowTypePicker(false);
+          }
+          if (first.sponsorPackageId) setSponsorPackageId(String(first.sponsorPackageId));
+          return;
+        }
+        setExisting(first);
+        setPaymentStepReg(null);
         if (first.interest) {
           setRegisterInterest(first.interest);
           setShowTypePicker(false);
@@ -175,6 +199,23 @@ export default function Register() {
       body: formData,
     });
     return data.registration;
+  }
+
+  async function findOrCreateRegistration(values, compressedPhoto, agreedToTerms, interest) {
+    try {
+      return await createRegistration(values, compressedPhoto, agreedToTerms);
+    } catch (createErr) {
+      if (/already have an active/i.test(createErr.message || "")) {
+        const data = await api("/api/registrations");
+        const registration =
+          (data.registrations || []).find((r) => r.interest === interest) ||
+          data.registrations?.[0] ||
+          null;
+        if (!registration) throw createErr;
+        return registration;
+      }
+      throw createErr;
+    }
   }
 
   function readFormValues(form) {
@@ -231,6 +272,8 @@ export default function Register() {
     if (!form.reportValidity()) return;
     setSubmitting(true);
 
+    let savedRegistration = null;
+
     try {
       const { photoFile, agreedToTerms, interest, values } = readFormValues(form);
       const compressedPhoto = await compressImageForUpload(photoFile);
@@ -251,26 +294,65 @@ export default function Register() {
         await refresh();
       }
 
-      let registration;
-      try {
-        registration = await createRegistration(values, compressedPhoto, agreedToTerms);
-      } catch (createErr) {
-        if (/already have an active/i.test(createErr.message || "")) {
-          const data = await api("/api/registrations");
-          registration =
-            (data.registrations || []).find((r) => r.interest === interest) ||
-            data.registrations?.[0] ||
-            null;
-          if (!registration) throw createErr;
-        } else {
-          throw createErr;
-        }
+      const registration = await findOrCreateRegistration(
+        values,
+        compressedPhoto,
+        agreedToTerms,
+        interest
+      );
+      savedRegistration = registration;
+
+      if (isQrPayment) {
+        setPaymentStepReg(registration);
+        setPayModalOpen(true);
+        clearPendingSession();
+        return;
       }
 
-      setPaymentStepReg(registration);
-      setPayModalOpen(true);
+      if (!paymentConfigured) {
+        setExisting(registration);
+        throw new Error(
+          `${paymentProviderLabel(paymentProvider)} is not configured on the server. Ask admin to add keys or switch to UPI QR.`
+        );
+      }
+
+      if (getPaymentStatus(registration) === "paid") {
+        setExisting(registration);
+        setPaymentStepReg(null);
+        setPayModalOpen(false);
+        clearPendingSession();
+        return;
+      }
+
+      const order = await api(`/api/registrations/${registration._id}/create-payment-order`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      const payment = await openPaymentCheckout(order, values);
+      const confirmPayload = buildConfirmPaymentPayload(payment);
+      const data = await api(`/api/registrations/${registration._id}/confirm-payment`, {
+        method: "PATCH",
+        body: JSON.stringify(confirmPayload),
+      });
+
+      setExisting(data.registration);
+      setPaymentStepReg(null);
+      setPayModalOpen(false);
       clearPendingSession();
+
+      if (!payment.ok) {
+        const reason = payment.reason || "Payment was not completed.";
+        setError(
+          /cancel/i.test(reason)
+            ? `${reason} Your registration is saved — tap Pay now again to retry payment.`
+            : `${reason} Your registration is saved with payment pending.`
+        );
+        return;
+      }
     } catch (err) {
+      if (savedRegistration && !isQrPayment) {
+        setExisting(savedRegistration);
+      }
       setError(err.message);
       clearPendingSession();
       await refresh();
@@ -575,8 +657,11 @@ export default function Register() {
                 </div>
               ) : null}
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                Tap Pay now to save your registration, then scan the UPI QR, enter UTR, and upload
-                your payment screenshot. Admin will mark it paid after confirmation.
+                {isQrPayment
+                  ? "Tap Pay now to save your registration, then scan the UPI QR, enter UTR, and upload your payment screenshot. Admin will confirm payment."
+                  : paymentConfigured
+                    ? `Tap Pay now to save your registration, then pay via ${paymentProviderLabel(paymentProvider)}. Payment is linked to your saved registration.`
+                    : `${paymentProviderLabel(paymentProvider)} keys are missing on the server — ask admin to configure them or switch to UPI QR.`}
               </p>
             </div>
 
@@ -602,15 +687,22 @@ export default function Register() {
             </label>
             {error && <p className="sm:col-span-2 text-sm text-accent">{error}</p>}
 
-            {!paymentStepReg ? (
+            {!paymentStepReg || !isQrPayment ? (
               <button
                 type="button"
-                disabled={submitting || feeLoading || feeInr == null}
+                disabled={
+                  submitting ||
+                  feeLoading ||
+                  feeInr == null ||
+                  (!isQrPayment && !paymentConfigured)
+                }
                 className="btn-primary sm:col-span-2"
                 onClick={handlePayNow}
               >
                 {submitting
-                  ? "Saving registration..."
+                  ? isQrPayment
+                    ? "Saving registration..."
+                    : "Processing payment..."
                   : feeLoading || feeInr == null
                     ? "Loading fee…"
                     : `Pay now ₹${feeInr.toLocaleString("en-IN")}`}
@@ -719,7 +811,7 @@ export default function Register() {
       </div>
 
       <PaymentQrModal
-        open={Boolean(paymentStepReg) && payModalOpen}
+        open={isQrPayment && Boolean(paymentStepReg) && payModalOpen}
         playerCode={paymentStepReg?.playerCode}
         amountInr={feeInr ?? paymentStepReg?.payment?.amountInr}
         utrNumber={utrNumber}

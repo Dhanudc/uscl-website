@@ -146,6 +146,9 @@ router.post("/create-order", approvedRequired, async (req, res) => {
     }
 
     const gateway = await getActivePaymentGateway();
+    if (gateway === "qr") {
+      return res.status(400).json({ error: "UPI QR payment does not use online orders." });
+    }
     const customer = await resolvePaymentCustomer(req);
     if (!customer.phone) {
       return res.status(400).json({ error: "Phone number is required for online payment." });

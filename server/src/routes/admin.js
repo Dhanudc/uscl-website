@@ -1433,7 +1433,7 @@ router.put("/settings", adminRequired, async (req, res) => {
 
     if (req.body.paymentGateway) {
       const gateway = String(req.body.paymentGateway || "").trim().toLowerCase();
-      if (gateway === "razorpay" || gateway === "cashfree") {
+      if (gateway === "razorpay" || gateway === "cashfree" || gateway === "qr") {
         settings.paymentGateway = gateway;
         auditBits.push(`payment gateway (${gateway})`);
       }

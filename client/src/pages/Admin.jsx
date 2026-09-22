@@ -2906,6 +2906,7 @@ function RegistrationFeesPage() {
   const [gatewayStatus, setGatewayStatus] = useState({
     razorpay: { configured: false },
     cashfree: { configured: false, mode: "sandbox" },
+    qr: { configured: true },
   });
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
@@ -2928,6 +2929,7 @@ function RegistrationFeesPage() {
           data.settings?.paymentGatewayStatus || {
             razorpay: { configured: false },
             cashfree: { configured: false, mode: "sandbox" },
+            qr: { configured: true },
           }
         );
       })
@@ -2963,6 +2965,7 @@ function RegistrationFeesPage() {
         data.settings.paymentGatewayStatus || {
           razorpay: { configured: false },
           cashfree: { configured: false, mode: "sandbox" },
+          qr: { configured: true },
         }
       );
       setOk("Payment settings saved.");
@@ -2976,7 +2979,7 @@ function RegistrationFeesPage() {
   return (
     <AdminShell
       title="Registration fees"
-      subtitle="Set registration amounts and choose Razorpay or Cashfree for online payments."
+      subtitle="Set registration amounts and choose Razorpay, Cashfree, or UPI QR for checkout."
     >
       {loading ? (
         <PageLoader message="Loading fees…" />
@@ -2990,10 +2993,11 @@ function RegistrationFeesPage() {
                 Keys stay in server `.env`. This setting controls which gateway the register page uses.
               </p>
             </div>
-            <div className="grid gap-3 p-5 sm:grid-cols-2">
+            <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 { value: "razorpay", label: "Razorpay" },
                 { value: "cashfree", label: "Cashfree" },
+                { value: "qr", label: "UPI QR code" },
               ].map((option) => (
                 <label
                   key={option.value}
@@ -3014,9 +3018,11 @@ function RegistrationFeesPage() {
                   <span>
                     <span className="block font-medium text-[color:var(--title)]">{option.label}</span>
                     <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
-                      {gatewayStatus[option.value]?.configured
-                        ? "Configured"
-                        : "Keys missing in server .env"}
+                      {option.value === "qr"
+                        ? "Scan-to-pay on the register page"
+                        : gatewayStatus[option.value]?.configured
+                          ? "Configured"
+                          : "Keys missing in server .env"}
                     </span>
                   </span>
                 </label>

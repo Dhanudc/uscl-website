@@ -112,7 +112,9 @@ async function openCashfreeCheckout(order) {
 }
 
 export function paymentProviderLabel(provider) {
-  return provider === "cashfree" ? "Cashfree" : "Razorpay";
+  if (provider === "cashfree") return "Cashfree";
+  if (provider === "qr") return "UPI QR";
+  return "Razorpay";
 }
 
 export async function openPaymentCheckout(order, values) {

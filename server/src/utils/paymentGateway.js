@@ -2,7 +2,7 @@ import { getSiteSettings } from "../models/SiteSettings.js";
 import { createCashfreeOrder, getCashfreeConfig, verifyCashfreePayment } from "./cashfree.js";
 import { getRazorpayClient, getRazorpayConfig, verifyRazorpaySignature } from "./razorpay.js";
 
-export const PAYMENT_GATEWAYS = ["razorpay", "cashfree"];
+export const PAYMENT_GATEWAYS = ["razorpay", "cashfree", "qr"];
 
 export async function getActivePaymentGateway() {
   const settings = await getSiteSettings();
@@ -16,10 +16,14 @@ export function getGatewayStatus() {
   return {
     razorpay: { configured: razorpay.configured },
     cashfree: { configured: cashfree.configured, mode: cashfree.mode },
+    qr: { configured: true },
   };
 }
 
 export function getGatewayPublicConfig(gateway) {
+  if (gateway === "qr") {
+    return { provider: "qr", keyId: "", configured: true };
+  }
   if (gateway === "cashfree") {
     const { appId, configured, mode } = getCashfreeConfig();
     return { provider: "cashfree", keyId: configured ? appId : "", configured, mode };
@@ -29,6 +33,9 @@ export function getGatewayPublicConfig(gateway) {
 }
 
 export async function createGatewayOrder(gateway, { feeInr, receipt, notes, customer }) {
+  if (gateway === "qr") {
+    throw new Error("UPI QR checkout does not use payment orders.");
+  }
   if (gateway === "cashfree") {
     const order = await createCashfreeOrder({
       orderId: receipt,

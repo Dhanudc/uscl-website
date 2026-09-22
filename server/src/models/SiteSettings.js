@@ -93,7 +93,7 @@ const siteSettingsSchema = new mongoose.Schema(
     /** Active online payment gateway for registrations. */
     paymentGateway: {
       type: String,
-      enum: ["razorpay", "cashfree"],
+      enum: ["razorpay", "cashfree", "qr"],
       default: "razorpay",
     },
     /** Invite URL opened by the floating WhatsApp button. */
@@ -180,7 +180,9 @@ export const DEFAULT_SITE_SETTINGS = {
 
 export function getPaymentGateway(settings) {
   const gateway = String(settings?.paymentGateway || "razorpay").toLowerCase();
-  return gateway === "cashfree" ? "cashfree" : "razorpay";
+  if (gateway === "cashfree") return "cashfree";
+  if (gateway === "qr") return "qr";
+  return "razorpay";
 }
 
 export async function getSiteSettings() {
