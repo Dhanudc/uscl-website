@@ -390,11 +390,11 @@ export const keyEvents = [
   },
   {
     id: "owners-meet",
-    dateLabel: "September 19",
+    dateLabel: "September 26",
     timeLabel: "Saturday · 07:00 PM",
     title: "Franchise Owners & Captains Meet",
     body: "Franchises align before the auction battle begins.",
-    target: new Date("2026-09-19T19:00:00+05:30"),
+    target: new Date("2026-09-26T19:00:00+05:30"),
   },
   {
     id: "auction",
