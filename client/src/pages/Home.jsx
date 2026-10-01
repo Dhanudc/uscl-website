@@ -205,6 +205,9 @@ export default function Home() {
             isModuleVisible("media")
               ? ["/media", "Media", "Gallery photos and season videos"]
               : null,
+            isModuleVisible("referrals")
+              ? ["/referrals", "Rewards", "Referral and giveaway winners"]
+              : null,
           ]
             .filter(Boolean)
             .map(([to, title, text]) => (

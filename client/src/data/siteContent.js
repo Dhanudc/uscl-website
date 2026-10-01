@@ -111,11 +111,38 @@ export const boardMembers = [
   {
     id: "dk-wesley",
     name: "DK Wesley",
-    role: "Co-founder",
+    role: "Founder, USCL & Wesley Elite Sports",
     image: "/members/dk-wesley.png",
     summary:
-      "DK co-founded USCL and Wesley Elite Sports, driving the vision for India's premier staffing franchise cricket league.",
-    bio: "DK Wesley is a co-founder of USCL and Wesley Elite Sports. He leads the league's founding vision — connecting staffing industry leaders through franchise cricket, live auctions, and a national T20 stage that builds professional networks on and off the field.",
+      "DK founded USCL and Wesley Elite Sports, driving the vision for India's premier staffing franchise cricket league.",
+    bio: "DK Wesley is the founder of USCL and Wesley Elite Sports. He leads the league's founding vision — connecting staffing industry leaders through franchise cricket, live auctions, and a national T20 stage that builds professional networks on and off the field.",
+  },
+  {
+    id: "appi-reddy",
+    name: "Appi Reddy",
+    role: "Chairman, USCL",
+    image: "/members/appi-reddy.jpg",
+    summary:
+      "Appi provides strategic leadership and governance as Chairman of the US Staffing Champions League.",
+    bio: "Appi Reddy serves as Chairman of USCL, guiding league strategy, stakeholder alignment, and the long-term growth of India's corporate franchise cricket platform for the US staffing ecosystem.",
+  },
+  {
+    id: "chakradhar-rao",
+    name: "Chakradhar Rao",
+    role: "Secretary, USCL",
+    image: "/members/chakradhar-rao.jpg",
+    summary:
+      "Chakradhar supports league administration, coordination, and day-to-day secretariat functions for USCL.",
+    bio: "Chakradhar Rao is Secretary of USCL, working closely with the leadership team on league administration, communications, and operational follow-through across franchises, players, and partners.",
+  },
+  {
+    id: "crisna-chaitanya-reddy",
+    name: "Crisna Chaitanya Reddy",
+    role: "Story Teller & Cricketer",
+    image: "/members/crisna-chaitanya-reddy.jpg",
+    summary:
+      "Crisna is USCL's storyteller and cricketer, sharing the league story and bringing cricketing energy to the community.",
+    bio: "Crisna Chaitanya Reddy is a storyteller and cricketer with USCL. He helps connect players, franchises, and fans to the spirit of the league through narrative, presence, and on-field passion.",
   },
   {
     id: "anthony-swamy",
@@ -374,44 +401,44 @@ export const socialLinks = [
   { label: "WhatsApp", href: "https://wa.me/917386671777" },
 ];
 
-export const AUCTION_TARGET = new Date("2026-10-07T10:00:00+05:30");
-export const AUCTION_DATE_LABEL = "7 October 2026";
+export const AUCTION_TARGET = new Date("2026-10-17T10:00:00+05:30");
+export const AUCTION_DATE_LABEL = "17 October 2026";
 export const AUCTION_TIME_LABEL = "10:00 AM IST";
 
 /** Key season milestones shown on the home countdown / events section. */
 export const keyEvents = [
   {
     id: "registration",
-    dateLabel: "September 10 – 30",
-    timeLabel: "2026",
-    title: "Player Registration Window",
-    body: "Your chance to enter the USCL arena.",
-    target: new Date("2026-09-10T00:00:00+05:30"),
+    dateLabel: "Until 5 October",
+    timeLabel: "Registration extended",
+    title: "Player Registration",
+    body: "Your chance to enter the USCL arena — register before the extended deadline.",
+    target: new Date("2026-10-06T00:00:00+05:30"),
   },
   {
-    id: "owners-meet",
-    dateLabel: "September 26",
-    timeLabel: "Saturday · 07:00 PM",
-    title: "Franchise Owners & Captains Meet",
-    body: "Franchises align before the auction battle begins.",
-    target: new Date("2026-09-26T19:00:00+05:30"),
+    id: "verification",
+    dateLabel: "10 October",
+    timeLabel: "2026",
+    title: "Player Verification",
+    body: "Physical verification and eligibility checks before the auction.",
+    target: new Date("2026-10-11T00:00:00+05:30"),
   },
   {
     id: "auction",
-    dateLabel: "October 7 & 8",
+    dateLabel: "17 October",
     timeLabel: "Player Auction",
-    title: "The USCL Player Auction",
+    title: "USCL Player Auction",
     body: "Franchises build their squads. Players find their teams.",
-    target: new Date("2026-10-07T10:00:00+05:30"),
+    target: new Date("2026-10-17T10:00:00+05:30"),
     highlight: true,
   },
   {
-    id: "trophy",
-    dateLabel: "October 17",
-    timeLabel: "Trophy Launch",
-    title: "USCL Trophy Launch",
-    body: "The ultimate prize gets its moment.",
-    target: new Date("2026-10-17T10:00:00+05:30"),
+    id: "matches",
+    dateLabel: "7 November",
+    timeLabel: "Season starts",
+    title: "USCL 2026 Matches Begin",
+    body: "The league goes live on the field.",
+    target: new Date("2026-11-07T10:00:00+05:30"),
   },
 ];
 

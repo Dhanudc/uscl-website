@@ -16,6 +16,7 @@ const NAV_LINKS = [
   { to: "/franchise", label: "Own A Team", module: "franchise" },
   { to: "/register", label: "Register", module: "register", isRegister: true },
   { to: "/player-journey", label: "Player Journey", module: "playerJourney" },
+  { to: "/referrals", label: "Rewards", module: "referrals" },
 ];
 
 function navClass(isActive) {

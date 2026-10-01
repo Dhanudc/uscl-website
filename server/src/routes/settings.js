@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getModuleVisibility,
+  resolveReferralChallenge,
   getSiteSettings,
   isReferralProgramEnabled,
   isRegistrationEnabled,
@@ -20,6 +21,7 @@ router.get("/", async (_req, res) => {
         referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
         whatsappGroupUrl: settings.whatsappGroupUrl || "",
+        referralChallenge: await resolveReferralChallenge(settings),
       },
     });
   } catch (error) {

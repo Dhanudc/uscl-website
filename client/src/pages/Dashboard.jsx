@@ -8,7 +8,7 @@ import PaymentQrModal from "../components/PaymentQrModal";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 import { playerRoleLabel } from "../data/playerRoles";
-import { paymentScreenshotUrl, profileImageUrl } from "../utils/media";
+import { compressImageForUpload, paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
 
 function paymentPillTone(status) {
@@ -223,9 +223,10 @@ export default function Dashboard() {
       if (!profileFile) {
         throw new Error("Please choose a profile picture.");
       }
+      const compressed = await compressImageForUpload(profileFile);
       const formData = new FormData();
       formData.set("fullName", profileModalReg.fullName || user?.name || "player");
-      formData.set("photo", profileFile);
+      formData.set("photo", compressed);
 
       const data = await api(`/api/registrations/${profileModalReg._id}/profile-image`, {
         method: "PATCH",
@@ -320,18 +321,29 @@ export default function Dashboard() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
                       {imgUrl && !brokenProfileIds.has(String(reg._id)) ? (
-                        <ZoomableImage
-                          src={imgUrl}
-                          alt={reg.fullName}
-                          className="h-14 w-14 shrink-0 rounded-lg border border-[color:var(--border)] object-cover"
-                          onError={() => {
-                            setBrokenProfileIds((prev) => new Set(prev).add(String(reg._id)));
-                          }}
-                        />
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-lg border border-[color:var(--border)] p-0"
+                          title="Change profile picture"
+                          onClick={() => openProfileModal(reg)}
+                        >
+                          <ZoomableImage
+                            src={imgUrl}
+                            alt={reg.fullName}
+                            className="h-14 w-14 rounded-lg object-cover"
+                            onError={() => {
+                              setBrokenProfileIds((prev) => new Set(prev).add(String(reg._id)));
+                            }}
+                          />
+                        </button>
                       ) : (
-                        <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-[color:var(--border)] bg-ink-soft text-xs text-[color:var(--text-muted)]">
-                          No photo
-                        </span>
+                        <button
+                          type="button"
+                          className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-accent/40 bg-ink-soft text-[10px] font-semibold uppercase leading-tight text-accent-soft"
+                          onClick={() => openProfileModal(reg)}
+                        >
+                          Add photo
+                        </button>
                       )}
                       <div className="min-w-0">
                         <p className="text-lg font-semibold text-[color:var(--title)]">{reg.fullName}</p>
@@ -403,7 +415,15 @@ export default function Dashboard() {
                             >
                               Add profile picture
                             </button>
-                          ) : null}
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn-ghost !py-2 !text-xs"
+                              onClick={() => openProfileModal(reg)}
+                            >
+                              Change profile picture
+                            </button>
+                          )}
                           {needsOnlinePayment(reg) ? (
                             <button
                               type="button"
@@ -466,7 +486,7 @@ export default function Dashboard() {
               {profileModalReg.fullName}
             </h2>
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              Upload a profile photo.
+              Upload or replace your registration profile photo (JPG, PNG, or WEBP).
             </p>
 
             <label className="mt-4 block text-sm">

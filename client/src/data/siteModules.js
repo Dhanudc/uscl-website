@@ -9,6 +9,7 @@ export const SITE_MODULES = [
   { key: "franchise", label: "Own A Team", path: "/franchise", hint: "Franchise ownership offer page" },
   { key: "register", label: "Register", path: "/register", hint: "Register / Registration button" },
   { key: "playerJourney", label: "Player Journey", path: "/player-journey", hint: "Player journey page and nav link" },
+  { key: "referrals", label: "Rewards", path: "/referrals", hint: "Referrals and giveaways winners page" },
 ];
 
 export const DEFAULT_MODULE_VISIBILITY = Object.fromEntries(

@@ -5,7 +5,7 @@ import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { getSiteSettings, getPaymentGateway, getModuleVisibility, isRegistrationEnabled, isReferralProgramEnabled, normalizeModuleVisibility, normalizeSocials } from "../models/SiteSettings.js";
+import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isReferralProgramEnabled, normalizeModuleVisibility, normalizeSocials } from "../models/SiteSettings.js";
 import { getGatewayStatus } from "../utils/paymentGateway.js";
 import { normalizeRegistrationFees, getRegistrationFeeInr } from "../utils/registrationFees.js";
 import { User } from "../models/User.js";
@@ -1342,6 +1342,31 @@ router.get("/referrals", adminRequired, async (_req, res) => {
   }
 });
 
+router.get("/player-lookup", adminRequired, async (req, res) => {
+  try {
+    const raw = String(req.query.playerCode || "").trim();
+    if (!raw) return res.status(400).json({ error: "Enter a Player ID." });
+    const digits = raw.replace(/\D/g, "");
+    const keys = [...new Set([raw, digits && String(Number(digits)).padStart(4, "0")].filter(Boolean))];
+    const player = await PlayerRegistration.findOne({ playerCode: { $in: keys } })
+      .select("playerCode fullName company profileImage photo")
+      .lean();
+    if (!player) return res.status(404).json({ error: `No player found for Player ID ${raw}.` });
+    const { profileImagePublicUrl } = await import("../middleware/upload.js");
+    return res.json({
+      player: {
+        playerCode: player.playerCode,
+        name: player.fullName,
+        company: player.company || "",
+        image: profileImagePublicUrl(player.profileImage || player.photo?.filename || ""),
+      },
+    });
+  } catch (error) {
+    console.error("player lookup error", error);
+    return res.status(500).json({ error: "Unable to look up that Player ID." });
+  }
+});
+
 router.get("/settings", adminRequired, async (_req, res) => {
   try {
     const settings = await getSiteSettings();
@@ -1357,6 +1382,7 @@ router.get("/settings", adminRequired, async (_req, res) => {
         paymentGateway: getPaymentGateway(settings),
         paymentGatewayStatus: getGatewayStatus(),
         whatsappGroupUrl: settings.whatsappGroupUrl || "",
+        referralChallenge: await resolveReferralChallenge(settings),
       },
     });
   } catch (error) {
@@ -1431,6 +1457,21 @@ router.put("/settings", adminRequired, async (req, res) => {
       );
     }
 
+    if (req.body.referralChallenge && typeof req.body.referralChallenge === "object") {
+      const nextChallenge = normalizeReferralChallenge(req.body.referralChallenge);
+      const missingCodes = await assertReferralPlayerCodes(nextChallenge.winners);
+      if (missingCodes.length) {
+        return res.status(400).json({
+          error: `No player found for Player ID: ${missingCodes.join(", ")}`,
+        });
+      }
+      settings.referralChallenge = nextChallenge;
+      settings.markModified("referralChallenge");
+      auditBits.push(
+        `referral winners (${settings.referralChallenge.winners?.length || 0})`
+      );
+    }
+
     if (req.body.paymentGateway) {
       const gateway = String(req.body.paymentGateway || "").trim().toLowerCase();
       if (gateway === "razorpay" || gateway === "cashfree" || gateway === "qr") {
@@ -1465,6 +1506,7 @@ router.put("/settings", adminRequired, async (req, res) => {
         paymentGateway: getPaymentGateway(settings),
         paymentGatewayStatus: getGatewayStatus(),
         whatsappGroupUrl: settings.whatsappGroupUrl || "",
+        referralChallenge: await resolveReferralChallenge(settings),
       },
     });
   } catch (error) {

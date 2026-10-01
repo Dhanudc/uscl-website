@@ -33,6 +33,11 @@ export default function Footer() {
             {isModuleVisible("register") ? (
               <RegisterCta className="text-left hover:text-[color:var(--text)]" />
             ) : null}
+            {isModuleVisible("referrals") ? (
+              <Link to="/referrals" onClick={() => window.scrollTo(0, 0)}>
+                Rewards
+              </Link>
+            ) : null}
             {isModuleVisible("playerJourney") ? (
               <Link to="/player-journey" onClick={() => window.scrollTo(0, 0)}>
                 Player Journey

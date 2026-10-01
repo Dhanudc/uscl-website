@@ -3,6 +3,9 @@ import {
   DEFAULT_MODULE_VISIBILITY,
   normalizeModuleVisibility,
 } from "../constants/siteModules.js";
+import { profileImagePublicUrl } from "../middleware/upload.js";
+import { PlayerRegistration } from "./PlayerRegistration.js";
+import { formatPlayerCode } from "../utils/playerCode.js";
 
 const socialSchema = new mongoose.Schema(
   {
@@ -45,6 +48,19 @@ const moduleVisibilitySchema = new mongoose.Schema(
     franchise: { type: Boolean, default: true },
     register: { type: Boolean, default: true },
     playerJourney: { type: Boolean, default: true },
+    referrals: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+const referralWinnerSchema = new mongoose.Schema(
+  {
+    place: { type: Number, default: 1 },
+    playerCode: { type: String, default: "" },
+    section: { type: String, enum: ["referral", "giveaway"], default: "referral" },
+    name: { type: String, default: "" },
+    company: { type: String, default: "" },
+    gift: { type: String, default: "" },
   },
   { _id: false }
 );
@@ -98,6 +114,27 @@ const siteSettingsSchema = new mongoose.Schema(
     },
     /** Invite URL opened by the floating WhatsApp button. */
     whatsappGroupUrl: { type: String, default: "" },
+    /** Public referral-challenge winners announcement. */
+    referralChallenge: {
+      title: { type: String, default: "Winners Announcement" },
+      subtitle: { type: String, default: "Of Referral Challenge" },
+      thankYou: {
+        type: String,
+        default: "To everyone who participated in the referral challenge!",
+      },
+      supportLine: {
+        type: String,
+        default: "Your support and enthusiasm made this a huge success.",
+      },
+      closingLine: {
+        type: String,
+        default: "Stay tuned for more exciting opportunities!",
+      },
+      winners: {
+        type: [referralWinnerSchema],
+        default: () => [],
+      },
+    },
   },
   { timestamps: true }
 );
@@ -176,7 +213,119 @@ export const DEFAULT_SITE_SETTINGS = {
   moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
   paymentGateway: "razorpay",
   whatsappGroupUrl: "",
+  referralChallenge: {
+    title: "Winners Announcement",
+    subtitle: "Of Referral Challenge",
+    thankYou: "To everyone who participated in the referral challenge!",
+    supportLine: "Your support and enthusiasm made this a huge success.",
+    closingLine: "Stay tuned for more exciting opportunities!",
+    winners: [
+      { place: 1, name: "Raja Shaker", company: "Workcog Inc", gift: "Kashmir Willow Bat" },
+      { place: 2, name: "Mohammed Saleem", company: "Xtract IT", gift: "Amazon Voucher" },
+      { place: 3, name: "Rakesh M", company: "Intellect Inc", gift: "Amazon Voucher" },
+    ],
+  },
 };
+
+export function normalizeReferralChallenge(input) {
+  const src = input && typeof input === "object" ? input : {};
+  const fallback = DEFAULT_SITE_SETTINGS.referralChallenge;
+  const winners = (Array.isArray(src.winners) ? src.winners : fallback.winners)
+    .map((row) => ({
+      place: Math.round(Number(row?.place)),
+      playerCode: String(row?.playerCode || "").trim(),
+      section: String(row?.section || "").toLowerCase() === "giveaway" ? "giveaway" : "referral",
+      name: String(row?.name || "").trim(),
+      company: String(row?.company || "").trim(),
+      gift: String(row?.gift || "").trim(),
+    }))
+    .filter(
+      (row) =>
+        row.gift &&
+        Number.isFinite(row.place) &&
+        row.place > 0 &&
+        (row.playerCode || row.name)
+    )
+    .slice(0, 12)
+    .sort((a, b) => a.place - b.place);
+
+  return {
+    title: String(src.title || fallback.title).trim() || fallback.title,
+    subtitle: String(src.subtitle || fallback.subtitle).trim() || fallback.subtitle,
+    thankYou: String(src.thankYou ?? fallback.thankYou).trim(),
+    supportLine: String(src.supportLine ?? fallback.supportLine).trim(),
+    closingLine: String(src.closingLine ?? fallback.closingLine).trim(),
+    winners,
+  };
+}
+
+export function getReferralChallenge(settings) {
+  const stored = settings?.referralChallenge;
+  const normalized = normalizeReferralChallenge(
+    stored ? stored.toObject?.() || stored : DEFAULT_SITE_SETTINGS.referralChallenge
+  );
+  if (!normalized.winners.length) {
+    return normalizeReferralChallenge(DEFAULT_SITE_SETTINGS.referralChallenge);
+  }
+  return normalized;
+}
+
+function playerCodeLookupKeys(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return [];
+  const digits = raw.replace(/\D/g, "");
+  const padded = digits ? formatPlayerCode(Number(digits)) : "";
+  return [...new Set([raw, raw.toUpperCase(), padded].filter(Boolean))];
+}
+
+export async function resolveReferralChallenge(settings) {
+  const challenge = getReferralChallenge(settings);
+  const codes = [...new Set(challenge.winners.flatMap((row) => playerCodeLookupKeys(row.playerCode)))];
+  const players = codes.length
+    ? await PlayerRegistration.find({ playerCode: { $in: codes } })
+        .select("playerCode fullName company profileImage photo")
+        .lean()
+    : [];
+  const byCode = new Map(players.map((player) => [String(player.playerCode), player]));
+
+  return {
+    ...challenge,
+    winners: challenge.winners.map((row) => {
+      const player = playerCodeLookupKeys(row.playerCode)
+        .map((code) => byCode.get(code))
+        .find(Boolean);
+      if (!player) {
+        return {
+          ...row,
+          playerCode: row.playerCode ? playerCodeLookupKeys(row.playerCode)[0] : "",
+          image: "",
+        };
+      }
+      const image = profileImagePublicUrl(player.profileImage || player.photo?.filename || "");
+      return {
+        ...row,
+        playerCode: player.playerCode,
+        name: player.fullName || row.name,
+        company: player.company || row.company,
+        image,
+      };
+    }),
+  };
+}
+
+export async function assertReferralPlayerCodes(winners) {
+  const missing = [];
+  for (const row of winners) {
+    if (!row.playerCode) continue;
+    const keys = playerCodeLookupKeys(row.playerCode);
+    const player = await PlayerRegistration.findOne({ playerCode: { $in: keys } })
+      .select("playerCode")
+      .lean();
+    if (!player) missing.push(row.playerCode);
+    else row.playerCode = player.playerCode;
+  }
+  return missing;
+}
 
 export function getPaymentGateway(settings) {
   const gateway = String(settings?.paymentGateway || "razorpay").toLowerCase();

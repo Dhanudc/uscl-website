@@ -53,6 +53,11 @@ export default function Register() {
   const [screenshotFile, setScreenshotFile] = useState(null);
   const [screenshotPreview, setScreenshotPreview] = useState("");
   const [payModalOpen, setPayModalOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileFile, setProfileFile] = useState(null);
+  const [profilePreview, setProfilePreview] = useState("");
+  const [profileError, setProfileError] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
   const formRef = useRef(null);
 
   useEffect(() => {
@@ -168,8 +173,9 @@ export default function Register() {
     return () => {
       if (preview) URL.revokeObjectURL(preview);
       if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
+      if (profilePreview) URL.revokeObjectURL(profilePreview);
     };
-  }, [preview, screenshotPreview]);
+  }, [preview, screenshotPreview, profilePreview]);
 
   function clearPendingSession() {
     pendingSaveRef.current = null;
@@ -361,6 +367,34 @@ export default function Register() {
     }
   }
 
+  async function saveProfilePicture() {
+    if (!existing?._id) return;
+    setProfileError("");
+    setSavingProfile(true);
+    try {
+      if (!profileFile) {
+        throw new Error("Please choose a profile picture.");
+      }
+      const compressed = await compressImageForUpload(profileFile);
+      const formData = new FormData();
+      formData.set("fullName", existing.fullName || user?.name || "player");
+      formData.set("photo", compressed);
+      const data = await api(`/api/registrations/${existing._id}/profile-image`, {
+        method: "PATCH",
+        body: formData,
+      });
+      setExisting(data.registration);
+      setProfileModalOpen(false);
+      setProfileFile(null);
+      if (profilePreview) URL.revokeObjectURL(profilePreview);
+      setProfilePreview("");
+    } catch (err) {
+      setProfileError(err.message);
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
   async function savePaymentProof() {
     setError("");
     setSubmitting(true);
@@ -443,13 +477,34 @@ export default function Register() {
               ) : null}
             </p>
             <div className="flex flex-wrap items-start gap-4">
-              {profileImageUrl(existing) ? (
-                <ZoomableImage
-                  src={profileImageUrl(existing)}
-                  alt={existing.fullName}
-                  className="h-24 w-24 rounded-lg border border-[color:var(--border)] object-cover"
-                />
-              ) : null}
+              <div className="flex flex-col items-start gap-2">
+                {profileImageUrl(existing) ? (
+                  <ZoomableImage
+                    src={profileImageUrl(existing)}
+                    alt={existing.fullName}
+                    className="h-24 w-24 rounded-lg border border-[color:var(--border)] object-cover"
+                  />
+                ) : (
+                  <span className="inline-flex h-24 w-24 items-center justify-center rounded-lg border border-dashed border-[color:var(--border)] bg-ink-soft text-xs text-[color:var(--text-muted)]">
+                    No photo
+                  </span>
+                )}
+                {user ? (
+                  <button
+                    type="button"
+                    className="text-xs font-semibold text-accent-soft underline"
+                    onClick={() => {
+                      setProfileError("");
+                      setProfileFile(null);
+                      if (profilePreview) URL.revokeObjectURL(profilePreview);
+                      setProfilePreview("");
+                      setProfileModalOpen(true);
+                    }}
+                  >
+                    {profileImageUrl(existing) ? "Change profile photo" : "Add profile photo"}
+                  </button>
+                ) : null}
+              </div>
               <div className="grid min-w-0 flex-1 gap-2 text-sm text-[color:var(--text)] sm:grid-cols-2">
                 <p>Name: {existing.fullName}</p>
                 <p>Player ID: {existing.playerCode || "—"}</p>
@@ -873,6 +928,70 @@ export default function Register() {
                 onClick={() => setShowConsentModal(false)}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {profileModalOpen && existing ? (
+        <div
+          className="fixed inset-0 z-[91] flex items-center justify-center bg-black/75 p-4"
+          onClick={() => !savingProfile && setProfileModalOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="register-profile-title"
+            className="panel w-full max-w-md rounded-2xl p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="eyebrow text-accent">Profile picture</p>
+            <h2 id="register-profile-title" className="mt-1 font-display text-2xl text-[color:var(--title)]">
+              {existing.fullName}
+            </h2>
+            <p className="mt-2 text-sm text-[color:var(--text-muted)]">
+              Upload or replace your registration photo after sign-in.
+            </p>
+            <label className="mt-4 block text-sm">
+              <span className="text-[color:var(--text-muted)]">Choose image</span>
+              <input
+                type="file"
+                accept="image/*"
+                className="mt-1.5 block w-full text-sm text-[color:var(--text-muted)] file:mr-3 file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  setProfileFile(file);
+                  if (profilePreview) URL.revokeObjectURL(profilePreview);
+                  setProfilePreview(file ? URL.createObjectURL(file) : "");
+                  setProfileError("");
+                }}
+              />
+              {profilePreview ? (
+                <img
+                  src={profilePreview}
+                  alt="Preview"
+                  className="mt-3 h-28 w-28 rounded-lg border border-[color:var(--border)] object-cover"
+                />
+              ) : null}
+            </label>
+            {profileError ? <p className="mt-3 text-sm text-accent">{profileError}</p> : null}
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={savingProfile}
+                onClick={saveProfilePicture}
+              >
+                {savingProfile ? "Saving…" : "Save photo"}
+              </button>
+              <button
+                type="button"
+                className="btn-ghost"
+                disabled={savingProfile}
+                onClick={() => setProfileModalOpen(false)}
+              >
+                Cancel
               </button>
             </div>
           </div>

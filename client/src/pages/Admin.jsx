@@ -17,6 +17,7 @@ import { paymentScreenshotUrl, profileImageUrl, compressImageForUpload } from ".
 import PortalMediaManager from "../components/admin/PortalMediaManager.jsx";
 import SponsorPackagesAdmin from "../components/admin/SponsorPackagesAdmin.jsx";
 import ReferralsAdmin from "../components/admin/ReferralsAdmin.jsx";
+import ReferralChallengeAdmin from "../components/admin/ReferralChallengeAdmin.jsx";
 import { AlertBanner, PageLoader, StatGridSkeleton } from "../components/ui";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
 import AdminLivePage from "./AdminLive";
@@ -85,6 +86,7 @@ function AdminShell({ children, title, subtitle }) {
         { to: "/admin/register", label: "Register player" },
         { to: "/admin/reports", label: "Reports" },
         { to: "/admin/referrals", label: "Referrals" },
+        { to: "/admin/referral-winners", label: "Rewards" },
       ],
     },
     {
@@ -3545,6 +3547,7 @@ export default function Admin() {
       <Route path="register" element={<AdminRegisterPage />} />
       <Route path="reports" element={<ReportsPage />} />
       <Route path="referrals" element={<ReferralsAdmin AdminShell={AdminShell} />} />
+      <Route path="referral-winners" element={<ReferralChallengeAdmin AdminShell={AdminShell} />} />
       <Route path="teams" element={<TeamsPage />} />
       <Route path="passwords" element={<PasswordsPage />} />
       <Route path="auction" element={<AuctionPage />} />
