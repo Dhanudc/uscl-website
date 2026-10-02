@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api";
+import { CropUploadButton } from "../ImageCropper";
 import { AlertBanner, PageLoader } from "../ui";
 
 const EMPTY_WINNER = {
@@ -30,6 +31,7 @@ export default function ReferralChallengeAdmin({ AdminShell }) {
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
   const [lookingUp, setLookingUp] = useState({});
+  const [uploading, setUploading] = useState("");
   const lookupTimers = useRef({});
 
   useEffect(() => {
@@ -52,6 +54,7 @@ export default function ReferralChallengeAdmin({ AdminShell }) {
               company: row.company || "",
               gift: row.gift || "",
               image: row.image || "",
+              awardImage: row.awardImage || "",
             })),
           });
         }
@@ -82,6 +85,22 @@ export default function ReferralChallengeAdmin({ AdminShell }) {
       ...prev,
       winners: prev.winners.filter((_, i) => i !== index),
     }));
+  }
+
+  async function uploadAward(index, file) {
+    if (!file) return;
+    setUploading(String(index));
+    setError("");
+    try {
+      const body = new FormData();
+      body.append("image", file);
+      const data = await api("/api/admin/settings/reward-image", { method: "POST", body });
+      updateWinner(index, "awardImage", data.imageUrl || "");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading("");
+    }
   }
 
   async function lookupPlayer(index, rawCode) {
@@ -147,6 +166,7 @@ export default function ReferralChallengeAdmin({ AdminShell }) {
         name: String(row.name || "").trim(),
         company: String(row.company || "").trim(),
         gift: String(row.gift || "").trim(),
+        awardImage: String(row.awardImage || "").trim(),
       }));
       if (winners.some((row) => !Number.isFinite(row.place) || row.place <= 0)) {
         throw new Error("Each winner needs a place number (1, 2, 3…).");
@@ -183,6 +203,7 @@ export default function ReferralChallengeAdmin({ AdminShell }) {
             company: row.company || "",
             gift: row.gift,
             image: row.image || "",
+            awardImage: row.awardImage || "",
           })),
         });
       }
@@ -289,6 +310,28 @@ export default function ReferralChallengeAdmin({ AdminShell }) {
                       onChange={(e) => updateWinner(index, "gift", e.target.value)}
                     />
                   </label>
+                  <div className="sm:col-span-12">
+                    <span className="text-sm text-[color:var(--text-muted)]">Reward photo</span>
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      {row.awardImage ? (
+                        <img
+                          src={row.awardImage}
+                          alt=""
+                          className="h-20 w-20 rounded-lg border border-[color:var(--border)] object-cover"
+                        />
+                      ) : (
+                        <span className="inline-flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-[color:var(--border)] text-[10px] text-[color:var(--text-muted)]">
+                          No photo
+                        </span>
+                      )}
+                      <CropUploadButton
+                        label={uploading === String(index) ? "Uploading…" : "Upload photo"}
+                        aspect={1}
+                        disabled={uploading === String(index)}
+                        onFile={(file) => uploadAward(index, file)}
+                      />
+                    </div>
+                  </div>
                   <div className="flex items-center justify-between gap-3 sm:col-span-12">
                     {row.name ? (
                       <div className="flex min-w-0 items-center gap-3">

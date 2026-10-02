@@ -2,6 +2,10 @@ import { Router } from "express";
 import {
   getModuleVisibility,
   resolveReferralChallenge,
+  publicUpcomingEvents,
+  normalizeMembersIntro,
+  publicBoardMembers,
+  publicKeyDates,
   getSiteSettings,
   isReferralProgramEnabled,
   isRegistrationEnabled,
@@ -22,6 +26,10 @@ router.get("/", async (_req, res) => {
         moduleVisibility: getModuleVisibility(settings),
         whatsappGroupUrl: settings.whatsappGroupUrl || "",
         referralChallenge: await resolveReferralChallenge(settings),
+        upcomingEvents: publicUpcomingEvents(settings.upcomingEvents),
+        keyDates: publicKeyDates(settings.keyDates),
+        membersIntro: normalizeMembersIntro(settings.membersIntro),
+        boardMembers: publicBoardMembers(settings.boardMembers),
       },
     });
   } catch (error) {

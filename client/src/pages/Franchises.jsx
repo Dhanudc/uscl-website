@@ -37,14 +37,14 @@ export default function Franchises() {
             key={team.id}
             className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-ink-card"
           >
-            <button
-              type="button"
-              className="aspect-square w-full bg-white p-3"
-              onClick={() => setSelectedTeam({ ...team, owner })}
-              aria-label={`${team.name} franchise details`}
-            >
-              <img src={team.image} alt="" className="h-full w-full object-contain" />
-            </button>
+            <div className="relative aspect-square w-full overflow-hidden bg-white">
+              <ZoomableImage
+                src={team.image}
+                alt={team.name}
+                buttonClassName="absolute inset-0 box-border h-full w-full min-h-0 p-6"
+                className="h-auto max-h-full w-auto max-w-full object-contain"
+              />
+            </div>
             <div className="px-3 py-3 text-center" style={{ boxShadow: `inset 3px 0 0 ${team.accent}` }}>
               <button
                 type="button"

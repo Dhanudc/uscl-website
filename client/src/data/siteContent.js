@@ -138,11 +138,11 @@ export const boardMembers = [
   {
     id: "crisna-chaitanya-reddy",
     name: "Crisna Chaitanya Reddy",
-    role: "Story Teller & Cricketer",
+    role: "Brand Ambassador",
     image: "/members/crisna-chaitanya-reddy.jpg",
     summary:
-      "Crisna is USCL's storyteller and cricketer, sharing the league story and bringing cricketing energy to the community.",
-    bio: "Crisna Chaitanya Reddy is a storyteller and cricketer with USCL. He helps connect players, franchises, and fans to the spirit of the league through narrative, presence, and on-field passion.",
+      "Crisna Chaitanya Reddy is Brand Ambassador for USCL, sharing the league story and bringing cricketing energy to the community.",
+    bio: "Crisna Chaitanya Reddy is Brand Ambassador for USCL. He connects players, franchises, and fans to the spirit of the league through storytelling, presence, and on-field passion.",
   },
   {
     id: "anthony-swamy",

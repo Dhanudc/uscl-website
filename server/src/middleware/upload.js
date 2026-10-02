@@ -13,6 +13,9 @@ const paymentsRoot = path.join(serverRoot, "public", "payments");
 const portalImagesRoot = path.join(serverRoot, "public", "media", "images");
 const portalVideosRoot = path.join(serverRoot, "public", "media", "videos");
 const socialRoot = path.join(serverRoot, "uploads", "social");
+const eventsRoot = path.join(serverRoot, "uploads", "events");
+const membersRoot = path.join(serverRoot, "uploads", "members");
+const rewardsRoot = path.join(serverRoot, "uploads", "rewards");
 
 fs.mkdirSync(registrationRoot, { recursive: true });
 fs.mkdirSync(profileImagesRoot, { recursive: true });
@@ -20,6 +23,9 @@ fs.mkdirSync(paymentsRoot, { recursive: true });
 fs.mkdirSync(portalImagesRoot, { recursive: true });
 fs.mkdirSync(portalVideosRoot, { recursive: true });
 fs.mkdirSync(socialRoot, { recursive: true });
+fs.mkdirSync(eventsRoot, { recursive: true });
+fs.mkdirSync(membersRoot, { recursive: true });
+fs.mkdirSync(rewardsRoot, { recursive: true });
 
 export const PROFILE_IMAGES_DIR = profileImagesRoot;
 export const PAYMENTS_DIR = paymentsRoot;
@@ -260,4 +266,37 @@ export function mapWithProfileImageUrl(list) {
 export function toSocialIconUrl(file) {
   if (!file) return "";
   return `/uploads/social/${file.filename}`;
+}
+
+export const eventImageUpload = multer({
+  storage: makeStorage(eventsRoot),
+  fileFilter: imageFilter,
+  limits: { fileSize: 12 * 1024 * 1024 },
+}).single("image");
+
+export function toEventImageUrl(file) {
+  if (!file) return "";
+  return `/uploads/events/${file.filename}`;
+}
+
+export const memberImageUpload = multer({
+  storage: makeStorage(membersRoot),
+  fileFilter: imageFilter,
+  limits: { fileSize: 12 * 1024 * 1024 },
+}).single("image");
+
+export function toMemberImageUrl(file) {
+  if (!file) return "";
+  return `/uploads/members/${file.filename}`;
+}
+
+export const rewardImageUpload = multer({
+  storage: makeStorage(rewardsRoot),
+  fileFilter: imageFilter,
+  limits: { fileSize: 12 * 1024 * 1024 },
+}).single("image");
+
+export function toRewardImageUrl(file) {
+  if (!file) return "";
+  return `/uploads/rewards/${file.filename}`;
 }

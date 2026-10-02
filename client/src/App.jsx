@@ -17,6 +17,7 @@ import LiveUpdates from "./pages/LiveUpdates";
 import Register from "./pages/Register";
 import PlayerJourney from "./pages/PlayerJourney";
 import Referrals from "./pages/Referrals";
+import Events from "./pages/Events";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import FranchiseSquad from "./pages/FranchiseSquad";
@@ -108,6 +109,7 @@ function AppRoutes() {
         <Route path="/register" element={<Register />} />
         <Route path="/player-journey" element={<PlayerJourney />} />
         <Route path="/referrals" element={<Referrals />} />
+        <Route path="/events" element={<Events />} />
         <Route
           path="/dashboard"
           element={

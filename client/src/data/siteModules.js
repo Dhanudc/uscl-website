@@ -10,6 +10,7 @@ export const SITE_MODULES = [
   { key: "register", label: "Register", path: "/register", hint: "Register / Registration button" },
   { key: "playerJourney", label: "Player Journey", path: "/player-journey", hint: "Player journey page and nav link" },
   { key: "referrals", label: "Rewards", path: "/referrals", hint: "Referrals and giveaways winners page" },
+  { key: "events", label: "Events", path: "/events", hint: "Upcoming events and announcements" },
 ];
 
 export const DEFAULT_MODULE_VISIBILITY = Object.fromEntries(

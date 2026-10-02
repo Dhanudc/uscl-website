@@ -5,18 +5,16 @@ import LeagueTagline from "../components/LeagueTagline";
 import PageShell from "../components/PageShell";
 import RegisterCta from "../components/RegisterCta";
 import ZoomableImage from "../components/ZoomableImage";
-import { aboutSections, boardMembers, siteStats } from "../data/siteContent";
+import { useSiteSettings } from "../context/SiteSettingsContext";
+import { aboutSections, siteStats } from "../data/siteContent";
 
 function FeaturedAboutBlock({ block, imageFirst = true }) {
   const image = (
     <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
-      <img
+      <ZoomableImage
         src={block.image}
         alt={block.imageAlt || block.title}
-        width={1600}
-        height={900}
-        loading="lazy"
-        decoding="async"
+        buttonClassName="block w-full"
         className="about-feature-image"
       />
     </div>
@@ -76,6 +74,7 @@ function FeaturedAboutBlock({ block, imageFirst = true }) {
 
 export default function About() {
   const [openMember, setOpenMember] = useState(null);
+  const { boardMembers, membersIntro } = useSiteSettings();
 
   return (
     <PageShell
@@ -112,8 +111,12 @@ export default function About() {
 
           return (
             <article key={block.id} className="border-b border-[color:var(--border)] pb-6 last:border-0">
-              <h2 className="font-display text-2xl text-[color:var(--title)]">{block.title}</h2>
-              <p className="mt-2 max-w-3xl text-[color:var(--text-muted)]">{block.body}</p>
+              <h2 className="font-display text-2xl text-[color:var(--title)]">
+                {block.id === "members" ? membersIntro.title || block.title : block.title}
+              </h2>
+              <p className="mt-2 max-w-3xl text-[color:var(--text-muted)]">
+                {block.id === "members" ? membersIntro.body || block.body : block.body}
+              </p>
 
               {block.id === "members" ? (
                 <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -125,7 +128,8 @@ export default function About() {
                       <ZoomableImage
                         src={member.image}
                         alt={member.name}
-                        className="mx-auto h-28 w-28 rounded-full border border-[color:var(--border)] object-cover sm:mx-0 sm:h-32 sm:w-32"
+                        buttonClassName="mx-auto h-28 w-28 overflow-hidden rounded-full border border-[color:var(--border)] sm:mx-0"
+                        className="h-28 w-28 rounded-full object-cover"
                       />
                       <h3 className="mt-4 font-display text-lg text-[color:var(--title)]">{member.name}</h3>
                       <p className="mt-0.5 text-sm italic text-[color:var(--text-muted)]">{member.role}</p>

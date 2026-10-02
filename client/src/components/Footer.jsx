@@ -38,6 +38,11 @@ export default function Footer() {
                 Rewards
               </Link>
             ) : null}
+            {isModuleVisible("events") ? (
+              <Link to="/events" onClick={() => window.scrollTo(0, 0)}>
+                Events
+              </Link>
+            ) : null}
             {isModuleVisible("playerJourney") ? (
               <Link to="/player-journey" onClick={() => window.scrollTo(0, 0)}>
                 Player Journey

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { EmptyState, PageLoader } from "../components/ui";
+import ZoomableImage from "../components/ZoomableImage";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 
 function placeLabel(place) {
@@ -19,35 +20,35 @@ function placeLabel(place) {
   }
 }
 
-function podiumOrder(winners) {
-  const sorted = [...winners].sort((a, b) => Number(a.place) - Number(b.place));
-  if (sorted.length !== 3) return sorted;
-  return [sorted[1], sorted[0], sorted[2]];
-}
-
 function WinnerCard({ winner, featured = false }) {
   return (
     <article
-      className={`flex h-full flex-col items-center rounded-2xl border bg-ink-card px-5 py-6 text-center ${
+      className={`flex h-full flex-col overflow-hidden rounded-2xl border bg-ink-card text-center ${
         featured ? "border-accent shadow-[0_0_0_1px_color-mix(in_srgb,var(--accent)_35%,transparent)]" : "border-[color:var(--border)]"
       }`}
     >
+      {winner.awardImage ? (
+        <ZoomableImage
+          src={winner.awardImage}
+          alt={winner.name || "Reward"}
+          buttonClassName="block w-full"
+          className="aspect-square w-full object-cover"
+        />
+      ) : null}
+      <div className="flex flex-1 flex-col items-center px-5 py-6">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">{placeLabel(winner.place)}</p>
-      {winner.image ? (
-        <img
+      {!winner.awardImage && winner.image ? (
+        <ZoomableImage
           src={winner.image}
           alt={winner.name || "Winner"}
-          className={`mt-4 rounded-full border-2 border-accent/50 object-cover ${featured ? "h-28 w-28" : "h-24 w-24"}`}
+          buttonClassName="mt-4 h-28 w-28 overflow-hidden rounded-full border-2 border-accent/50"
+          className="h-28 w-28 rounded-full object-cover"
         />
-      ) : (
-        <span
-          className={`mt-4 inline-flex items-center justify-center rounded-full border border-dashed border-[color:var(--border)] text-xs text-[color:var(--text-muted)] ${
-            featured ? "h-28 w-28" : "h-24 w-24"
-          }`}
-        >
+      ) : !winner.awardImage ? (
+        <span className="mt-4 inline-flex h-28 w-28 items-center justify-center rounded-full border border-dashed border-[color:var(--border)] text-xs text-[color:var(--text-muted)]">
           Photo
         </span>
-      )}
+      ) : null}
       <h3 className="mt-4 font-display text-2xl leading-tight text-[color:var(--title)]">{winner.name}</h3>
       {winner.company ? (
         <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
@@ -58,12 +59,13 @@ function WinnerCard({ winner, featured = false }) {
         <p className="mt-2 text-xs font-semibold text-accent">Player ID {winner.playerCode}</p>
       ) : null}
       <p className="mt-4 rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-white">{winner.gift}</p>
+      </div>
     </article>
   );
 }
 
 function WinnerSection({ eyebrow, title, winners }) {
-  const cards = podiumOrder(winners);
+  const ranked = [...winners].sort((a, b) => Number(a.place) - Number(b.place));
   return (
     <section>
       <div className="mb-5">
@@ -74,17 +76,16 @@ function WinnerSection({ eyebrow, title, winners }) {
         <EmptyState title="Coming soon" description={`Winners for ${title.toLowerCase()} will appear here.`} />
       ) : (
         <div
-          className={`grid items-end gap-4 ${
-            winners.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-3"
+          className={`grid items-stretch gap-4 ${
+            ranked.length >= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-3"
           }`}
         >
-          {cards.map((winner) => (
-            <div
+          {ranked.map((winner) => (
+            <WinnerCard
               key={`${winner.section}-${winner.place}-${winner.playerCode || winner.name}`}
-              className={Number(winner.place) === 1 && winners.length === 3 ? "sm:-mt-4" : ""}
-            >
-              <WinnerCard winner={winner} featured={Number(winner.place) === 1} />
-            </div>
+              winner={winner}
+              featured={Number(winner.place) === 1}
+            />
           ))}
         </div>
       )}

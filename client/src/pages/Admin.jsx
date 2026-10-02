@@ -18,6 +18,8 @@ import PortalMediaManager from "../components/admin/PortalMediaManager.jsx";
 import SponsorPackagesAdmin from "../components/admin/SponsorPackagesAdmin.jsx";
 import ReferralsAdmin from "../components/admin/ReferralsAdmin.jsx";
 import ReferralChallengeAdmin from "../components/admin/ReferralChallengeAdmin.jsx";
+import EventsAdmin from "../components/admin/EventsAdmin.jsx";
+import MembersAdmin from "../components/admin/MembersAdmin.jsx";
 import { AlertBanner, PageLoader, StatGridSkeleton } from "../components/ui";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
 import AdminLivePage from "./AdminLive";
@@ -95,6 +97,8 @@ function AdminShell({ children, title, subtitle }) {
         { to: "/admin/teams", label: "Teams" },
         { to: "/admin/auction", label: "Auction desk" },
         { to: "/admin/live", label: "Live updates" },
+        { to: "/admin/events", label: "Events" },
+        { to: "/admin/members", label: "About members" },
       ],
     },
     {
@@ -3557,6 +3561,8 @@ export default function Admin() {
       <Route path="sponsors" element={<SponsorPackagesPage />} />
       <Route path="media" element={<PortalMediaPage />} />
       <Route path="social" element={<SocialMediaPage />} />
+      <Route path="events" element={<EventsAdmin AdminShell={AdminShell} />} />
+      <Route path="members" element={<MembersAdmin AdminShell={AdminShell} />} />
       <Route path="audit" element={<AuditPage />} />
       <Route path="players" element={<Navigate to="/admin/players/pending" replace />} />
       <Route path="accounts/*" element={<Navigate to="/admin/players/pending" replace />} />

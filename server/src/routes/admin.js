@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { adminRequired, hashPassword } from "../middleware/auth.js";
-import { socialIconUpload, toSocialIconUrl, mapWithProfileImageUrl, withProfileImageUrl, paymentScreenshotUpload, portalImageUpload, portalVideoUpload, profilePhotoUpload, playerRegistrationUpload, toProfileImageMeta } from "../middleware/upload.js";
+import { socialIconUpload, toSocialIconUrl, eventImageUpload, toEventImageUrl, memberImageUpload, toMemberImageUrl, rewardImageUpload, toRewardImageUrl, mapWithProfileImageUrl, withProfileImageUrl, paymentScreenshotUpload, portalImageUpload, portalVideoUpload, profilePhotoUpload, playerRegistrationUpload, toProfileImageMeta } from "../middleware/upload.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isReferralProgramEnabled, normalizeModuleVisibility, normalizeSocials } from "../models/SiteSettings.js";
+import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isReferralProgramEnabled, normalizeModuleVisibility, normalizeSocials, normalizeUpcomingEvents, normalizeMembersIntro, publicBoardMembers, normalizeBoardMembers, publicKeyDates, normalizeKeyDates } from "../models/SiteSettings.js";
 import { getGatewayStatus } from "../utils/paymentGateway.js";
 import { normalizeRegistrationFees, getRegistrationFeeInr } from "../utils/registrationFees.js";
 import { User } from "../models/User.js";
@@ -1383,6 +1383,10 @@ router.get("/settings", adminRequired, async (_req, res) => {
         paymentGatewayStatus: getGatewayStatus(),
         whatsappGroupUrl: settings.whatsappGroupUrl || "",
         referralChallenge: await resolveReferralChallenge(settings),
+        upcomingEvents: normalizeUpcomingEvents(settings.upcomingEvents),
+        keyDates: publicKeyDates(settings.keyDates),
+        membersIntro: normalizeMembersIntro(settings.membersIntro),
+        boardMembers: publicBoardMembers(settings.boardMembers),
       },
     });
   } catch (error) {
@@ -1472,6 +1476,30 @@ router.put("/settings", adminRequired, async (req, res) => {
       );
     }
 
+    if (req.body.membersIntro && typeof req.body.membersIntro === "object") {
+      settings.membersIntro = normalizeMembersIntro(req.body.membersIntro);
+      settings.markModified("membersIntro");
+      auditBits.push("members intro");
+    }
+
+    if (Array.isArray(req.body.boardMembers)) {
+      settings.boardMembers = normalizeBoardMembers(req.body.boardMembers);
+      settings.markModified("boardMembers");
+      auditBits.push(`board members (${settings.boardMembers.length})`);
+    }
+
+    if (Array.isArray(req.body.keyDates)) {
+      settings.keyDates = normalizeKeyDates(req.body.keyDates);
+      settings.markModified("keyDates");
+      auditBits.push(`key dates (${settings.keyDates.length})`);
+    }
+
+    if (Array.isArray(req.body.upcomingEvents)) {
+      settings.upcomingEvents = normalizeUpcomingEvents(req.body.upcomingEvents);
+      settings.markModified("upcomingEvents");
+      auditBits.push(`upcoming events (${settings.upcomingEvents.length})`);
+    }
+
     if (req.body.paymentGateway) {
       const gateway = String(req.body.paymentGateway || "").trim().toLowerCase();
       if (gateway === "razorpay" || gateway === "cashfree" || gateway === "qr") {
@@ -1507,12 +1535,52 @@ router.put("/settings", adminRequired, async (req, res) => {
         paymentGatewayStatus: getGatewayStatus(),
         whatsappGroupUrl: settings.whatsappGroupUrl || "",
         referralChallenge: await resolveReferralChallenge(settings),
+        upcomingEvents: normalizeUpcomingEvents(settings.upcomingEvents),
+        keyDates: publicKeyDates(settings.keyDates),
+        membersIntro: normalizeMembersIntro(settings.membersIntro),
+        boardMembers: publicBoardMembers(settings.boardMembers),
       },
     });
   } catch (error) {
     console.error("admin settings put", error);
     return res.status(500).json({ error: "Unable to save settings." });
   }
+});
+
+router.post("/settings/reward-image", adminRequired, (req, res) => {
+  rewardImageUpload(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || "Image upload failed." });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: "Please choose an image." });
+    }
+    return res.json({ imageUrl: toRewardImageUrl(req.file) });
+  });
+});
+
+router.post("/settings/member-image", adminRequired, (req, res) => {
+  memberImageUpload(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || "Image upload failed." });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: "Please choose an image." });
+    }
+    return res.json({ imageUrl: toMemberImageUrl(req.file) });
+  });
+});
+
+router.post("/settings/event-image", adminRequired, (req, res) => {
+  eventImageUpload(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || "Image upload failed." });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: "Please choose an image." });
+    }
+    return res.json({ imageUrl: toEventImageUrl(req.file) });
+  });
 });
 
 router.post("/settings/social-icon", adminRequired, (req, res) => {

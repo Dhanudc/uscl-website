@@ -3,6 +3,8 @@ import {
   DEFAULT_MODULE_VISIBILITY,
   normalizeModuleVisibility,
 } from "../constants/siteModules.js";
+import { DEFAULT_BOARD_MEMBERS, DEFAULT_MEMBERS_INTRO } from "../constants/boardMembers.js";
+import { DEFAULT_KEY_DATES } from "../constants/keyDates.js";
 import { profileImagePublicUrl } from "../middleware/upload.js";
 import { PlayerRegistration } from "./PlayerRegistration.js";
 import { formatPlayerCode } from "../utils/playerCode.js";
@@ -49,6 +51,45 @@ const moduleVisibilitySchema = new mongoose.Schema(
     register: { type: Boolean, default: true },
     playerJourney: { type: Boolean, default: true },
     referrals: { type: Boolean, default: true },
+    events: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+const boardMemberSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, default: "" },
+    role: { type: String, default: "" },
+    image: { type: String, default: "" },
+    summary: { type: String, default: "" },
+    bio: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const keyDateSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    dateLabel: { type: String, default: "" },
+    timeLabel: { type: String, default: "" },
+    title: { type: String, default: "" },
+    body: { type: String, default: "" },
+    eventDate: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const upcomingEventSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    title: { type: String, default: "" },
+    caption: { type: String, default: "" },
+    imageUrl: { type: String, default: "" },
+    eventDate: { type: String, default: "" },
+    location: { type: String, default: "" },
+    link: { type: String, default: "" },
+    published: { type: Boolean, default: true },
   },
   { _id: false }
 );
@@ -61,6 +102,7 @@ const referralWinnerSchema = new mongoose.Schema(
     name: { type: String, default: "" },
     company: { type: String, default: "" },
     gift: { type: String, default: "" },
+    awardImage: { type: String, default: "" },
   },
   { _id: false }
 );
@@ -134,6 +176,24 @@ const siteSettingsSchema = new mongoose.Schema(
         type: [referralWinnerSchema],
         default: () => [],
       },
+    },
+    /** Public upcoming-event posts (ads) managed from the admin panel. */
+    upcomingEvents: {
+      type: [upcomingEventSchema],
+      default: () => [],
+    },
+    /** Season milestone cards. Past dates move into the Past events popup. */
+    keyDates: {
+      type: [keyDateSchema],
+      default: () => [],
+    },
+    membersIntro: {
+      title: { type: String, default: DEFAULT_MEMBERS_INTRO.title },
+      body: { type: String, default: DEFAULT_MEMBERS_INTRO.body },
+    },
+    boardMembers: {
+      type: [boardMemberSchema],
+      default: () => [],
     },
   },
   { timestamps: true }
@@ -225,6 +285,10 @@ export const DEFAULT_SITE_SETTINGS = {
       { place: 3, name: "Rakesh M", company: "Intellect Inc", gift: "Amazon Voucher" },
     ],
   },
+  upcomingEvents: [],
+  keyDates: DEFAULT_KEY_DATES,
+  membersIntro: { ...DEFAULT_MEMBERS_INTRO },
+  boardMembers: DEFAULT_BOARD_MEMBERS,
 };
 
 export function normalizeReferralChallenge(input) {
@@ -238,6 +302,7 @@ export function normalizeReferralChallenge(input) {
       name: String(row?.name || "").trim(),
       company: String(row?.company || "").trim(),
       gift: String(row?.gift || "").trim(),
+      awardImage: isSafeRewardImage(row?.awardImage) ? String(row.awardImage).trim() : "",
     }))
     .filter(
       (row) =>
@@ -257,6 +322,130 @@ export function normalizeReferralChallenge(input) {
     closingLine: String(src.closingLine ?? fallback.closingLine).trim(),
     winners,
   };
+}
+
+function isSafeRewardImage(url) {
+  const value = String(url || "").trim();
+  if (!value) return true;
+  if (value.startsWith("/uploads/rewards/")) return true;
+  return /^https:\/\//i.test(value);
+}
+
+function isSafeEventImage(url) {
+  const value = String(url || "").trim();
+  if (!value) return true;
+  if (value.startsWith("/uploads/events/")) return true;
+  return /^https:\/\//i.test(value);
+}
+
+function isSafeEventLink(url) {
+  const value = String(url || "").trim();
+  if (!value) return true;
+  if (value.startsWith("/") && !value.startsWith("//")) return true;
+  return /^https?:\/\//i.test(value);
+}
+
+export function normalizeUpcomingEvents(input) {
+  const rows = Array.isArray(input) ? input : [];
+  return rows
+    .map((row, index) => {
+      const imageUrl = String(row?.imageUrl || "").trim();
+      const link = String(row?.link || "").trim();
+      return {
+        id: String(row?.id || "").trim() || `evt-${index + 1}`,
+        title: String(row?.title || "").trim().slice(0, 120),
+        caption: String(row?.caption || "").trim().slice(0, 600),
+        imageUrl: isSafeEventImage(imageUrl) ? imageUrl : "",
+        eventDate: String(row?.eventDate || "").trim().slice(0, 40),
+        location: String(row?.location || "").trim().slice(0, 120),
+        link: isSafeEventLink(link) ? link : "",
+        published: row?.published !== false,
+      };
+    })
+    .filter((row) => row.title)
+    .slice(0, 40);
+}
+
+function toIstDate(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(raw)) return raw;
+  const withSeconds = raw.length === 16 ? `${raw}:00` : raw;
+  return `${withSeconds}+05:30`;
+}
+
+export function normalizeKeyDates(input) {
+  const rows = Array.isArray(input) ? input : [];
+  return rows
+    .map((row, index) => ({
+      id: String(row?.id || "").trim() || `date-${index + 1}`,
+      dateLabel: String(row?.dateLabel || "").trim().slice(0, 40),
+      timeLabel: String(row?.timeLabel || "").trim().slice(0, 60),
+      title: String(row?.title || "").trim().slice(0, 80),
+      body: String(row?.body || "").trim().slice(0, 240),
+      eventDate: toIstDate(row?.eventDate),
+    }))
+    .filter((row) => row.title && row.eventDate)
+    .slice(0, 20);
+}
+
+export function publicKeyDates(input) {
+  const rows = normalizeKeyDates(input);
+  return rows.length ? rows : DEFAULT_KEY_DATES;
+}
+
+export function publicUpcomingEvents(input) {
+  return normalizeUpcomingEvents(input)
+    .filter((row) => row.published && row.imageUrl)
+    .sort((a, b) => {
+      const ta = Date.parse(a.eventDate);
+      const tb = Date.parse(b.eventDate);
+      const aOk = Number.isFinite(ta);
+      const bOk = Number.isFinite(tb);
+      if (aOk && bOk) return ta - tb;
+      if (aOk) return -1;
+      if (bOk) return 1;
+      return 0;
+    });
+}
+
+function isSafeMemberImage(url) {
+  const value = String(url || "").trim();
+  if (!value) return true;
+  if (value.startsWith("/members/")) return true;
+  if (value.startsWith("/uploads/members/")) return true;
+  return /^https:\/\//i.test(value);
+}
+
+export function normalizeMembersIntro(input) {
+  const src = input && typeof input === "object" ? input : {};
+  return {
+    title: String(src.title || DEFAULT_MEMBERS_INTRO.title).trim() || DEFAULT_MEMBERS_INTRO.title,
+    body: String(src.body || DEFAULT_MEMBERS_INTRO.body).trim() || DEFAULT_MEMBERS_INTRO.body,
+  };
+}
+
+export function normalizeBoardMembers(input) {
+  const rows = Array.isArray(input) ? input : [];
+  return rows
+    .map((row, index) => {
+      const image = String(row?.image || "").trim();
+      return {
+        id: String(row?.id || "").trim() || `member-${index + 1}`,
+        name: String(row?.name || "").trim().slice(0, 80),
+        role: String(row?.role || "").trim().slice(0, 120),
+        image: isSafeMemberImage(image) ? image : "",
+        summary: String(row?.summary || "").trim().slice(0, 400),
+        bio: String(row?.bio || "").trim().slice(0, 2000),
+      };
+    })
+    .filter((row) => row.name)
+    .slice(0, 40);
+}
+
+export function publicBoardMembers(input) {
+  const rows = normalizeBoardMembers(input);
+  return rows.length ? rows : DEFAULT_BOARD_MEMBERS;
 }
 
 export function getReferralChallenge(settings) {

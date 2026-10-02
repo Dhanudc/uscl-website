@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
+import { boardMembers as defaultBoardMembers } from "../data/siteContent";
 import { DEFAULT_MODULE_VISIBILITY, normalizeModuleVisibility } from "../data/siteModules";
 
 const DEFAULT_WHATSAPP_HREF = "https://wa.me/917386671777";
@@ -54,6 +55,13 @@ const DEFAULTS = {
   referralProgramEnabled: true,
   moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
   whatsappGroupUrl: "",
+  upcomingEvents: [],
+  membersIntro: {
+    title: "Members",
+    body: "Players, franchise owners, sponsors, and partners from 100+ companies shaping the USCL community every season.",
+  },
+  boardMembers: defaultBoardMembers,
+  keyDates: [],
 };
 
 const SiteSettingsContext = createContext({
@@ -63,6 +71,10 @@ const SiteSettingsContext = createContext({
   referralProgramEnabled: true,
   moduleVisibility: DEFAULTS.moduleVisibility,
   whatsappGroupUrl: "",
+  upcomingEvents: [],
+  membersIntro: DEFAULTS.membersIntro,
+  boardMembers: DEFAULTS.boardMembers,
+  keyDates: [],
   isModuleVisible: () => true,
   loading: true,
   refresh: async () => {},
@@ -75,6 +87,10 @@ export function SiteSettingsProvider({ children }) {
   const [referralProgramEnabled, setReferralProgramEnabled] = useState(true);
   const [moduleVisibility, setModuleVisibility] = useState(DEFAULTS.moduleVisibility);
   const [whatsappGroupUrl, setWhatsappGroupUrl] = useState("");
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [membersIntro, setMembersIntro] = useState(DEFAULTS.membersIntro);
+  const [boardMembers, setBoardMembers] = useState(DEFAULTS.boardMembers);
+  const [keyDates, setKeyDates] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -88,6 +104,14 @@ export function SiteSettingsProvider({ children }) {
       setReferralProgramEnabled(data.settings?.referralProgramEnabled !== false);
       setModuleVisibility(normalizeModuleVisibility(data.settings?.moduleVisibility));
       setWhatsappGroupUrl(String(data.settings?.whatsappGroupUrl || "").trim());
+      setUpcomingEvents(Array.isArray(data.settings?.upcomingEvents) ? data.settings.upcomingEvents : []);
+      if (data.settings?.membersIntro) setMembersIntro(data.settings.membersIntro);
+      if (Array.isArray(data.settings?.boardMembers) && data.settings.boardMembers.length) {
+        setBoardMembers(data.settings.boardMembers);
+      }
+      if (Array.isArray(data.settings?.keyDates) && data.settings.keyDates.length) {
+        setKeyDates(data.settings.keyDates);
+      }
     } catch {
       // keep defaults
     } finally {
@@ -115,11 +139,15 @@ export function SiteSettingsProvider({ children }) {
       referralProgramEnabled,
       moduleVisibility,
       whatsappGroupUrl,
+      upcomingEvents,
+      membersIntro,
+      boardMembers,
+      keyDates,
       isModuleVisible,
       loading,
       refresh,
     }),
-    [contact, socials, registrationEnabled, referralProgramEnabled, moduleVisibility, whatsappGroupUrl, isModuleVisible, loading, refresh]
+    [contact, socials, registrationEnabled, referralProgramEnabled, moduleVisibility, whatsappGroupUrl, upcomingEvents, membersIntro, boardMembers, keyDates, isModuleVisible, loading, refresh]
   );
 
   return <SiteSettingsContext.Provider value={value}>{children}</SiteSettingsContext.Provider>;

@@ -4,6 +4,7 @@ import HeroFranchiseBanners from "../components/HeroFranchiseBanners";
 import LeagueTagline from "../components/LeagueTagline";
 import RegisterCta from "../components/RegisterCta";
 import TeamsRibbon from "../components/TeamsRibbon";
+import { UpcomingEventsStrip } from "../components/UpcomingEvents";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 import {
@@ -50,7 +51,7 @@ function useCountdown(target) {
 export default function Home() {
   const [slide, setSlide] = useState(0);
   const countdown = useCountdown(AUCTION_TARGET);
-  const { socials, isModuleVisible } = useSiteSettings();
+  const { socials, isModuleVisible, upcomingEvents } = useSiteSettings();
   const { user } = useAuth();
 
   useEffect(() => {
@@ -183,6 +184,8 @@ export default function Home() {
         </div>
       </section>
 
+      {isModuleVisible("events") ? <UpcomingEventsStrip events={upcomingEvents} /> : null}
+
       <TeamsRibbon />
 
       <section className="bg-ink px-4 py-12">
@@ -207,6 +210,9 @@ export default function Home() {
               : null,
             isModuleVisible("referrals")
               ? ["/referrals", "Rewards", "Referral and giveaway winners"]
+              : null,
+            isModuleVisible("events")
+              ? ["/events", "Events", "Upcoming matches and announcements"]
               : null,
           ]
             .filter(Boolean)

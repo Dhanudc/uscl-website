@@ -62,9 +62,12 @@ export default function FranchiseDetailsModal({ team, onClose, showSquad = true 
         <div className="h-1.5 w-full" style={{ background: team.accent }} />
         <div className="flex items-start justify-between gap-3 px-4 py-4 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-2 ring-[color:var(--border)] sm:h-14 sm:w-14">
-              <img src={team.image} alt="" className="h-[88%] w-[88%] object-contain" />
-            </span>
+            <ZoomableImage
+              src={team.image}
+              alt={team.name}
+              buttonClassName="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-white p-1 ring-2 ring-[color:var(--border)]"
+              className="h-full w-full object-contain"
+            />
             <div className="min-w-0">
               <p className="eyebrow text-accent">Franchise details</p>
               <h2
@@ -139,13 +142,11 @@ export default function FranchiseDetailsModal({ team, onClose, showSquad = true 
                         className="flex items-center gap-3 rounded-md border border-[color:var(--border)] px-3 py-2.5"
                       >
                         {photo ? (
-                          <img
+                          <ZoomableImage
                             src={photo}
                             alt={p.fullName}
-                            className="h-11 w-11 shrink-0 rounded-full border border-[color:var(--border)] object-cover bg-ink-soft"
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none";
-                            }}
+                            buttonClassName="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] bg-ink-soft"
+                            className="h-11 w-11 rounded-full object-cover"
                           />
                         ) : (
                           <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent">
