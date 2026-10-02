@@ -7,7 +7,7 @@ import { wesleyContent } from "../data/siteContent";
 import { phoneToWhatsAppHref } from "../utils/whatsapp";
 
 export default function Footer() {
-  const { contact, socials, isModuleVisible } = useSiteSettings();
+  const { contact, socials, isModuleVisible, navLabel } = useSiteSettings();
   const { user } = useAuth();
   const phoneWhatsApp = phoneToWhatsAppHref(contact.phone);
 
@@ -40,7 +40,7 @@ export default function Footer() {
             ) : null}
             {isModuleVisible("events") ? (
               <Link to="/events" onClick={() => window.scrollTo(0, 0)}>
-                Events
+                {navLabel("events") || "Photos"}
               </Link>
             ) : null}
             {isModuleVisible("playerJourney") ? (

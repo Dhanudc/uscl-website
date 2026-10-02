@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useSiteSettings } from "../context/SiteSettingsContext";
 import ZoomableImage from "./ZoomableImage";
 
 export function formatEventWhen(value) {
@@ -62,6 +63,7 @@ export function EventPost({ event }) {
 }
 
 export function UpcomingEventsStrip({ events }) {
+  const { navLabel } = useSiteSettings();
   const posted = (events || []).filter((event) => event.imageUrl);
   if (!posted.length) return null;
   return (
@@ -70,7 +72,7 @@ export function UpcomingEventsStrip({ events }) {
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
             <p className="eyebrow text-accent">Announcements</p>
-            <h2 className="font-display mt-1 text-3xl text-[color:var(--title)]">Events</h2>
+            <h2 className="font-display mt-1 text-3xl text-[color:var(--title)]">{navLabel("events") || "Photos"}</h2>
           </div>
           <Link to="/events" className="shrink-0 text-sm font-semibold text-accent">
             View all

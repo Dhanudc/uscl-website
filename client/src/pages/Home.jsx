@@ -51,7 +51,7 @@ function useCountdown(target) {
 export default function Home() {
   const [slide, setSlide] = useState(0);
   const countdown = useCountdown(AUCTION_TARGET);
-  const { socials, isModuleVisible, upcomingEvents } = useSiteSettings();
+  const { socials, isModuleVisible, upcomingEvents, navLabel } = useSiteSettings();
   const { user } = useAuth();
 
   useEffect(() => {
@@ -212,7 +212,7 @@ export default function Home() {
               ? ["/referrals", "Rewards", "Referral and giveaway winners"]
               : null,
             isModuleVisible("events")
-              ? ["/events", "Events", "Upcoming matches and announcements"]
+              ? ["/events", navLabel("events") || "Photos", "Photos and updates from the league"]
               : null,
           ]
             .filter(Boolean)

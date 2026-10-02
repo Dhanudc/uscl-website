@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { boardMembers as defaultBoardMembers } from "../data/siteContent";
-import { DEFAULT_MODULE_VISIBILITY, normalizeModuleVisibility } from "../data/siteModules";
+import { DEFAULT_MODULE_VISIBILITY, normalizeModuleVisibility, normalizeNavLabels } from "../data/siteModules";
 
 const DEFAULT_WHATSAPP_HREF = "https://wa.me/917386671777";
 
@@ -54,6 +54,7 @@ const DEFAULTS = {
   registrationEnabled: true,
   referralProgramEnabled: true,
   moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
+  navLabels: normalizeNavLabels({}),
   whatsappGroupUrl: "",
   upcomingEvents: [],
   membersIntro: {
@@ -70,11 +71,13 @@ const SiteSettingsContext = createContext({
   registrationEnabled: true,
   referralProgramEnabled: true,
   moduleVisibility: DEFAULTS.moduleVisibility,
+  navLabels: DEFAULTS.navLabels,
   whatsappGroupUrl: "",
   upcomingEvents: [],
   membersIntro: DEFAULTS.membersIntro,
   boardMembers: DEFAULTS.boardMembers,
   keyDates: [],
+  navLabel: () => "",
   isModuleVisible: () => true,
   loading: true,
   refresh: async () => {},
@@ -86,6 +89,7 @@ export function SiteSettingsProvider({ children }) {
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [referralProgramEnabled, setReferralProgramEnabled] = useState(true);
   const [moduleVisibility, setModuleVisibility] = useState(DEFAULTS.moduleVisibility);
+  const [navLabels, setNavLabels] = useState(DEFAULTS.navLabels);
   const [whatsappGroupUrl, setWhatsappGroupUrl] = useState("");
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [membersIntro, setMembersIntro] = useState(DEFAULTS.membersIntro);
@@ -103,6 +107,7 @@ export function SiteSettingsProvider({ children }) {
       setRegistrationEnabled(data.settings?.registrationEnabled !== false);
       setReferralProgramEnabled(data.settings?.referralProgramEnabled !== false);
       setModuleVisibility(normalizeModuleVisibility(data.settings?.moduleVisibility));
+      setNavLabels(normalizeNavLabels(data.settings?.navLabels));
       setWhatsappGroupUrl(String(data.settings?.whatsappGroupUrl || "").trim());
       setUpcomingEvents(Array.isArray(data.settings?.upcomingEvents) ? data.settings.upcomingEvents : []);
       if (data.settings?.membersIntro) setMembersIntro(data.settings.membersIntro);
@@ -123,6 +128,11 @@ export function SiteSettingsProvider({ children }) {
     refresh();
   }, [refresh]);
 
+  const navLabel = useCallback(
+    (key) => navLabels[key] || "",
+    [navLabels]
+  );
+
   const isModuleVisible = useCallback(
     (key) => {
       if (!key) return true;
@@ -138,6 +148,8 @@ export function SiteSettingsProvider({ children }) {
       registrationEnabled,
       referralProgramEnabled,
       moduleVisibility,
+      navLabels,
+      navLabel,
       whatsappGroupUrl,
       upcomingEvents,
       membersIntro,
@@ -147,7 +159,7 @@ export function SiteSettingsProvider({ children }) {
       loading,
       refresh,
     }),
-    [contact, socials, registrationEnabled, referralProgramEnabled, moduleVisibility, whatsappGroupUrl, upcomingEvents, membersIntro, boardMembers, keyDates, isModuleVisible, loading, refresh]
+    [contact, socials, registrationEnabled, referralProgramEnabled, moduleVisibility, navLabels, navLabel, whatsappGroupUrl, upcomingEvents, membersIntro, boardMembers, keyDates, isModuleVisible, loading, refresh]
   );
 
   return <SiteSettingsContext.Provider value={value}>{children}</SiteSettingsContext.Provider>;

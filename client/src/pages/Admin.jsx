@@ -11,6 +11,7 @@ import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
 import {
   DEFAULT_MODULE_VISIBILITY,
   normalizeModuleVisibility,
+  normalizeNavLabels,
   SITE_MODULES,
 } from "../data/siteModules";
 import { paymentScreenshotUrl, profileImageUrl, compressImageForUpload } from "../utils/media";
@@ -97,7 +98,7 @@ function AdminShell({ children, title, subtitle }) {
         { to: "/admin/teams", label: "Teams" },
         { to: "/admin/auction", label: "Auction desk" },
         { to: "/admin/live", label: "Live updates" },
-        { to: "/admin/events", label: "Events" },
+        { to: "/admin/events", label: "Photos" },
         { to: "/admin/members", label: "About members" },
       ],
     },
@@ -2739,6 +2740,7 @@ function SiteSettingsPage() {
   const { refresh } = useSiteSettings();
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [moduleVisibility, setModuleVisibility] = useState({ ...DEFAULT_MODULE_VISIBILITY });
+  const [navLabels, setNavLabels] = useState(() => normalizeNavLabels({}));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -2750,6 +2752,7 @@ function SiteSettingsPage() {
       .then((data) => {
         setRegistrationEnabled(data.settings?.registrationEnabled !== false);
         setModuleVisibility(normalizeModuleVisibility(data.settings?.moduleVisibility));
+        setNavLabels(normalizeNavLabels(data.settings?.navLabels));
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -2767,12 +2770,13 @@ function SiteSettingsPage() {
     try {
       const data = await api("/api/admin/settings", {
         method: "PUT",
-        body: JSON.stringify({ registrationEnabled, moduleVisibility }),
+        body: JSON.stringify({ registrationEnabled, moduleVisibility, navLabels }),
       });
       setRegistrationEnabled(data.settings?.registrationEnabled !== false);
       setModuleVisibility(normalizeModuleVisibility(data.settings?.moduleVisibility));
+      setNavLabels(normalizeNavLabels(data.settings?.navLabels));
       await refresh();
-      setOk("Settings saved. Module show/hide updates apply site-wide immediately.");
+      setOk("Settings saved. Header names and show/hide updates apply site-wide immediately.");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -2840,28 +2844,33 @@ function SiteSettingsPage() {
             <div className="border-b border-[color:var(--border)] px-5 py-4">
               <p className="eyebrow text-accent">Modules</p>
               <h2 className="font-display mt-1 text-xl text-[color:var(--title)]">
-                Show / hide module buttons
+                Header names
               </h2>
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                Toggle each module on or off. Hidden modules disappear from header, footer, and
-                related buttons (including Media). Stored in the database.
+                Change the header name, then show or hide the button. Hidden items leave the header and footer.
               </p>
             </div>
             <div className="divide-y divide-[color:var(--border)]">
               {SITE_MODULES.map((mod) => {
                 const on = moduleVisibility[mod.key] !== false;
                 return (
-                  <label
+                  <div
                     key={mod.key}
-                    className="flex cursor-pointer items-center justify-between gap-4 px-5 py-3.5 hover:bg-ink-soft/50"
+                    className="flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <span className="min-w-0">
-                      <span className="block font-medium text-[color:var(--title)]">{mod.label}</span>
-                      <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
-                        {mod.hint}
-                      </span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2">
+                    <label className="min-w-0 flex-1 text-sm">
+                      <span className="block font-medium text-[color:var(--title)]">Header name</span>
+                      <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">{mod.hint}</span>
+                      <input
+                        className="input-dark mt-1.5 max-w-xs"
+                        value={navLabels[mod.key] || ""}
+                        maxLength={32}
+                        onChange={(e) =>
+                          setNavLabels((prev) => ({ ...prev, [mod.key]: e.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="flex shrink-0 cursor-pointer items-center gap-2">
                       <span
                         className={`text-[11px] font-bold uppercase tracking-wide ${
                           on ? "text-emerald-400" : "text-[color:var(--text-muted)]"
@@ -2875,8 +2884,8 @@ function SiteSettingsPage() {
                         checked={on}
                         onChange={() => toggleModule(mod.key)}
                       />
-                    </span>
-                  </label>
+                    </label>
+                  </div>
                 );
               })}
             </div>

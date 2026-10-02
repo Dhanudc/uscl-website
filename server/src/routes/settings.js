@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getModuleVisibility,
+  normalizeNavLabels,
   resolveReferralChallenge,
   publicUpcomingEvents,
   normalizeMembersIntro,
@@ -24,6 +25,7 @@ router.get("/", async (_req, res) => {
         registrationEnabled: isRegistrationEnabled(settings),
         referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
+        navLabels: normalizeNavLabels(settings.navLabels),
         whatsappGroupUrl: settings.whatsappGroupUrl || "",
         referralChallenge: await resolveReferralChallenge(settings),
         upcomingEvents: publicUpcomingEvents(settings.upcomingEvents),

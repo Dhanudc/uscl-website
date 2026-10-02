@@ -5,7 +5,7 @@ import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isReferralProgramEnabled, normalizeModuleVisibility, normalizeSocials, normalizeUpcomingEvents, normalizeMembersIntro, publicBoardMembers, normalizeBoardMembers, publicKeyDates, normalizeKeyDates } from "../models/SiteSettings.js";
+import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isReferralProgramEnabled, normalizeModuleVisibility, normalizeSocials, normalizeUpcomingEvents, normalizeMembersIntro, publicBoardMembers, normalizeBoardMembers, publicKeyDates, normalizeKeyDates, normalizeNavLabels } from "../models/SiteSettings.js";
 import { getGatewayStatus } from "../utils/paymentGateway.js";
 import { normalizeRegistrationFees, getRegistrationFeeInr } from "../utils/registrationFees.js";
 import { User } from "../models/User.js";
@@ -1379,6 +1379,7 @@ router.get("/settings", adminRequired, async (_req, res) => {
         registrationEnabled: isRegistrationEnabled(settings),
         referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
+        navLabels: normalizeNavLabels(settings.navLabels),
         paymentGateway: getPaymentGateway(settings),
         paymentGatewayStatus: getGatewayStatus(),
         whatsappGroupUrl: settings.whatsappGroupUrl || "",
@@ -1449,6 +1450,12 @@ router.put("/settings", adminRequired, async (req, res) => {
       auditBits.push(
         req.body.referralProgramEnabled ? "referral program on" : "referral program off"
       );
+    }
+
+    if (req.body.navLabels && typeof req.body.navLabels === "object") {
+      settings.navLabels = normalizeNavLabels(req.body.navLabels);
+      settings.markModified("navLabels");
+      auditBits.push("header names");
     }
 
     if (req.body.moduleVisibility && typeof req.body.moduleVisibility === "object") {
@@ -1531,6 +1538,7 @@ router.put("/settings", adminRequired, async (req, res) => {
         registrationEnabled: isRegistrationEnabled(settings),
         referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
+        navLabels: normalizeNavLabels(settings.navLabels),
         paymentGateway: getPaymentGateway(settings),
         paymentGatewayStatus: getGatewayStatus(),
         whatsappGroupUrl: settings.whatsappGroupUrl || "",

@@ -30,7 +30,7 @@ function navClass(isActive) {
 
 export default function Header() {
   const { user, loading, logout } = useAuth();
-  const { isModuleVisible } = useSiteSettings();
+  const { isModuleVisible, navLabel } = useSiteSettings();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -38,7 +38,10 @@ export default function Header() {
     if (link.signedInOnly && !user) return false;
     if (link.module && !isModuleVisible(link.module)) return false;
     return true;
-  });
+  }).map((link) => ({
+    ...link,
+    label: link.module ? navLabel(link.module) || link.label : link.label,
+  }));
 
   useEffect(() => {
     setMenuOpen(false);
@@ -86,7 +89,7 @@ export default function Header() {
                     ? "bg-accent text-white"
                     : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
                 }`}
-                openLabel="Register"
+                openLabel={navLabel("register") || "Register"}
                 closedLabel="Registration"
               />
             ) : (
@@ -167,7 +170,7 @@ export default function Header() {
                   <RegisterCta
                     key={`mobile-${link.label}-${link.to}`}
                     className={navClass(location.pathname.startsWith("/register"))}
-                    openLabel="Register"
+                    openLabel={navLabel("register") || "Register"}
                     closedLabel="Registration"
                   />
                 ) : (

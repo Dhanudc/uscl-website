@@ -114,8 +114,8 @@ export default function EventsAdmin({ AdminShell }) {
 
   return (
     <AdminShell
-      title="Events"
-      subtitle="Season dates stay above. Event posts are a list. Edit opens the photo and the details that show with it."
+      title="Photos"
+      subtitle="Season dates stay above. Each photo post is a row. Edit opens the image and the details that show with it."
     >
       <style>{`.no-scrollbar{scrollbar-width:none;-ms-overflow-style:none}.no-scrollbar::-webkit-scrollbar{display:none;width:0;height:0}`}</style>
       <div className="mb-10 border-b border-[color:var(--border)] pb-10">

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import {
   DEFAULT_MODULE_VISIBILITY,
   normalizeModuleVisibility,
+  normalizeNavLabels,
 } from "../constants/siteModules.js";
 import { DEFAULT_BOARD_MEMBERS, DEFAULT_MEMBERS_INTRO } from "../constants/boardMembers.js";
 import { DEFAULT_KEY_DATES } from "../constants/keyDates.js";
@@ -148,6 +149,11 @@ const siteSettingsSchema = new mongoose.Schema(
       type: moduleVisibilitySchema,
       default: () => ({ ...DEFAULT_MODULE_VISIBILITY }),
     },
+    /** Public header labels. Empty values fall back to the module default. */
+    navLabels: {
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({}),
+    },
     /** Active online payment gateway for registrations. */
     paymentGateway: {
       type: String,
@@ -271,6 +277,7 @@ export const DEFAULT_SITE_SETTINGS = {
   registrationEnabled: true,
   referralProgramEnabled: true,
   moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
+  navLabels: normalizeNavLabels({}),
   paymentGateway: "razorpay",
   whatsappGroupUrl: "",
   referralChallenge: {
@@ -552,4 +559,4 @@ export function getModuleVisibility(settings) {
   return normalizeModuleVisibility(settings?.moduleVisibility);
 }
 
-export { normalizeModuleVisibility, DEFAULT_MODULE_VISIBILITY };
+export { normalizeModuleVisibility, normalizeNavLabels, DEFAULT_MODULE_VISIBILITY };

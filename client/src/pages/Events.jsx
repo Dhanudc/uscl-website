@@ -3,7 +3,8 @@ import { EventPost } from "../components/UpcomingEvents";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 
 export default function Events() {
-  const { upcomingEvents, isModuleVisible, loading } = useSiteSettings();
+  const { upcomingEvents, isModuleVisible, loading, navLabel } = useSiteSettings();
+  const title = navLabel("events") || "Photos";
   const posted = upcomingEvents.filter((event) => event.imageUrl);
 
   if (loading) {
@@ -17,7 +18,7 @@ export default function Events() {
   if (!isModuleVisible("events")) {
     return (
       <section className="bg-ink px-4 py-16 text-center">
-        <EmptyState title="This page is hidden" description="An admin can turn Events back on from site settings." />
+        <EmptyState title="This page is hidden" description="An admin can turn this page back on from site settings." />
       </section>
     );
   }
@@ -27,14 +28,14 @@ export default function Events() {
       <div className="mx-auto max-w-6xl">
         <div className="max-w-2xl">
           <p className="eyebrow text-accent">USCL</p>
-          <h1 className="page-title mt-2">Events</h1>
+          <h1 className="page-title mt-2">{title}</h1>
           <p className="mt-3 text-sm text-[color:var(--text-muted)]">
             Photos and updates from the league. Each card shows the image with its details.
           </p>
         </div>
         {posted.length === 0 ? (
           <div className="mt-10">
-            <EmptyState title="Nothing posted yet" description="An event appears here after a photo and its details are added." />
+            <EmptyState title="Nothing posted yet" description="A photo appears here after an image and its details are added." />
           </div>
         ) : (
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

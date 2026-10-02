@@ -10,12 +10,22 @@ export const SITE_MODULES = [
   { key: "register", label: "Register", path: "/register", hint: "Register / Registration button" },
   { key: "playerJourney", label: "Player Journey", path: "/player-journey", hint: "Player journey page and nav link" },
   { key: "referrals", label: "Rewards", path: "/referrals", hint: "Referrals and giveaways winners page" },
-  { key: "events", label: "Events", path: "/events", hint: "Upcoming events and announcements" },
+  { key: "events", label: "Photos", path: "/events", hint: "Photo posts with captions" },
 ];
 
 export const DEFAULT_MODULE_VISIBILITY = Object.fromEntries(
   SITE_MODULES.map((m) => [m.key, true])
 );
+
+export function normalizeNavLabels(input) {
+  const src = input && typeof input === "object" ? input : {};
+  const out = {};
+  for (const mod of SITE_MODULES) {
+    const raw = String(src[mod.key] ?? "").trim().slice(0, 32);
+    out[mod.key] = raw || mod.label;
+  }
+  return out;
+}
 
 export function normalizeModuleVisibility(input) {
   const src = input && typeof input === "object" ? input : {};
