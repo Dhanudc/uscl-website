@@ -99,6 +99,8 @@ const registrationSchema = new mongoose.Schema(
       default: "auto",
     },
     playerDocuments: { type: [playerDocumentFileSchema], default: [] },
+    /** Payment transaction UTR (text, not a file upload). */
+    paymentUtr: { type: String, default: "" },
     documentsSubmittedAt: { type: Date, default: null },
     /** Admin-selected doc types the player must re-upload (field keys, e.g. aadhar_back). */
     documentsRequestedFromPlayer: { type: [String], default: [] },

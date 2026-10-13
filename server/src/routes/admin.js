@@ -8,13 +8,10 @@ import { PlayerRegistration } from "../models/PlayerRegistration.js";
 import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isReferralProgramEnabled, isPlayerDocumentsUploadEnabled, isPlayerPayNowEnabled, normalizeModuleVisibility, normalizeSocials, normalizeUpcomingEvents, normalizeMembersIntro, publicBoardMembers, normalizeBoardMembers, publicKeyDates, normalizeKeyDates, normalizeNavLabels } from "../models/SiteSettings.js";
 import { getGatewayStatus } from "../utils/paymentGateway.js";
 import {
-  applyPlayerDocumentFiles,
+  applyPlayerDocumentSubmission,
   bankStatementCount,
   canAdminManagePlayerDocuments,
-  parseDocumentPasswords,
   normalizeRequestedDocKeys,
-  satisfyDocumentRequests,
-  uploadedDocumentFieldNames,
   enrichRegistration,
   enrichRegistrationAsync,
   mapEnrichedRegistrationsAsync,
@@ -1135,15 +1132,10 @@ router.post(
           return res.status(404).json({ error: "Registration not found." });
         }
 
-        const passwords = parseDocumentPasswords(req.body);
-        const applied = applyPlayerDocumentFiles(registration, req.files, {
-          partial: true,
-          passwords,
-        });
+        const applied = applyPlayerDocumentSubmission(registration, req.files, req.body);
         if (applied.error) {
           return res.status(400).json({ error: applied.error });
         }
-        satisfyDocumentRequests(registration, uploadedDocumentFieldNames(req.files));
         await registration.save();
 
         const adminName = req.user?.name || req.user?.email || "admin";

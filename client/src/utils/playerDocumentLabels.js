@@ -5,7 +5,7 @@ const DOC_LABELS = {
   payslip_1: "Payslip 1",
   payslip_2: "Payslip 2",
   payslip_3: "Payslip 3",
-  payment_utr: "Payment UTR proof",
+  payment_utr: "Payment UTR",
   payment_attachment: "Payment attachment",
 };
 
@@ -56,7 +56,10 @@ export function documentDisplayLabel(row) {
 }
 
 export function registrationHasDocFamily(reg, fieldKey) {
-  const docs = reg?.playerDocuments || [];
   const base = String(fieldKey || "");
+  if (base === "payment_utr" && String(reg?.paymentUtr || "").trim()) {
+    return true;
+  }
+  const docs = reg?.playerDocuments || [];
   return docs.some((row) => docKeyBaseFamily(row.docKey) === base);
 }

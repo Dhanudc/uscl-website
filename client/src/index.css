@@ -2499,13 +2499,16 @@ video {
 .admin-table-pagination {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   gap: 0.75rem;
+  width: 100%;
   padding: 0.75rem 1rem;
   border-top: 1px solid var(--border);
   background: var(--ink-soft);
   position: relative;
   z-index: 2;
   isolation: isolate;
+  clear: both;
 }
 
 @media (min-width: 640px) {

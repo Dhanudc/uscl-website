@@ -99,8 +99,19 @@ export function listPlayerDocuments(reg) {
   return Array.isArray(reg?.playerDocuments) ? reg.playerDocuments : [];
 }
 
+export function normalizePaymentUtr(raw) {
+  return String(raw || "")
+    .trim()
+    .replace(/\s+/g, "")
+    .slice(0, 64);
+}
+
 export function hasDocKey(reg, docKey) {
-  return hasDocFamily(reg, docKeyBaseFamily(docKey));
+  const base = docKeyBaseFamily(docKey);
+  if (base === "payment_utr" && normalizePaymentUtr(reg?.paymentUtr)) {
+    return true;
+  }
+  return hasDocFamily(reg, base);
 }
 
 export function bankStatementCount(reg) {
@@ -297,6 +308,46 @@ export function applyPlayerDocumentFiles(registration, multerFiles, options = {}
   return { error: null, uploadedKeys };
 }
 
+/**
+ * Apply multipart document upload: files + optional payment UTR text field.
+ */
+export function applyPlayerDocumentSubmission(registration, multerFiles, body, options = {}) {
+  const passwords = parseDocumentPasswords(body);
+  const uploaded = collectUploadedDocumentFiles(multerFiles);
+  const utr = normalizePaymentUtr(body?.paymentUtr);
+
+  if (utr) {
+    registration.paymentUtr = utr;
+  }
+
+  if (!uploaded.length && !utr) {
+    return { error: "Please choose at least one file or enter a payment UTR." };
+  }
+
+  let uploadedKeys = [];
+  if (uploaded.length) {
+    const applied = applyPlayerDocumentFiles(registration, multerFiles, {
+      ...options,
+      partial: true,
+      passwords,
+    });
+    if (applied.error) {
+      return applied;
+    }
+    uploadedKeys = applied.uploadedKeys || [];
+  } else {
+    registration.documentsSubmittedAt = arePlayerDocumentsComplete(registration) ? new Date() : null;
+  }
+
+  const satisfiedFields = uploadedDocumentFieldNames(multerFiles);
+  if (utr) {
+    satisfiedFields.push("payment_utr");
+  }
+  satisfyDocumentRequests(registration, satisfiedFields);
+
+  return { error: null, uploadedKeys, satisfiedFields };
+}
+
 export const DOC_LABELS = {
   pan: "PAN card",
   aadhar_front: "Aadhaar — front",
@@ -304,7 +355,7 @@ export const DOC_LABELS = {
   payslip_1: "Payslip 1",
   payslip_2: "Payslip 2",
   payslip_3: "Payslip 3",
-  payment_utr: "Payment UTR proof",
+  payment_utr: "Payment UTR",
   payment_attachment: "Payment attachment",
 };
 

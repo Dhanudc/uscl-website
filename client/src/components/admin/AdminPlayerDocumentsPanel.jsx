@@ -53,7 +53,8 @@ export default function AdminPlayerDocumentsPanel({ registration, busyId, onUpda
   }
 
   const pending = registration?.documentsRequestedFromPlayer || [];
-  const hasFiles = (registration?.playerDocuments || []).length > 0;
+  const hasFiles =
+    (registration?.playerDocuments || []).length > 0 || Boolean(String(registration?.paymentUtr || "").trim());
 
   return (
     <div className="mt-3 space-y-4 border-t border-[color:var(--border)] pt-3">
@@ -77,7 +78,7 @@ export default function AdminPlayerDocumentsPanel({ registration, busyId, onUpda
             1. Documents on file
           </h3>
           <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-            Current uploads from player or admin. Bank statement, UTR proof, and payment attachment are optional unless requested below.
+            Current uploads from player or admin. Bank statement, payment UTR (text), and payment attachment are optional unless requested below.
           </p>
           <div className="mt-3">
             <AdminPlayerDocumentsList registration={registration} grouped />
@@ -93,7 +94,7 @@ export default function AdminPlayerDocumentsPanel({ registration, busyId, onUpda
         </h3>
         <p className="mt-1 text-xs text-[color:var(--text-muted)]">
           Select which documents the player must submit again. They will only see those fields on their dashboard.
-          Optional types (bank statement, UTR proof, payment attachment) become required for the player only when you select them here.
+          Optional types (bank statement, payment UTR, payment attachment) become required for the player only when you select them here.
         </p>
         {registration?.documentsRequestedAt ? (
           <p className="mt-2 text-xs text-[color:var(--text-muted)]">
@@ -129,7 +130,13 @@ export default function AdminPlayerDocumentsPanel({ registration, busyId, onUpda
                 {row.label}
                 {row.optional ? <span className="text-[color:var(--text-muted)]"> (optional)</span> : null}
                 <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
-                  {registrationHasDocKey(registration, row.key) ? "On file" : "Not uploaded"}
+                  {registrationHasDocKey(registration, row.key)
+                    ? row.inputType === "text"
+                      ? "Provided"
+                      : "On file"
+                    : row.inputType === "text"
+                      ? "Not provided"
+                      : "Not uploaded"}
                   {pending.includes(row.key) ? " · Requested" : ""}
                 </span>
               </span>

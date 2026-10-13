@@ -17,7 +17,8 @@ export const PLAYER_DOCUMENT_FIELDS = [
   },
   {
     key: "payment_utr",
-    label: "Payment UTR proof",
+    label: "Payment UTR",
+    inputType: "text",
     multiple: false,
     needsPassword: false,
     section: "payment",

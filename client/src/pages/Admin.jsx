@@ -1424,9 +1424,9 @@ function PlayersPage() {
             : "No registrations match the current filters."}
         </p>
       ) : (
-        <div className="rounded-lg border border-[color:var(--border)]">
-          <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left text-sm">
+        <div className="flex flex-col rounded-lg border border-[color:var(--border)]">
+          <div className="min-h-0 w-full overflow-x-auto">
+          <table className="w-full min-w-[860px] border-collapse text-left text-sm">
             <thead className="border-b border-[color:var(--border)] bg-ink-soft text-xs uppercase tracking-wide text-[color:var(--text-muted)]">
               <tr>
                 <th className="px-3 py-2.5 font-semibold">Player</th>
@@ -1479,12 +1479,10 @@ function PlayersPage() {
             <p className="admin-table-pagination__summary">
               {filteredRegs.length === 0
                 ? "No rows"
-                : `Showing ${(currentListPage - 1) * pageSize + 1}–${Math.min(
+                : `Showing ${(currentListPage - 1) * pageSize + 1}-${Math.min(
                     currentListPage * pageSize,
                     filteredRegs.length
-                  )} of ${filteredRegs.length}${
-                    hasMultipleListPages ? ` · Page ${currentListPage} of ${totalListPages}` : ""
-                  }`}
+                  )} of ${filteredRegs.length}`}
             </p>
             <div className="admin-table-pagination__toolbar">
               <label className="admin-table-pagination__page-size">

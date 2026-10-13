@@ -17,10 +17,7 @@ import {
   playerDocumentsUploadContext,
   shouldShowAddDocuments,
   playerDocumentDiskPath,
-  applyPlayerDocumentFiles,
-  parseDocumentPasswords,
-  satisfyDocumentRequests,
-  uploadedDocumentFieldNames,
+  applyPlayerDocumentSubmission,
 } from "../utils/playerDocuments.js";
 import path from "path";
 import fs from "fs";
@@ -999,15 +996,10 @@ router.post("/:id/documents", approvedRequired, preparePlayerDocumentsUpload, (r
         return res.status(404).json({ error: "Registration not found." });
       }
 
-      const passwords = parseDocumentPasswords(req.body);
-      const applied = applyPlayerDocumentFiles(registration, req.files, {
-        partial: true,
-        passwords,
-      });
+      const applied = applyPlayerDocumentSubmission(registration, req.files, req.body);
       if (applied.error) {
         return res.status(400).json({ error: applied.error });
       }
-      satisfyDocumentRequests(registration, uploadedDocumentFieldNames(req.files));
       await registration.save();
 
       const actorName = registration.fullName || req.user.name || "player";

@@ -78,13 +78,13 @@ export default function AdminPlayerDocumentsList({ registration, compact = false
 
   const docs = useMemo(() => sortDocs(registration?.playerDocuments || []), [registration?.playerDocuments]);
   const regId = registration?._id;
+  const paymentUtrText = String(registration?.paymentUtr || "").trim();
 
   const identity = docs.filter((d) => ["pan", "aadhar_front", "aadhar_back"].includes(docKeyBaseFamily(d.docKey)));
   const payslips = docs.filter((d) => docKeyBaseFamily(d.docKey).startsWith("payslip_"));
   const banks = docs.filter((d) => docKeyBaseFamily(d.docKey) === "bank_statement");
-  const payment = docs.filter((d) =>
-    ["payment_utr", "payment_attachment"].includes(docKeyBaseFamily(d.docKey))
-  );
+  const paymentAttachments = docs.filter((d) => docKeyBaseFamily(d.docKey) === "payment_attachment");
+  const legacyUtrFiles = docs.filter((d) => docKeyBaseFamily(d.docKey) === "payment_utr");
 
   async function fetchBlob(filename) {
     const headers = { "X-USCL-Portal": "admin" };
@@ -131,7 +131,7 @@ export default function AdminPlayerDocumentsList({ registration, compact = false
     }
   }
 
-  if (!docs.length) {
+  if (!docs.length && !paymentUtrText) {
     return (
       <p className={compact ? "text-xs text-[color:var(--text-muted)]" : "text-sm text-[color:var(--text-muted)]"}>
         No documents uploaded yet.
@@ -145,6 +145,11 @@ export default function AdminPlayerDocumentsList({ registration, compact = false
     return (
       <div>
         {error ? <p className="mb-2 text-xs text-accent">{error}</p> : null}
+        {paymentUtrText ? (
+          <p className="mb-2 text-sm text-[color:var(--text-muted)]">
+            Payment UTR: <span className="font-mono text-[color:var(--title)]">{paymentUtrText}</span>
+          </p>
+        ) : null}
         <ul className={listClass}>
           {docs.map((row) => (
             <DocRow
@@ -184,9 +189,19 @@ export default function AdminPlayerDocumentsList({ registration, compact = false
         onView={viewDocument}
         onDownload={downloadDocument}
       />
+      {paymentUtrText ? (
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+            Payment UTR (optional)
+          </p>
+          <p className="rounded-lg border border-[color:var(--border)] px-3 py-2 font-mono text-sm text-[color:var(--title)]">
+            {paymentUtrText}
+          </p>
+        </div>
+      ) : null}
       <DocSection
-        title="Payment UTR & attachment (optional)"
-        docs={payment}
+        title="Payment attachment (optional)"
+        docs={[...legacyUtrFiles, ...paymentAttachments]}
         busy={busy}
         onView={viewDocument}
         onDownload={downloadDocument}

@@ -23,6 +23,9 @@ export default function PlayerDocumentsModal({
     Object.fromEntries(PLAYER_DOCUMENT_FIELDS.map((row) => [row.key, false]))
   );
   const [files, setFiles] = useState({});
+  const [textValues, setTextValues] = useState(() => ({
+    payment_utr: String(registration?.paymentUtr || "").trim(),
+  }));
   const [statementPassword, setStatementPassword] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -36,6 +39,10 @@ export default function PlayerDocumentsModal({
 
   function setFile(key, fileList) {
     setFiles((prev) => ({ ...prev, [key]: fileList }));
+  }
+
+  function setText(key, value) {
+    setTextValues((prev) => ({ ...prev, [key]: value }));
   }
 
   function toggleAdminPick(key) {
@@ -56,12 +63,26 @@ export default function PlayerDocumentsModal({
 
       const formData = new FormData();
       const passwords = {};
+      let hasPayload = false;
 
       for (const row of rowsToShow) {
+        if (row.inputType === "text") {
+          const val = String(textValues[row.key] || "").trim();
+          if (!val) {
+            throw new Error(`Please enter ${row.label}.`);
+          }
+          if (row.key === "payment_utr") {
+            formData.set("paymentUtr", val);
+            hasPayload = true;
+          }
+          continue;
+        }
+
         const picked = files[row.key];
         if (!picked || !picked.length) {
           throw new Error(`Please choose a file for ${row.label}.`);
         }
+        hasPayload = true;
         if (row.multiple) {
           for (const file of picked) {
             formData.append("bank_statement", file);
@@ -71,6 +92,10 @@ export default function PlayerDocumentsModal({
         } else {
           formData.append(row.key, picked[0]);
         }
+      }
+
+      if (!hasPayload) {
+        throw new Error("Nothing to save.");
       }
 
       if (Object.keys(passwords).length) {
@@ -110,10 +135,10 @@ export default function PlayerDocumentsModal({
         </h2>
         <p className="mt-2 text-sm text-[color:var(--text-muted)]">
           {isAdmin
-            ? "Select document types, attach files, then save. Bank statement is optional; password only if you upload a statement PDF."
+            ? "Select document types, attach files or enter UTR, then save. Bank statement is optional; password only if you upload a statement PDF."
             : hasPendingRequest
               ? "Your admin asked you to re-upload only the documents listed below."
-              : "Upload the required documents still missing from your profile. Bank statement, UTR proof, and payment attachment are optional unless admin requested them."}
+              : "Upload the required documents still missing from your profile. Bank statement and payment attachment are optional unless admin requested them. Payment UTR is a text reference, not a file."}
         </p>
 
         {error ? (
@@ -153,19 +178,37 @@ export default function PlayerDocumentsModal({
           <div className="mt-4 space-y-4">
             {rowsToShow.map((row) => (
               <div key={row.key} className="rounded-lg border border-[color:var(--border)] p-3">
-                <label className="block text-sm">
-                  <span className="font-medium text-[color:var(--title)]">
-                    {row.label}
-                    {row.optional ? <span className="text-[color:var(--text-muted)]"> (optional)</span> : null}
-                  </span>
-                  <input
-                    type="file"
-                    multiple={row.multiple}
-                    accept="image/*,application/pdf"
-                    className="mt-1.5 block w-full text-sm text-[color:var(--text-muted)] file:mr-2 file:rounded-md file:border-0 file:bg-accent file:px-2 file:py-1.5 file:text-xs file:font-semibold file:text-white"
-                    onChange={(e) => setFile(row.key, e.target.files)}
-                  />
-                </label>
+                {row.inputType === "text" ? (
+                  <label className="block text-sm">
+                    <span className="font-medium text-[color:var(--title)]">
+                      {row.label}
+                      {row.optional ? <span className="text-[color:var(--text-muted)]"> (optional)</span> : null}
+                    </span>
+                    <input
+                      type="text"
+                      value={textValues[row.key] || ""}
+                      onChange={(e) => setText(row.key, e.target.value)}
+                      className="input-dark mt-1.5 w-full"
+                      placeholder="Transaction / UTR reference number"
+                      autoComplete="off"
+                      inputMode="text"
+                    />
+                  </label>
+                ) : (
+                  <label className="block text-sm">
+                    <span className="font-medium text-[color:var(--title)]">
+                      {row.label}
+                      {row.optional ? <span className="text-[color:var(--text-muted)]"> (optional)</span> : null}
+                    </span>
+                    <input
+                      type="file"
+                      multiple={row.multiple}
+                      accept="image/*,application/pdf"
+                      className="mt-1.5 block w-full text-sm text-[color:var(--text-muted)] file:mr-2 file:rounded-md file:border-0 file:bg-accent file:px-2 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                      onChange={(e) => setFile(row.key, e.target.files)}
+                    />
+                  </label>
+                )}
                 {row.key === "bank_statement" ? (
                   <label className="mt-3 block text-sm">
                     <span className="text-[color:var(--text-muted)]">Statement PDF password (optional)</span>
@@ -192,7 +235,7 @@ export default function PlayerDocumentsModal({
           </button>
           {!nothingToUpload && rowsToShow.length > 0 ? (
             <button type="submit" className="btn-primary w-full sm:w-auto" disabled={saving}>
-              {saving ? "Uploading…" : "Save documents"}
+              {saving ? "Saving…" : "Save documents"}
             </button>
           ) : null}
         </div>
