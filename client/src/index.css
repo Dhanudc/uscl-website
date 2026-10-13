@@ -2494,3 +2494,112 @@ video {
   width: 0;
   height: 0;
 }
+
+/* Admin registrations list — pagination bar below table */
+.admin-table-pagination {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--ink-soft);
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+}
+
+@media (min-width: 640px) {
+  .admin-table-pagination {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.admin-table-pagination__summary {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.admin-table-pagination__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.admin-table-pagination__page-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.admin-table-pagination__select {
+  width: auto;
+  min-width: 4.25rem;
+  max-width: 6rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8125rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  cursor: pointer;
+}
+
+.admin-table-pagination__select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.admin-table-pagination__nav {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.admin-table-pagination__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-muted);
+  background: var(--ink-card);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.admin-table-pagination__btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.admin-table-pagination__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admin-table-pagination__btn.is-active {
+  border-color: var(--accent);
+  color: var(--title);
+  background: color-mix(in srgb, var(--accent) 12%, var(--ink-card));
+}
+
+.admin-table-pagination__ellipsis {
+  padding: 0 0.15rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}

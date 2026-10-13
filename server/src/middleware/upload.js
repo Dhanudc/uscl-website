@@ -191,6 +191,53 @@ export const profilePhotoUpload = multer({
   },
 }).single("photo");
 
+function normalizePlayerDocumentCode(code) {
+  const raw = String(code || "").trim();
+  if (!raw) return "player";
+  return raw.replace(/[^a-zA-Z0-9_-]/g, "") || "player";
+}
+
+function playerDocumentDiskFilename(req, file, cb) {
+  const code = normalizePlayerDocumentCode(req.playerDocumentCode || req.registrationDoc?.playerCode);
+  const field = String(file.fieldname || "");
+  if (!req._pendingPlayerDocKeys) req._pendingPlayerDocKeys = [];
+  const fauxReg = {
+    playerDocuments: [
+      ...(req.registrationDoc?.playerDocuments || []),
+      ...req._pendingPlayerDocKeys.map((docKey) => ({ docKey })),
+    ],
+  };
+  const docKey = nextVersionedDocKey(fauxReg, field);
+  req._pendingPlayerDocKeys.push(docKey);
+  const ext = path.extname(file.originalname).toLowerCase() || ".pdf";
+  const safeExt = ext && ext.length <= 8 ? ext : ".pdf";
+  cb(null, `${code}_${docKey}${safeExt}`);
+}
+
+/** Private verification docs (PAN, payslips, bank statement, etc.). */
+export const playerDocumentsUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, playerDocumentsRoot),
+    filename: playerDocumentDiskFilename,
+  }),
+  fileFilter,
+  limits: {
+    fileSize: 200 * 1024 * 1024,
+    fieldSize: 200 * 1024 * 1024,
+    files: 20,
+  },
+}).fields([
+  { name: "pan", maxCount: 1 },
+  { name: "aadhar_front", maxCount: 1 },
+  { name: "aadhar_back", maxCount: 1 },
+  { name: "payslip_1", maxCount: 1 },
+  { name: "payslip_2", maxCount: 1 },
+  { name: "payslip_3", maxCount: 1 },
+  { name: "bank_statement", maxCount: 10 },
+  { name: "payment_utr", maxCount: 1 },
+  { name: "payment_attachment", maxCount: 1 },
+]);
+
 export const socialIconUpload = multer({
   storage: makeStorage(socialRoot),
   fileFilter: imageFilter,

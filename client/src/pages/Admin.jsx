@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   Link,
   NavLink,
@@ -1424,7 +1424,7 @@ function PlayersPage() {
             : "No registrations match the current filters."}
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-[color:var(--border)]">
+        <div className="rounded-lg border border-[color:var(--border)]">
           <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-left text-sm">
             <thead className="border-b border-[color:var(--border)] bg-ink-soft text-xs uppercase tracking-wide text-[color:var(--text-muted)]">
