@@ -38,7 +38,7 @@ export default function Events() {
             <EmptyState title="Nothing posted yet" description="A photo appears here after an image and its details are added." />
           </div>
         ) : (
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-8 grid gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {posted.map((event) => (
               <EventPost key={event.id} event={event} />
             ))}

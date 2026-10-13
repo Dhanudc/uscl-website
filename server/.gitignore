@@ -4,6 +4,8 @@ node_modules/
 !.env.example
 .data/
 uploads/
+private/player-documents/*
+!private/player-documents/.gitkeep
 public/profile-images/*
 !public/profile-images/.gitkeep
 public/payments/*

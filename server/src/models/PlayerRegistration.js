@@ -11,6 +11,20 @@ const fileSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const playerDocumentFileSchema = new mongoose.Schema(
+  {
+    docKey: { type: String, required: true },
+    filename: { type: String, required: true },
+    originalName: String,
+    mimeType: String,
+    size: Number,
+    /** PDF password for bank statements (stored for admin / player reference). */
+    filePassword: { type: String, default: "" },
+    uploadedAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
 const registrationSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
@@ -78,6 +92,18 @@ const registrationSchema = new mongoose.Schema(
     sponsorPackageTitle: { type: String, default: "" },
     basePrice: { type: Number, default: 0 },
     soldPrice: { type: Number, default: 0 },
+    /** auto: show Add documents when accepted and no base price; show/hide overrides per player. */
+    documentsButtonOverride: {
+      type: String,
+      enum: ["auto", "show", "hide"],
+      default: "auto",
+    },
+    playerDocuments: { type: [playerDocumentFileSchema], default: [] },
+    documentsSubmittedAt: { type: Date, default: null },
+    /** Admin-selected doc types the player must re-upload (field keys, e.g. aadhar_back). */
+    documentsRequestedFromPlayer: { type: [String], default: [] },
+    documentsRequestedAt: { type: Date, default: null },
+    documentsRequestedBy: { type: String, default: "" },
     auctionStatus: {
       type: String,
       enum: ["not_listed", "unsold", "sold"],

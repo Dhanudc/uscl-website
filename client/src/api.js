@@ -23,9 +23,28 @@ export async function api(path, options = {}) {
     headers,
   });
 
-  const data = await res.json().catch(() => ({}));
+  const raw = await res.text();
+  let data = {};
+  if (raw) {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = {};
+    }
+  }
   if (!res.ok) {
-    throw new Error(data.error || "Request failed");
+    const fallback =
+      data.error ||
+      (raw && !raw.startsWith("{") ? raw.trim().slice(0, 240) : "") ||
+      res.statusText ||
+      `HTTP ${res.status}`;
+    if (res.status === 404) {
+      throw new Error(
+        data.error ||
+          "API route not found. Restart the server (npm run dev) so new admin routes are loaded."
+      );
+    }
+    throw new Error(fallback);
   }
   return data;
 }

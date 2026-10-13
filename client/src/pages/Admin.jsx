@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  Link,
+  NavLink,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { api, apiDownload } from "../api";
 import PasswordInput from "../components/PasswordInput";
 import ThemePicker from "../components/ThemePicker";
@@ -21,9 +31,96 @@ import ReferralsAdmin from "../components/admin/ReferralsAdmin.jsx";
 import ReferralChallengeAdmin from "../components/admin/ReferralChallengeAdmin.jsx";
 import EventsAdmin from "../components/admin/EventsAdmin.jsx";
 import MembersAdmin from "../components/admin/MembersAdmin.jsx";
+import AdminPlayerDocumentsViewModal from "../components/admin/AdminPlayerDocumentsViewModal.jsx";
+import AdminPlayerDocumentsPanel from "../components/admin/AdminPlayerDocumentsPanel.jsx";
+import PlayerDocumentsModal from "../components/PlayerDocumentsModal.jsx";
 import { AlertBanner, PageLoader, StatGridSkeleton } from "../components/ui";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
+import {
+  REPORT_AUCTION_OPTIONS,
+  REPORT_INTEREST_OPTIONS,
+  REPORT_PAYMENT_OPTIONS,
+  REPORT_STATUS_OPTIONS,
+  REGISTRATION_REPORT_COLUMNS,
+  buildReportQueryParams,
+  formatReportCell,
+  initialReportColumnState,
+  initialReportFilterState,
+  validateReportFilters,
+} from "../data/reportColumns";
 import AdminLivePage from "./AdminLive";
+import SiteLogo from "../components/SiteLogo.jsx";
+
+function isPlayerCaptainReg(reg) {
+  const interest = String(reg?.interest || "").toLowerCase();
+  return interest === "player" || interest === "captain";
+}
+
+function showPlayerDocumentActions(reg) {
+  const status = String(reg?.status || "").toLowerCase();
+  return (status === "pending" || status === "verified") && isPlayerCaptainReg(reg);
+}
+
+const ADMIN_INTEREST_KEYS = ["captain", "player", "franchise", "sponsor"];
+const ADMIN_STATUS_KEYS = ["pending", "accepted", "rejected"];
+const DEFAULT_ADMIN_STATUS = ["pending", "accepted"];
+const PLAYERS_LIST_PAGE_SIZES = [25, 50, 100];
+
+function isMongoRegistrationId(value) {
+  return /^[a-f0-9]{24}$/i.test(String(value || ""));
+}
+
+function regAdminPage(reg) {
+  const s = String(reg?.status || "pending").toLowerCase();
+  if (s === "verified") return "accepted";
+  if (s === "rejected") return "rejected";
+  return "pending";
+}
+
+function parseStatusFilterFromSearch(searchParams) {
+  const raw = searchParams.get("status");
+  if (raw === "") return [];
+  if (raw === null) return [...DEFAULT_ADMIN_STATUS];
+  const values = raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => ADMIN_STATUS_KEYS.includes(s));
+  return values.length ? values : [...DEFAULT_ADMIN_STATUS];
+}
+
+function parseInterestFilterFromSearch(searchParams) {
+  const raw = searchParams.get("interest");
+  if (raw === "") return [];
+  if (raw === null) return [...ADMIN_INTEREST_KEYS];
+  const values = raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => ADMIN_INTEREST_KEYS.includes(s));
+  return values.length ? values : [...ADMIN_INTEREST_KEYS];
+}
+
+function interestFilterMapFromSearch(searchParams) {
+  const active = new Set(parseInterestFilterFromSearch(searchParams));
+  return Object.fromEntries(REPORT_INTEREST_OPTIONS.map((o) => [o.id, active.has(o.id)]));
+}
+
+function statusFilterMapFromSearch(searchParams) {
+  const active = new Set(parseStatusFilterFromSearch(searchParams));
+  return Object.fromEntries(REPORT_STATUS_OPTIONS.map((o) => [o.id, active.has(o.id)]));
+}
+
+function buildPlayersListQuery(searchParams) {
+  const statuses = parseStatusFilterFromSearch(searchParams);
+  const interests = parseInterestFilterFromSearch(searchParams);
+  const qs = new URLSearchParams();
+  if (searchParams.get("status") === "") qs.set("status", "");
+  else if (statuses.length) qs.set("status", statuses.join(","));
+  if (searchParams.get("interest") === "") qs.set("interest", "");
+  else if (interests.length && interests.length < ADMIN_INTEREST_KEYS.length) {
+    qs.set("interest", interests.join(","));
+  }
+  return qs.toString();
+}
 
 function StatusBadge({ status }) {
   const label =
@@ -83,9 +180,9 @@ function AdminShell({ children, title, subtitle }) {
     {
       label: "Players",
       links: [
-        { to: "/admin/players/pending", label: "Pending players" },
-        { to: "/admin/players/accepted", label: "Accepted players" },
-        { to: "/admin/players/rejected", label: "Rejected players" },
+        { to: "/admin/players?status=pending", label: "Pending players" },
+        { to: "/admin/players?status=accepted", label: "Accepted players" },
+        { to: "/admin/players?status=rejected", label: "Rejected players" },
         { to: "/admin/register", label: "Register player" },
         { to: "/admin/reports", label: "Reports" },
         { to: "/admin/referrals", label: "Referrals" },
@@ -139,19 +236,12 @@ function AdminShell({ children, title, subtitle }) {
     <div className="min-h-screen bg-ink text-[color:var(--title)]">
       <header className="site-header sticky top-0 z-40 border-b border-[color:var(--border)] bg-ink-soft">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:py-3">
-          <Link to="/admin" className="flex min-w-0 items-center gap-2.5">
-            <span className="font-display flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-[11px] text-white">
-              ADM
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <SiteLogo to="/admin" variant="admin" />
+            <span className="hidden min-w-0 truncate text-[10px] text-[color:var(--text-muted)] sm:block lg:max-w-[12rem]">
+              {user?.email}
             </span>
-            <span className="min-w-0">
-              <span className="font-display block truncate text-base leading-none text-[color:var(--title)] sm:text-lg">
-                USCL Admin
-              </span>
-              <span className="hidden truncate text-[10px] text-[color:var(--text-muted)] sm:block">
-                {user?.email}
-              </span>
-            </span>
-          </Link>
+          </div>
 
           <div className="hidden items-center gap-2 lg:flex">
             <ThemePicker compact />
@@ -219,8 +309,8 @@ function AdminShell({ children, title, subtitle }) {
           >
             <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] px-4 py-4">
               <div className="min-w-0">
-                <p className="font-display text-lg text-accent">Admin menu</p>
-                <p className="mt-1 truncate text-xs text-[color:var(--text-muted)]">{user?.email}</p>
+                <SiteLogo to="/admin" variant="admin" className="!gap-2" />
+                <p className="mt-2 truncate text-xs text-[color:var(--text-muted)]">{user?.email}</p>
               </div>
               <button
                 type="button"
@@ -276,7 +366,7 @@ function AdminShell({ children, title, subtitle }) {
         </div>
       ) : null}
 
-      <main className="mx-auto max-w-6xl px-4 py-4 sm:py-6">
+      <main className="mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-6">
         <div className="mb-4 sm:mb-5">
           <h1 className="page-title">{title}</h1>
           {subtitle ? <p className="mt-1 text-sm text-[color:var(--text-muted)]">{subtitle}</p> : null}
@@ -314,10 +404,10 @@ function OverviewPage() {
         <StatGridSkeleton count={12} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Total registered" value={stats?.registrationsCount} to="/admin/players/pending" />
-          <StatCard label="Pending players" value={stats?.pendingRegs} to="/admin/players/pending" />
-          <StatCard label="Accepted players" value={stats?.verifiedRegs} to="/admin/players/accepted" />
-          <StatCard label="Rejected players" value={stats?.rejectedRegs} to="/admin/players/rejected" />
+          <StatCard label="Total registered" value={stats?.registrationsCount} to="/admin/players" />
+          <StatCard label="Pending players" value={stats?.pendingRegs} to="/admin/players?status=pending" />
+          <StatCard label="Accepted players" value={stats?.verifiedRegs} to="/admin/players?status=accepted" />
+          <StatCard label="Rejected players" value={stats?.rejectedRegs} to="/admin/players?status=rejected" />
           <StatCard label="Sold in auction" value={stats?.auctionSold} to="/admin/auction" />
           <StatCard label="Unsold" value={stats?.auctionUnsold} to="/admin/auction" />
           <StatCard label="Teams roster" value="8" to="/admin/teams" />
@@ -338,12 +428,44 @@ function OverviewPage() {
   );
 }
 
+function AdminRegAvatar({ reg, className = "h-10 w-10" }) {
+  const url = profileImageUrl(reg);
+  if (!url) {
+    return (
+      <span
+        className={`inline-flex shrink-0 items-center justify-center rounded-lg border border-dashed border-[color:var(--border)] bg-ink-soft text-[9px] font-semibold uppercase text-[color:var(--text-muted)] ${className}`}
+        aria-hidden="true"
+      >
+        —
+      </span>
+    );
+  }
+  return (
+    <ZoomableImage
+      src={url}
+      alt={reg?.fullName || "Player"}
+      buttonClassName="shrink-0 rounded-lg border border-[color:var(--border)] overflow-hidden"
+      className={`object-cover ${className}`}
+    />
+  );
+}
+
 function PlayersPage() {
-  const { status } = useParams();
+  const { registrationId } = useParams();
   const navigate = useNavigate();
-  const page = ["pending", "accepted", "rejected"].includes(status) ? status : "pending";
-  const apiStatus = page === "accepted" ? "verified" : page;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isDetail = isMongoRegistrationId(registrationId);
+  const legacyTab =
+    registrationId && ["pending", "accepted", "rejected"].includes(registrationId) ? registrationId : null;
+
+  useEffect(() => {
+    if (!legacyTab) return;
+    navigate(`/admin/players?status=${legacyTab}`, { replace: true });
+  }, [legacyTab, navigate]);
+
   const [regs, setRegs] = useState([]);
+  const [detailReg, setDetailReg] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [notes, setNotes] = useState({});
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState("");
@@ -363,9 +485,12 @@ function PlayersPage() {
   const [enablingPayNow, setEnablingPayNow] = useState(false);
   const [markPaidConfirmReg, setMarkPaidConfirmReg] = useState(null);
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [documentsViewReg, setDocumentsViewReg] = useState(null);
+  const [documentsAddReg, setDocumentsAddReg] = useState(null);
   const [ownerTeam, setOwnerTeam] = useState({});
-  const [interestFilter, setInterestFilter] = useState("franchise");
   const [playerSearch, setPlayerSearch] = useState("");
+  const [listPage, setListPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PLAYERS_LIST_PAGE_SIZES[0]);
   const [loading, setLoading] = useState(true);
   const [imageBusyId, setImageBusyId] = useState("");
   const [editReg, setEditReg] = useState(null);
@@ -380,13 +505,10 @@ function PlayersPage() {
   const [editError, setEditError] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
-  async function load() {
+  async function loadList() {
     setLoading(true);
-    const qs = new URLSearchParams({ status: apiStatus });
-    if (["captain", "player", "franchise", "sponsor"].includes(interestFilter)) {
-      qs.set("interest", interestFilter);
-    }
-    const data = await api(`/api/admin/registrations?${qs.toString()}`);
+    const query = buildPlayersListQuery(searchParams);
+    const data = await api(`/api/admin/registrations${query ? `?${query}` : ""}`);
     setRegs(data.registrations || []);
     const seed = {};
     const teams = {};
@@ -399,10 +521,46 @@ function PlayersPage() {
     setLoading(false);
   }
 
+  async function loadDetail(id) {
+    setDetailLoading(true);
+    setError("");
+    try {
+      const data = await api(`/api/admin/registrations/${id}`);
+      setDetailReg(data.registration);
+      setNotes((prev) => ({ ...prev, [id]: data.registration.adminNotes || "" }));
+      setOwnerTeam((prev) => ({ ...prev, [id]: data.registration.franchiseId || "" }));
+    } catch (err) {
+      setDetailReg(null);
+      setError(err.message);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
+
+  function applyStatusFilterMap(nextMap) {
+    const picked = REPORT_STATUS_OPTIONS.filter((o) => nextMap[o.id]).map((o) => o.id);
+    const next = new URLSearchParams(searchParams);
+    if (!picked.length) next.set("status", "");
+    else next.set("status", picked.join(","));
+    setSearchParams(next);
+    setListPage(1);
+  }
+
+  function applyInterestFilterMap(nextMap) {
+    const picked = REPORT_INTEREST_OPTIONS.filter((o) => nextMap[o.id]).map((o) => o.id);
+    const next = new URLSearchParams(searchParams);
+    if (!picked.length) next.set("interest", "");
+    else if (picked.length === ADMIN_INTEREST_KEYS.length) next.delete("interest");
+    else next.set("interest", picked.join(","));
+    setSearchParams(next);
+    setListPage(1);
+  }
+
   useEffect(() => {
+    if (isDetail) return;
     setMessage("");
     setError("");
-    load().catch((err) => {
+    loadList().catch((err) => {
       setLoading(false);
       setError(err.message);
       if (/admin access/i.test(err.message)) {
@@ -410,11 +568,17 @@ function PlayersPage() {
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiStatus, interestFilter]);
+  }, [searchParams, isDetail]);
 
   useEffect(() => {
-    if (page === "pending") setInterestFilter("franchise");
-  }, [page]);
+    if (!isDetail) {
+      setDetailReg(null);
+      return;
+    }
+    setMessage("");
+    loadDetail(registrationId).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registrationId, isDetail]);
 
   useEffect(() => {
     if (!paymentModalReg) return;
@@ -507,12 +671,16 @@ function PlayersPage() {
       });
       setMessage(
         nextStatus === "verified"
-          ? "Player accepted. Moved to Accepted players page."
+          ? "Player accepted."
           : nextStatus === "rejected"
-            ? "Player rejected. Moved to Rejected players page."
+            ? "Player rejected."
             : "Updated."
       );
-      await load();
+      if (isDetail && String(registrationId) === String(id)) {
+        await loadDetail(id);
+      } else {
+        await loadList();
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -613,6 +781,25 @@ function PlayersPage() {
       setError(err.message || "Unable to mark payment as paid.");
     } finally {
       setMarkingPaid(false);
+    }
+  }
+
+  async function updateDocumentsButton(reg, override) {
+    setBusyId(reg._id);
+    setError("");
+    try {
+      const data = await api(`/api/admin/registrations/${reg._id}/documents-button`, {
+        method: "PATCH",
+        body: JSON.stringify({ documentsButtonOverride: override }),
+      });
+      setRegs((prev) =>
+        prev.map((row) => (String(row._id) === String(data.registration._id) ? data.registration : row))
+      );
+      setMessage("Documents button setting saved.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyId("");
     }
   }
 
@@ -743,11 +930,9 @@ function PlayersPage() {
     }
   }
 
-  const titles = {
-    pending: ["Pending franchises", "Assign a team, then accept or reject. After accept they leave this page."],
-    accepted: ["Accepted players", "Players you already accepted. No action needed."],
-    rejected: ["Rejected players", "Players you already rejected."],
-  };
+  const fromListQuery = searchParams.get("from");
+  const listBackQuery = fromListQuery || (isDetail ? "" : searchParams.toString());
+  const listBackHref = `/admin/players${listBackQuery ? `?${listBackQuery}` : ""}`;
 
   const filteredRegs = useMemo(() => {
     const q = playerSearch.trim().toLowerCase();
@@ -761,11 +946,13 @@ function PlayersPage() {
       const phoneDigits = phone.replace(/\D/g, "");
       const referrer = String(reg.referredByPlayerCode || "").toLowerCase();
       const referrerName = String(reg.referredByName || "").toLowerCase();
+      const company = String(reg.company || "").toLowerCase();
       return (
         code.includes(q) ||
         name.includes(q) ||
         email.includes(q) ||
         phone.includes(q) ||
+        company.includes(q) ||
         referrer.includes(q) ||
         referrerName.includes(q) ||
         (qDigits.length >= 3 && phoneDigits.includes(qDigits))
@@ -773,95 +960,57 @@ function PlayersPage() {
     });
   }, [regs, playerSearch]);
 
-  return (
-    <AdminShell title={titles[page][0]} subtitle={titles[page][1]}>
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {[
-              ["all", "All"],
-              ["captain", "Captain"],
-              ["player", "Player"],
-              ["franchise", "Franchise"],
-              ["sponsor", "Sponsor"],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setInterestFilter(key)}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
-                  interestFilter === key
-                    ? "bg-accent text-white"
-                    : "border border-[color:var(--border-strong)] text-[color:var(--text-muted)]"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {[
-              ["pending", "Pending"],
-              ["accepted", "Accepted"],
-              ["rejected", "Rejected"],
-            ].map(([key, label]) => (
-              <Link
-                key={key}
-                to={`/admin/players/${key}`}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
-                  page === key
-                    ? "bg-accent text-white"
-                    : "border border-[color:var(--border-strong)] text-[color:var(--text-muted)]"
-                }`}
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
-        </div>
+  const totalListPages = Math.max(1, Math.ceil(filteredRegs.length / pageSize));
+  const currentListPage = Math.min(Math.max(1, listPage), totalListPages);
+  const hasMultipleListPages = filteredRegs.length > pageSize;
 
-        <label className="block w-full shrink-0 lg:max-w-sm">
-          <span className="sr-only">Search players</span>
-          <input
-            value={playerSearch}
-            onChange={(e) => setPlayerSearch(e.target.value)}
-            placeholder="Search player ID, name, mobile, or email"
-            className="input-dark w-full"
-          />
-        </label>
-      </div>
+  const paginatedRegs = useMemo(() => {
+    const safePage = currentListPage;
+    const start = (safePage - 1) * pageSize;
+    return filteredRegs.slice(start, start + pageSize);
+  }, [filteredRegs, currentListPage, pageSize]);
 
-      {error ? (
-        <div className="mb-3">
-          <AlertBanner tone="error">{error}</AlertBanner>
-        </div>
-      ) : null}
-      {message ? (
-        <div className="mb-3">
-          <AlertBanner tone="ok">{message}</AlertBanner>
-        </div>
-      ) : null}
+  const listPageNumbers = useMemo(() => {
+    const maxButtons = 7;
+    if (totalListPages <= maxButtons) {
+      return Array.from({ length: totalListPages }, (_, i) => i + 1);
+    }
+    const current = currentListPage;
+    let start = Math.max(1, current - 3);
+    let end = Math.min(totalListPages, start + maxButtons - 1);
+    start = Math.max(1, end - maxButtons + 1);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  }, [currentListPage, totalListPages]);
 
-      {loading ? (
-        <PageLoader message="Loading registrations…" />
-      ) : (
-      <div className="space-y-3">
-        {filteredRegs.length === 0 && (
-          <p className="rounded-lg border border-[color:var(--border)] bg-ink-card p-4 text-sm text-[color:var(--text-muted)]">
-            {playerSearch.trim()
-              ? `No matches for “${playerSearch.trim()}”.`
-              : `No ${page} ${interestFilter === "all" ? "registrations" : `${interestFilter}s`} yet.`}
-            {!playerSearch.trim() && interestFilter !== "all"
-              ? " Switch to All to see every type."
-              : ""}
-          </p>
-        )}
-        {filteredRegs.map((reg) => {
-          const shotUrl = paymentScreenshotUrl(reg);
-          return (
-          <article key={reg._id} className="rounded-lg border border-[color:var(--border)] bg-ink-card p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex min-w-0 items-start gap-3">
+  const statusQueryKey = searchParams.get("status") ?? "";
+  const interestQueryKey = searchParams.get("interest") ?? "";
+
+  useEffect(() => {
+    setListPage(1);
+  }, [playerSearch, statusQueryKey, interestQueryKey]);
+
+  useEffect(() => {
+    if (listPage > totalListPages) setListPage(totalListPages);
+  }, [listPage, totalListPages]);
+
+  function renderRegistrationCard(reg) {
+    const page = regAdminPage(reg);
+    const shotUrl = paymentScreenshotUrl(reg);
+    return (
+      <article
+        key={reg._id}
+        className="rounded-lg border border-[color:var(--border)] bg-ink-card p-3 sm:p-4"
+      >
+        {renderRegistrationCardInner(reg, page, shotUrl)}
+      </article>
+    );
+  }
+
+  function renderRegistrationCardInner(reg, page, shotUrl) {
+    return (
+      <>
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+              <div className="flex min-w-0 flex-col items-center gap-3 sm:flex-row sm:items-start">
                 <div className="flex shrink-0 flex-col items-center gap-1.5">
                   {profileImageUrl(reg) ? (
                     <ZoomableImage
@@ -901,8 +1050,8 @@ function PlayersPage() {
                     </span>
                   </label>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-[color:var(--title)]">{reg.fullName}</p>
+                <div className="min-w-0 w-full text-center sm:text-left">
+                  <p className="text-lg font-semibold text-[color:var(--title)] sm:text-base">{reg.fullName}</p>
                   {reg.playerCode ? (
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">
                       Player ID: {reg.playerCode}
@@ -1017,7 +1166,9 @@ function PlayersPage() {
                   )}
                 </div>
               </div>
-              <StatusBadge status={reg.status} />
+              <div className="flex w-full justify-center sm:w-auto sm:justify-end">
+                <StatusBadge status={reg.status} />
+              </div>
             </div>
 
             {page === "accepted" && reg.interest !== "franchise" ? (
@@ -1025,6 +1176,38 @@ function PlayersPage() {
                 Auction: {reg.auctionStatus || "not_listed"}
                 {reg.franchiseName ? ` · ${reg.franchiseName}` : ""}
               </div>
+            ) : null}
+
+            {showPlayerDocumentActions(reg) ? (
+              <>
+                <label className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[color:var(--text-muted)]">
+                  <span className="whitespace-nowrap">Player dashboard button</span>
+                  <select
+                    className="input-dark !py-1.5 !text-xs"
+                    value={reg.documentsButtonOverride || "auto"}
+                    disabled={busyId === reg._id}
+                    onChange={(e) => updateDocumentsButton(reg, e.target.value)}
+                    title="When the player sees Add documents on their dashboard"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="show">Always show</option>
+                    <option value="hide">Hide</option>
+                  </select>
+                </label>
+                <AdminPlayerDocumentsPanel
+                  registration={reg}
+                  busyId={busyId}
+                  onUpdated={(updated) => {
+                    setRegs((prev) =>
+                      prev.map((row) => (String(row._id) === String(updated._id) ? updated : row))
+                    );
+                    if (detailReg && String(detailReg._id) === String(updated._id)) {
+                      setDetailReg(updated);
+                    }
+                  }}
+                  onAdminUpload={(r) => setDocumentsAddReg(r)}
+                />
+              </>
             ) : null}
 
             {reg.interest === "sponsor" && reg.sponsorPackageTitle ? (
@@ -1163,12 +1346,230 @@ function PlayersPage() {
                 </div>
               </>
             )}
-          </article>
-          );
-        })}
-      </div>
+      </>
+    );
+  }
+
+  return (
+    <AdminShell
+      title={isDetail ? detailReg?.fullName || "Player" : "Registrations"}
+      subtitle={
+        isDetail
+          ? "Full profile, actions, and documents."
+          : "Combine filters (multiple types and statuses). Rejected is hidden until you select it."
+      }
+    >
+      {isDetail ? (
+        <div className="mb-4">
+          <Link to={listBackHref} className="text-sm font-semibold text-accent hover:text-accent-soft">
+            {"\u2190"} Back to list
+          </Link>
+        </div>
+      ) : (
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 grid flex-1 gap-3 sm:grid-cols-2">
+            <ReportCheckboxGroup
+              title="Status"
+              groupKey="status"
+              options={REPORT_STATUS_OPTIONS}
+              values={statusFilterMapFromSearch(searchParams)}
+              onChange={(_, nextMap) => applyStatusFilterMap(nextMap)}
+            />
+            <ReportCheckboxGroup
+              title="Type"
+              groupKey="interest"
+              options={REPORT_INTEREST_OPTIONS}
+              values={interestFilterMapFromSearch(searchParams)}
+              onChange={(_, nextMap) => applyInterestFilterMap(nextMap)}
+            />
+          </div>
+
+          <label className="block w-full shrink-0 lg:max-w-sm">
+            <span className="sr-only">Search players</span>
+            <input
+              value={playerSearch}
+              onChange={(e) => setPlayerSearch(e.target.value)}
+              placeholder="Search ID, name, email, mobile, or company"
+              className="input-dark w-full"
+            />
+          </label>
+        </div>
       )}
 
+      {error ? (
+        <div className="mb-3">
+          <AlertBanner tone="error">{error}</AlertBanner>
+        </div>
+      ) : null}
+      {message ? (
+        <div className="mb-3">
+          <AlertBanner tone="ok">{message}</AlertBanner>
+        </div>
+      ) : null}
+
+      {isDetail ? (
+        detailLoading ? (
+          <PageLoader message="Loading player…" />
+        ) : detailReg ? (
+          renderRegistrationCard(detailReg)
+        ) : (
+          <p className="text-sm text-[color:var(--text-muted)]">Registration not found.</p>
+        )
+      ) : loading ? (
+        <PageLoader message="Loading registrations…" />
+      ) : filteredRegs.length === 0 ? (
+        <p className="rounded-lg border border-[color:var(--border)] bg-ink-card p-4 text-sm text-[color:var(--text-muted)]">
+          {playerSearch.trim()
+            ? `No matches for "${playerSearch.trim()}".`
+            : "No registrations match the current filters."}
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-[color:var(--border)]">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px] text-left text-sm">
+            <thead className="border-b border-[color:var(--border)] bg-ink-soft text-xs uppercase tracking-wide text-[color:var(--text-muted)]">
+              <tr>
+                <th className="px-3 py-2.5 font-semibold">Player</th>
+                <th className="px-3 py-2.5 font-semibold">ID</th>
+                <th className="px-3 py-2.5 font-semibold">Company</th>
+                <th className="px-3 py-2.5 font-semibold">Status</th>
+                <th className="px-3 py-2.5 font-semibold">Type</th>
+                <th className="px-3 py-2.5 font-semibold">Payment</th>
+                <th className="px-3 py-2.5 font-semibold">Docs</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[color:var(--border)]">
+              {paginatedRegs.map((reg) => (
+                <tr key={reg._id} className="bg-ink-card hover:bg-ink-soft/40">
+                  <td className="px-3 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <AdminRegAvatar reg={reg} className="h-9 w-9" />
+                      <div className="min-w-0">
+                        <Link
+                          to={`/admin/players/${reg._id}${listBackQuery ? `?from=${encodeURIComponent(listBackQuery)}` : ""}`}
+                          className="font-semibold text-accent hover:text-accent-soft"
+                        >
+                          {reg.fullName}
+                        </Link>
+                        <p className="truncate text-xs text-[color:var(--text-muted)]">{reg.email}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 text-xs text-[color:var(--text-muted)]">{reg.playerCode || "—"}</td>
+                  <td className="max-w-[12rem] truncate px-3 py-2.5 text-xs text-[color:var(--text-muted)]" title={reg.company || ""}>
+                    {reg.company || "—"}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <StatusBadge status={reg.status} />
+                  </td>
+                  <td className="px-3 py-2.5 capitalize text-[color:var(--text-muted)]">{reg.interest}</td>
+                  <td className="px-3 py-2.5 text-xs text-[color:var(--text-muted)]">
+                    {paymentStatusLabel(getPaymentStatus(reg))}
+                    {reg.payment?.amountInr ? ` · ₹${reg.payment.amountInr}` : ""}
+                  </td>
+                  <td className="px-3 py-2.5 text-xs text-[color:var(--text-muted)]">
+                    {reg.playerDocuments?.length ? `${reg.playerDocuments.length} file(s)` : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+          <div className="admin-table-pagination">
+            <p className="admin-table-pagination__summary">
+              {filteredRegs.length === 0
+                ? "No rows"
+                : `Showing ${(currentListPage - 1) * pageSize + 1}–${Math.min(
+                    currentListPage * pageSize,
+                    filteredRegs.length
+                  )} of ${filteredRegs.length}${
+                    hasMultipleListPages ? ` · Page ${currentListPage} of ${totalListPages}` : ""
+                  }`}
+            </p>
+            <div className="admin-table-pagination__toolbar">
+              <label className="admin-table-pagination__page-size">
+                <span>Per page</span>
+                <select
+                  className="admin-table-pagination__select"
+                  value={pageSize}
+                  aria-label="Rows per page"
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setListPage(1);
+                  }}
+                >
+                  {PLAYERS_LIST_PAGE_SIZES.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {filteredRegs.length > 0 ? (
+                <nav className="admin-table-pagination__nav" aria-label="Pagination">
+                  <button
+                    type="button"
+                    className="admin-table-pagination__btn"
+                    disabled={currentListPage <= 1}
+                    onClick={() => setListPage((p) => Math.max(1, p - 1))}
+                  >
+                    Prev
+                  </button>
+                  {hasMultipleListPages ? (
+                    <>
+                      {listPageNumbers[0] > 1 ? (
+                        <>
+                          <button type="button" className="admin-table-pagination__btn" onClick={() => setListPage(1)}>
+                            1
+                          </button>
+                          {listPageNumbers[0] > 2 ? (
+                            <span className="admin-table-pagination__ellipsis" aria-hidden="true">…</span>
+                          ) : null}
+                        </>
+                      ) : null}
+                      {listPageNumbers.map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={`admin-table-pagination__btn${n === currentListPage ? " is-active" : ""}`}
+                          aria-current={n === currentListPage ? "page" : undefined}
+                          onClick={() => setListPage(n)}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                      {listPageNumbers[listPageNumbers.length - 1] < totalListPages ? (
+                        <>
+                          {listPageNumbers[listPageNumbers.length - 1] < totalListPages - 1 ? (
+                            <span className="admin-table-pagination__ellipsis" aria-hidden="true">…</span>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="admin-table-pagination__btn"
+                            onClick={() => setListPage(totalListPages)}
+                          >
+                            {totalListPages}
+                          </button>
+                        </>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span className="admin-table-pagination__btn is-active" aria-current="page">1</span>
+                  )}
+                  <button
+                    type="button"
+                    className="admin-table-pagination__btn"
+                    disabled={!hasMultipleListPages || currentListPage >= totalListPages}
+                    onClick={() => setListPage((p) => Math.min(totalListPages, p + 1))}
+                  >
+                    Next
+                  </button>
+                </nav>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
       {editReg ? (
         <div className="fixed inset-0 z-[95] flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-4">
           <form
@@ -1581,6 +1982,34 @@ function PlayersPage() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {documentsViewReg ? (
+        <AdminPlayerDocumentsViewModal
+          registration={regs.find((r) => String(r._id) === String(documentsViewReg._id)) || documentsViewReg}
+          onClose={() => setDocumentsViewReg(null)}
+        />
+      ) : null}
+
+      {documentsAddReg ? (
+        <PlayerDocumentsModal
+          registration={documentsAddReg}
+          mode="admin"
+          eyebrow="Admin upload"
+          title="Upload as admin"
+          uploadPath={`/api/admin/registrations/${documentsAddReg._id}/documents`}
+          onClose={() => setDocumentsAddReg(null)}
+          onSaved={(updated) => {
+            setRegs((prev) =>
+              prev.map((row) => (String(row._id) === String(updated._id) ? updated : row))
+            );
+            if (detailReg && String(detailReg._id) === String(updated._id)) {
+              setDetailReg(updated);
+            }
+            setDocumentsAddReg(null);
+            setMessage(`Documents saved for ${updated.fullName}.`);
+          }}
+        />
       ) : null}
     </AdminShell>
   );
@@ -2833,7 +3262,7 @@ function SiteSettingsPage() {
                     Coming soon (hide form)
                   </span>
                   <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
-                    Button says “Registration” and opens the coming-soon page instead of the form.
+                    Button says "Registration" and opens the coming-soon page instead of the form.
                   </span>
                 </span>
               </label>
@@ -2918,6 +3347,8 @@ function RegistrationFeesPage() {
     sponsor: 999,
   });
   const [paymentGateway, setPaymentGateway] = useState("razorpay");
+  const [playerDocumentsUploadEnabled, setPlayerDocumentsUploadEnabled] = useState(true);
+  const [playerPayNowEnabled, setPlayerPayNowEnabled] = useState(true);
   const [gatewayStatus, setGatewayStatus] = useState({
     razorpay: { configured: false },
     cashfree: { configured: false, mode: "sandbox" },
@@ -2940,6 +3371,8 @@ function RegistrationFeesPage() {
           sponsor: incoming.sponsor ?? prev.sponsor,
         }));
         setPaymentGateway(data.settings?.paymentGateway || "razorpay");
+        setPlayerDocumentsUploadEnabled(data.settings?.playerDocumentsUploadEnabled !== false);
+        setPlayerPayNowEnabled(data.settings?.playerPayNowEnabled !== false);
         setGatewayStatus(
           data.settings?.paymentGatewayStatus || {
             razorpay: { configured: false },
@@ -2972,10 +3405,17 @@ function RegistrationFeesPage() {
       }
       const data = await api("/api/admin/settings", {
         method: "PUT",
-        body: JSON.stringify({ registrationFees, paymentGateway }),
+        body: JSON.stringify({
+          registrationFees,
+          paymentGateway,
+          playerDocumentsUploadEnabled,
+          playerPayNowEnabled,
+        }),
       });
       setFees(data.settings.registrationFees);
       setPaymentGateway(data.settings.paymentGateway || paymentGateway);
+      setPlayerDocumentsUploadEnabled(data.settings?.playerDocumentsUploadEnabled !== false);
+      setPlayerPayNowEnabled(data.settings?.playerPayNowEnabled !== false);
       setGatewayStatus(
         data.settings.paymentGatewayStatus || {
           razorpay: { configured: false },
@@ -3074,6 +3514,48 @@ function RegistrationFeesPage() {
                   </div>
                 </label>
               ))}
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
+            <div className="border-b border-[color:var(--border)] px-5 py-4">
+              <p className="eyebrow text-accent">Player dashboard</p>
+              <h2 className="font-display mt-1 text-xl text-[color:var(--title)]">Pay now &amp; documents</h2>
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                Master switches for logged-in players. Per-player Pay now is still enabled from the registration profile.
+              </p>
+            </div>
+            <div className="space-y-3 p-5">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[color:var(--border)] px-4 py-3">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                  checked={playerPayNowEnabled}
+                  onChange={(e) => setPlayerPayNowEnabled(e.target.checked)}
+                />
+                <span className="text-sm">
+                  <span className="font-medium text-[color:var(--title)]">Show Pay now on player dashboard</span>
+                  <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+                    When off, the Pay now button is hidden for everyone until you turn it back on (even if admin enabled
+                    Pay now for a player).
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[color:var(--border)] px-4 py-3">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                  checked={playerDocumentsUploadEnabled}
+                  onChange={(e) => setPlayerDocumentsUploadEnabled(e.target.checked)}
+                />
+                <span className="text-sm">
+                  <span className="font-medium text-[color:var(--title)]">Allow applicants to upload documents</span>
+                  <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+                    Turn off to hide Add documents for all players and captains. Admin upload from the profile is
+                    unchanged.
+                  </span>
+                </span>
+              </label>
             </div>
           </section>
 
@@ -3342,13 +3824,43 @@ function SocialMediaPage() {
   );
 }
 
+function ReportCheckboxGroup({ title, groupKey, options, values, onChange }) {
+  const allOn = options.every((o) => values[o.id]);
+  return (
+    <fieldset className="rounded-xl border border-[color:var(--border)] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <legend className="text-sm font-semibold text-[color:var(--title)]">{title}</legend>
+        <button
+          type="button"
+          className="text-xs font-semibold text-accent"
+          onClick={() => {
+            const next = Object.fromEntries(options.map((o) => [o.id, !allOn]));
+            onChange(groupKey, next);
+          }}
+        >
+          {allOn ? "Clear all" : "Select all"}
+        </button>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+        {options.map((opt) => (
+          <label key={opt.id} className="flex cursor-pointer items-center gap-2 text-sm text-[color:var(--text)]">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-[var(--accent)]"
+              checked={Boolean(values[opt.id])}
+              onChange={() => onChange(groupKey, { ...values, [opt.id]: !values[opt.id] })}
+            />
+            {opt.label}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 function ReportsPage() {
-  const [filters, setFilters] = useState({
-    status: "",
-    interest: "",
-    paymentStatus: "",
-    auctionStatus: "",
-  });
+  const [filterMaps, setFilterMaps] = useState(initialReportFilterState);
+  const [columnMap, setColumnMap] = useState(initialReportColumnState);
   const [rows, setRows] = useState([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -3356,15 +3868,25 @@ function ReportsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  function updateFilter(key, value) {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+  const activeColumns = useMemo(
+    () => REGISTRATION_REPORT_COLUMNS.filter((c) => columnMap[c.id]),
+    [columnMap]
+  );
+
+  function updateFilterGroup(groupKey, nextMap) {
+    setFilterMaps((prev) => ({ ...prev, [groupKey]: nextMap }));
+  }
+
+  function toggleColumn(id) {
+    setColumnMap((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  function resetColumnsToDefault() {
+    setColumnMap(initialReportColumnState());
   }
 
   function buildQuery() {
-    const qs = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) qs.set(key, value);
-    });
+    const qs = buildReportQueryParams(filterMaps, columnMap);
     const text = qs.toString();
     return text ? `?${text}` : "";
   }
@@ -3373,6 +3895,12 @@ function ReportsPage() {
     setLoading(true);
     setError("");
     setMessage("");
+    const validationError = validateReportFilters(filterMaps, columnMap);
+    if (validationError) {
+      setError(validationError);
+      setLoading(false);
+      return;
+    }
     try {
       const data = await api(`/api/admin/reports/preview${buildQuery()}`);
       setRows(data.registrations || []);
@@ -3391,6 +3919,12 @@ function ReportsPage() {
     setExporting(true);
     setError("");
     setMessage("");
+    const validationError = validateReportFilters(filterMaps, columnMap);
+    if (validationError) {
+      setError(validationError);
+      setExporting(false);
+      return;
+    }
     try {
       await apiDownload(`/api/admin/reports/export${buildQuery()}`);
       setMessage("Excel report downloaded.");
@@ -3412,68 +3946,78 @@ function ReportsPage() {
       subtitle="Filter registrations and download an Excel-compatible CSV report."
     >
       <div className="panel space-y-4 rounded-2xl p-5">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <label className="block text-sm">
-            <span className="text-[color:var(--text-muted)]">Status</span>
-            <select
-              className="input-dark mt-1.5"
-              value={filters.status}
-              onChange={(e) => updateFilter("status", e.target.value)}
-            >
-              <option value="">All statuses</option>
-              <option value="accepted">Accepted / confirmed</option>
-              <option value="pending">Pending</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span className="text-[color:var(--text-muted)]">Type</span>
-            <select
-              className="input-dark mt-1.5"
-              value={filters.interest}
-              onChange={(e) => updateFilter("interest", e.target.value)}
-            >
-              <option value="">All types</option>
-              <option value="player">Players</option>
-              <option value="captain">Captains</option>
-              <option value="sponsor">Sponsors</option>
-              <option value="franchise">Franchise owners</option>
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span className="text-[color:var(--text-muted)]">Payment</span>
-            <select
-              className="input-dark mt-1.5"
-              value={filters.paymentStatus}
-              onChange={(e) => updateFilter("paymentStatus", e.target.value)}
-            >
-              <option value="">All payments</option>
-              <option value="paid">Paid</option>
-              <option value="pending">Pending</option>
-              <option value="failed">Failed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span className="text-[color:var(--text-muted)]">Auction</span>
-            <select
-              className="input-dark mt-1.5"
-              value={filters.auctionStatus}
-              onChange={(e) => updateFilter("auctionStatus", e.target.value)}
-            >
-              <option value="">All auction states</option>
-              <option value="not_listed">Not listed</option>
-              <option value="unsold">Unsold</option>
-              <option value="sold">Sold</option>
-            </select>
-          </label>
+        <p className="text-sm text-[color:var(--text-muted)]">
+          Leave every box checked in a group to include all values. Uncheck options to narrow the report.
+        </p>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <ReportCheckboxGroup
+            title="Status"
+            groupKey="status"
+            options={REPORT_STATUS_OPTIONS}
+            values={filterMaps.status}
+            onChange={updateFilterGroup}
+          />
+          <ReportCheckboxGroup
+            title="Type"
+            groupKey="interest"
+            options={REPORT_INTEREST_OPTIONS}
+            values={filterMaps.interest}
+            onChange={updateFilterGroup}
+          />
+          <ReportCheckboxGroup
+            title="Payment"
+            groupKey="paymentStatus"
+            options={REPORT_PAYMENT_OPTIONS}
+            values={filterMaps.paymentStatus}
+            onChange={updateFilterGroup}
+          />
+          <ReportCheckboxGroup
+            title="Auction"
+            groupKey="auctionStatus"
+            options={REPORT_AUCTION_OPTIONS}
+            values={filterMaps.auctionStatus}
+            onChange={updateFilterGroup}
+          />
         </div>
+
+        <fieldset className="rounded-xl border border-[color:var(--border)] p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <legend className="text-sm font-semibold text-[color:var(--title)]">
+              Columns (preview &amp; export)
+            </legend>
+            <button type="button" className="text-xs font-semibold text-accent" onClick={resetColumnsToDefault}>
+              Reset to defaults
+            </button>
+          </div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {REGISTRATION_REPORT_COLUMNS.map((col) => (
+              <label
+                key={col.id}
+                className="flex cursor-pointer items-center gap-2 text-sm text-[color:var(--text)]"
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-[var(--accent)]"
+                  checked={Boolean(columnMap[col.id])}
+                  onChange={() => toggleColumn(col.id)}
+                />
+                {col.label}
+                {col.default ? <span className="text-xs text-[color:var(--text-muted)]">(default)</span> : null}
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <div className="flex flex-wrap gap-2">
           <button type="button" className="btn-primary" disabled={loading} onClick={loadPreview}>
             {loading ? "Loading…" : "Preview"}
           </button>
-          <button type="button" className="btn-ghost" disabled={exporting || count === 0} onClick={downloadExcel}>
+          <button
+            type="button"
+            className="btn-ghost"
+            disabled={exporting || count === 0 || activeColumns.length === 0}
+            onClick={downloadExcel}
+          >
             {exporting ? "Downloading…" : "Download Excel report"}
           </button>
         </div>
@@ -3486,45 +4030,41 @@ function ReportsPage() {
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-[color:var(--border)] text-xs uppercase tracking-wide text-[color:var(--text-muted)]">
             <tr>
-              <th className="px-3 py-3">Player ID</th>
-              <th className="px-3 py-3">Name</th>
-              <th className="px-3 py-3">Type</th>
-              <th className="px-3 py-3">Company</th>
-              <th className="px-3 py-3">Status</th>
-              <th className="px-3 py-3">Payment</th>
-              <th className="px-3 py-3">Referred by</th>
-              <th className="px-3 py-3">Email</th>
+              {activeColumns.length === 0 ? (
+                <th className="px-3 py-3">Select at least one column</th>
+              ) : (
+                activeColumns.map((col) => (
+                  <th key={col.id} className="px-3 py-3">
+                    {col.label}
+                  </th>
+                ))
+              )}
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-[color:var(--text-muted)]">
+                <td colSpan={Math.max(activeColumns.length, 1)} className="px-3 py-6 text-[color:var(--text-muted)]">
                   No rows for this filter yet. Click Preview.
                 </td>
               </tr>
             ) : (
               rows.map((reg) => (
                 <tr key={reg._id} className="border-t border-[color:var(--border)]">
-                  <td className="px-3 py-2.5 font-semibold text-accent">{reg.playerCode || "—"}</td>
-                  <td className="px-3 py-2.5 text-[color:var(--title)]">{reg.fullName}</td>
-                  <td className="px-3 py-2.5 capitalize text-[color:var(--text-muted)]">{reg.interest}</td>
-                  <td className="px-3 py-2.5 text-[color:var(--text-muted)]">
-                    {reg.company}
-                    {reg.designation ? ` · ${reg.designation}` : ""}
-                  </td>
-                  <td className="px-3 py-2.5 text-[color:var(--text-muted)]">
-                    {reg.status === "verified" ? "accepted" : reg.status}
-                  </td>
-                  <td className="px-3 py-2.5 text-[color:var(--text-muted)]">
-                    {paymentStatusLabel(getPaymentStatus(reg))}
-                  </td>
-                  <td className="px-3 py-2.5 text-[color:var(--text-muted)]">
-                    {reg.referredByPlayerCode
-                      ? `${reg.referredByPlayerCode}${reg.referredByName ? ` · ${reg.referredByName}` : ""}`
-                      : "—"}
-                  </td>
-                  <td className="px-3 py-2.5 text-[color:var(--text-muted)]">{reg.email}</td>
+                  {activeColumns.map((col) => (
+                    <td
+                      key={col.id}
+                      className={`px-3 py-2.5 ${
+                        col.id === "playerCode"
+                          ? "font-semibold text-accent"
+                          : col.id === "fullName"
+                            ? "text-[color:var(--title)]"
+                            : "text-[color:var(--text-muted)]"
+                      } ${col.id === "interest" ? "capitalize" : ""}`}
+                    >
+                      {formatReportCell(reg, col.id)}
+                    </td>
+                  ))}
                 </tr>
               ))
             )}
@@ -3556,7 +4096,7 @@ export default function Admin() {
   return (
     <Routes>
       <Route index element={<OverviewPage />} />
-      <Route path="players/:status" element={<PlayersPage />} />
+      <Route path="players/:registrationId?" element={<PlayersPage />} />
       <Route path="register" element={<AdminRegisterPage />} />
       <Route path="reports" element={<ReportsPage />} />
       <Route path="referrals" element={<ReferralsAdmin AdminShell={AdminShell} />} />
@@ -3573,8 +4113,7 @@ export default function Admin() {
       <Route path="events" element={<EventsAdmin AdminShell={AdminShell} />} />
       <Route path="members" element={<MembersAdmin AdminShell={AdminShell} />} />
       <Route path="audit" element={<AuditPage />} />
-      <Route path="players" element={<Navigate to="/admin/players/pending" replace />} />
-      <Route path="accounts/*" element={<Navigate to="/admin/players/pending" replace />} />
+      <Route path="accounts/*" element={<Navigate to="/admin/players" replace />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
   );

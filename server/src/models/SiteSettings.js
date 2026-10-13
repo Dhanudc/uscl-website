@@ -142,6 +142,10 @@ const siteSettingsSchema = new mongoose.Schema(
     },
     /** When false, public Register CTAs are hidden and new registrations are blocked. */
     registrationEnabled: { type: Boolean, default: true },
+    /** When false, players cannot see or use the Add documents button (admin upload still works). */
+    playerDocumentsUploadEnabled: { type: Boolean, default: true },
+    /** When false, Pay now is hidden on the player dashboard even if enabled per registration. */
+    playerPayNowEnabled: { type: Boolean, default: true },
     /** When false, referral field is hidden and new referral codes are ignored. */
     referralProgramEnabled: { type: Boolean, default: true },
     /** Show/hide public module links (Media, Live, Wesley, etc.). */
@@ -275,6 +279,8 @@ export const DEFAULT_SITE_SETTINGS = {
     videos: [],
   },
   registrationEnabled: true,
+  playerDocumentsUploadEnabled: true,
+  playerPayNowEnabled: true,
   referralProgramEnabled: true,
   moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
   navLabels: normalizeNavLabels({}),
@@ -549,6 +555,14 @@ export async function getSiteSettings() {
 
 export function isRegistrationEnabled(settings) {
   return settings?.registrationEnabled !== false;
+}
+
+export function isPlayerDocumentsUploadEnabled(settings) {
+  return settings?.playerDocumentsUploadEnabled !== false;
+}
+
+export function isPlayerPayNowEnabled(settings) {
+  return settings?.playerPayNowEnabled !== false;
 }
 
 export function isReferralProgramEnabled(settings) {

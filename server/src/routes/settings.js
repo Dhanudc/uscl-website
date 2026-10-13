@@ -10,6 +10,7 @@ import {
   getSiteSettings,
   isReferralProgramEnabled,
   isRegistrationEnabled,
+  isPlayerPayNowEnabled,
 } from "../models/SiteSettings.js";
 import { buildPortalMediaResponse } from "../utils/portalMedia.js";
 

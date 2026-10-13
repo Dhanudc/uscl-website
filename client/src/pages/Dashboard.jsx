@@ -5,11 +5,17 @@ import { AlertBanner, PageLoader, StatusPill } from "../components/ui";
 import RegisterCta from "../components/RegisterCta";
 import ZoomableImage from "../components/ZoomableImage";
 import PaymentQrModal from "../components/PaymentQrModal";
+import PlayerDocumentsModal from "../components/PlayerDocumentsModal";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 import { playerRoleLabel } from "../data/playerRoles";
 import { compressImageForUpload, paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
+import {
+  buildConfirmPaymentPayload,
+  openPaymentCheckout,
+  paymentProviderLabel,
+} from "../utils/payments";
 
 function paymentPillTone(status) {
   const s = String(status || "pending").toLowerCase();
@@ -41,6 +47,16 @@ function needsOnlinePayment(reg) {
   return getPaymentStatus(reg) !== "paid";
 }
 
+
+async function fetchPaymentConfigForReg(reg) {
+  const interest = String(reg?.interest || "player").trim().toLowerCase();
+  const qs = new URLSearchParams({ interest });
+  if (interest === "sponsor" && reg?.sponsorPackageId) {
+    qs.set("sponsorPackageId", String(reg.sponsorPackageId));
+  }
+  return api(`/api/registrations/payment-config?${qs.toString()}`);
+}
+
 function missingProfileImage(reg, brokenIds) {
   if (brokenIds.has(String(reg._id))) return true;
   return !profileImageUrl(reg);
@@ -48,7 +64,15 @@ function missingProfileImage(reg, brokenIds) {
 
 export default function Dashboard() {
   const { user, loading, logout } = useAuth();
-  const { referralProgramEnabled } = useSiteSettings();
+  const { referralProgramEnabled, playerPayNowEnabled } = useSiteSettings();
+
+  function canPayNow(reg) {
+    return (
+      playerPayNowEnabled !== false &&
+      needsOnlinePayment(reg) &&
+      Boolean(reg?.payNowEnabled)
+    );
+  }
   const navigate = useNavigate();
   const [regs, setRegs] = useState([]);
   const [regsLoading, setRegsLoading] = useState(true);
@@ -61,12 +85,15 @@ export default function Dashboard() {
   const [screenshotPreview, setScreenshotPreview] = useState("");
   const [modalError, setModalError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [payingRegId, setPayingRegId] = useState(null);
 
   const [profileModalReg, setProfileModalReg] = useState(null);
   const [profileFile, setProfileFile] = useState(null);
   const [profilePreview, setProfilePreview] = useState("");
   const [profileError, setProfileError] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
+
+  const [documentsModalReg, setDocumentsModalReg] = useState(null);
 
   const [refsOpen, setRefsOpen] = useState(false);
   const [refsLoading, setRefsLoading] = useState(false);
@@ -136,14 +163,85 @@ export default function Dashboard() {
     setUtrNumber(String(paymentModalReg.utrNumber || "").trim());
   }, [paymentModalReg]);
 
-  function openPaymentModal(reg) {
+  function openPaymentModal(reg, feeInr) {
     const existingUtr = String(reg?.utrNumber || "").trim();
-    setPaymentModalReg(reg);
+    const amountInr =
+      Number(reg?.payment?.amountInr) > 0
+        ? Number(reg.payment.amountInr)
+        : Number(feeInr) > 0
+          ? Number(feeInr)
+          : null;
+    setPaymentModalReg(
+      amountInr != null
+        ? { ...reg, payment: { ...(reg.payment || {}), amountInr } }
+        : reg
+    );
     setUtrNumber(existingUtr);
     setScreenshotFile(null);
     if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
     setScreenshotPreview("");
     setModalError("");
+  }
+
+  async function handlePayNow(reg) {
+    if (!reg?._id || payingRegId) return;
+    if (!canPayNow(reg)) return;
+    setRegsError("");
+    setPayingRegId(String(reg._id));
+    try {
+      const config = await fetchPaymentConfigForReg(reg);
+      const provider = config.provider || "razorpay";
+      const configured = provider === "qr" ? true : Boolean(config.configured);
+
+      if (provider === "qr") {
+        openPaymentModal(reg, config.feeInr);
+        return;
+      }
+
+      if (!configured) {
+        throw new Error(
+          `${paymentProviderLabel(provider)} is not configured on the server. Ask admin to add keys or switch to UPI QR in Admin → Settings.`
+        );
+      }
+
+      if (getPaymentStatus(reg) === "paid") {
+        return;
+      }
+
+      const values = {
+        fullName: reg.fullName || user?.name || "",
+        email: reg.email || user?.email || "",
+        phone: reg.phone || user?.phone || "",
+      };
+
+      const order = await api(`/api/registrations/${reg._id}/create-payment-order`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      const payment = await openPaymentCheckout(order, values);
+      const confirmPayload = buildConfirmPaymentPayload(payment);
+      const data = await api(`/api/registrations/${reg._id}/confirm-payment`, {
+        method: "PATCH",
+        body: JSON.stringify(confirmPayload),
+      });
+
+      setRegs((prev) =>
+        prev.map((r) => (String(r._id) === String(data.registration._id) ? data.registration : r))
+      );
+
+      if (!payment.ok) {
+        const reason = payment.reason || "Payment was not completed.";
+        setRegsError(
+          /cancel/i.test(reason)
+            ? `${reason} Tap Pay now again to retry.`
+            : `${reason} Your registration is saved with payment pending.`
+        );
+      }
+    } catch (err) {
+      setRegsError(err.message || "Unable to start payment.");
+    } finally {
+      setPayingRegId(null);
+    }
   }
 
   function closePaymentModal() {
@@ -260,17 +358,17 @@ export default function Dashboard() {
   return (
     <section className="bg-ink px-4 py-8 md:py-10">
       <div className="mx-auto max-w-5xl">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
             <p className="eyebrow text-accent">Dashboard</p>
             <h1 className="page-title mt-1">Hello, {user.name.split(" ")[0]}</h1>
-            <p className="text-sm text-[color:var(--text-muted)]">{user.email}</p>
+            <p className="truncate text-sm text-[color:var(--text-muted)]">{user.email}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
             {referralProgramEnabled || referrals.count > 0 ? (
               <button
                 type="button"
-                className="btn-primary !py-2 !text-xs"
+                className="btn-primary !py-2 !text-xs col-span-2 sm:col-span-1"
                 onClick={() => {
                   setRefsOpen(true);
                   loadReferrals();
@@ -280,13 +378,13 @@ export default function Dashboard() {
               </button>
             ) : null}
             <RegisterCta
-              className="btn-ghost !py-2 !text-xs"
+              className="btn-ghost !py-2 !text-xs w-full justify-center sm:w-auto"
               openLabel="Registration"
               closedLabel="Registration"
             />
             <button
               type="button"
-              className="btn-ghost !py-2 !text-xs"
+              className="btn-ghost !py-2 !text-xs w-full justify-center sm:w-auto"
               onClick={async () => {
                 await logout();
                 navigate("/");
@@ -389,60 +487,14 @@ export default function Dashboard() {
                             )}
                           </p>
                         )}
-                        {(reg.basePrice || reg.soldPrice) && (
+                        {((Number(reg.basePrice) > 0) || (Number(reg.soldPrice) > 0)) && (
                           <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-                            {reg.basePrice ? `Base ₹${reg.basePrice}` : ""}
-                            {reg.soldPrice ? `${reg.basePrice ? " · " : ""}Sold ₹${reg.soldPrice}` : ""}
+                            {Number(reg.basePrice) > 0 ? `Base ₹${reg.basePrice}` : ""}
+                            {Number(reg.soldPrice) > 0
+                              ? `${Number(reg.basePrice) > 0 ? " · " : ""}Sold ₹${reg.soldPrice}`
+                              : ""}
                           </p>
                         )}
-                        <div className="mt-4 flex flex-wrap gap-2 border-t border-[color:var(--border)] pt-4">
-                          {reg.interest === "franchise" &&
-                          reg.status === "verified" &&
-                          getPaymentStatus(reg) === "paid" &&
-                          reg.franchiseId ? (
-                            <Link
-                              to="/dashboard/players"
-                              className="btn-primary !py-2 !text-xs"
-                            >
-                              Players list
-                            </Link>
-                          ) : null}
-                          {needsPhoto ? (
-                            <button
-                              type="button"
-                              className="btn-ghost !py-2 !text-xs"
-                              onClick={() => openProfileModal(reg)}
-                            >
-                              Add profile picture
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="btn-ghost !py-2 !text-xs"
-                              onClick={() => openProfileModal(reg)}
-                            >
-                              Change profile picture
-                            </button>
-                          )}
-                          {needsOnlinePayment(reg) ? (
-                            <button
-                              type="button"
-                              className="btn-primary !py-2 !text-xs"
-                              onClick={() => openPaymentModal(reg)}
-                            >
-                              Pay now
-                            </button>
-                          ) : null}
-                          {!needsOnlinePayment(reg) && missingPaymentDetails(reg) ? (
-                            <button
-                              type="button"
-                              className="btn-ghost !py-2 !text-xs"
-                              onClick={() => openPaymentModal(reg)}
-                            >
-                              Add payment details
-                            </button>
-                          ) : null}
-                        </div>
                         {reg.referredByPlayerCode ? (
                           <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                             Referred by Player ID: {reg.referredByPlayerCode}
@@ -460,9 +512,68 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
-                  {reg.adminNotes && (
-                    <p className="mt-3 text-sm text-[color:var(--text-muted)]">Admin note: {reg.adminNotes}</p>
-                  )}
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-[color:var(--border)] pt-4">
+                    {reg.interest === "franchise" &&
+                    reg.status === "verified" &&
+                    getPaymentStatus(reg) === "paid" &&
+                    reg.franchiseId ? (
+                      <Link to="/dashboard/players" className="btn-primary !py-2 !text-xs">
+                        Players list
+                      </Link>
+                    ) : null}
+                    {needsPhoto ? (
+                      <button
+                        type="button"
+                        className="btn-ghost !py-2 !text-xs"
+                        onClick={() => openProfileModal(reg)}
+                      >
+                        Add profile picture
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-ghost !py-2 !text-xs"
+                        onClick={() => openProfileModal(reg)}
+                      >
+                        Change profile picture
+                      </button>
+                    )}
+                    {canPayNow(reg) ? (
+                      <button
+                        type="button"
+                        className="btn-primary !py-2 !text-xs"
+                        disabled={payingRegId === String(reg._id)}
+                        onClick={() => handlePayNow(reg)}
+                      >
+                        {payingRegId === String(reg._id) ? "Processing…" : "Pay now"}
+                      </button>
+                    ) : null}
+                    {!needsOnlinePayment(reg) && missingPaymentDetails(reg) ? (
+                      <button
+                        type="button"
+                        className="btn-ghost !py-2 !text-xs"
+                        onClick={() => openPaymentModal(reg)}
+                      >
+                        Add payment details
+                      </button>
+                    ) : null}
+                    {reg.showAddDocumentsButton ? (
+                      <button
+                        type="button"
+                        className="btn-primary !py-2 !text-xs"
+                        onClick={() => setDocumentsModalReg(reg)}
+                      >
+                        Add documents
+                      </button>
+                    ) : null}
+                  </div>
+                  {reg.showAddDocumentsButton ? (
+                    <p className="mt-3 rounded-lg border border-amber-400/35 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+                      Please upload the documents for the further process.
+                    </p>
+                  ) : reg.documentsComplete ? (
+                    <p className="mt-3 text-xs text-emerald-300">Documents submitted.</p>
+                  ) : null}
                 </div>
               );
             })
@@ -605,6 +716,19 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {documentsModalReg ? (
+        <PlayerDocumentsModal
+          registration={documentsModalReg}
+          onClose={() => setDocumentsModalReg(null)}
+          onSaved={(updated) => {
+            setRegs((prev) =>
+              prev.map((r) => (String(r._id) === String(updated._id) ? updated : r))
+            );
+            setDocumentsModalReg(null);
+          }}
+        />
       ) : null}
 
       <PaymentQrModal

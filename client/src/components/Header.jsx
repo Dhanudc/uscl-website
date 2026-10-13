@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 import RegisterCta from "./RegisterCta";
+import SiteLogo from "./SiteLogo";
 import ThemePicker from "./ThemePicker";
 
 const NAV_LINKS = [

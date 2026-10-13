@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import PasswordInput from "../components/PasswordInput";
 import ThemePicker from "../components/ThemePicker";
+import SiteLogo from "../components/SiteLogo";
 import { useAuth } from "../context/AuthContext";
 
 export default function AdminLogin() {

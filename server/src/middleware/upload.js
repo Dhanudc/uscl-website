@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
+import { nextVersionedDocKey } from "../utils/playerDocumentVersions.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // upload.js lives in server/src/middleware → server package root is ../..
@@ -16,6 +17,7 @@ const socialRoot = path.join(serverRoot, "uploads", "social");
 const eventsRoot = path.join(serverRoot, "uploads", "events");
 const membersRoot = path.join(serverRoot, "uploads", "members");
 const rewardsRoot = path.join(serverRoot, "uploads", "rewards");
+const playerDocumentsRoot = path.join(serverRoot, "private", "player-documents");
 
 fs.mkdirSync(registrationRoot, { recursive: true });
 fs.mkdirSync(profileImagesRoot, { recursive: true });
@@ -26,6 +28,7 @@ fs.mkdirSync(socialRoot, { recursive: true });
 fs.mkdirSync(eventsRoot, { recursive: true });
 fs.mkdirSync(membersRoot, { recursive: true });
 fs.mkdirSync(rewardsRoot, { recursive: true });
+fs.mkdirSync(playerDocumentsRoot, { recursive: true });
 
 export const PROFILE_IMAGES_DIR = profileImagesRoot;
 export const PAYMENTS_DIR = paymentsRoot;

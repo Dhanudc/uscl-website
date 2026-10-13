@@ -1,12 +1,27 @@
 import { Router } from "express";
 import { adminRequired, hashPassword } from "../middleware/auth.js";
-import { socialIconUpload, toSocialIconUrl, eventImageUpload, toEventImageUrl, memberImageUpload, toMemberImageUrl, rewardImageUpload, toRewardImageUrl, mapWithProfileImageUrl, withProfileImageUrl, paymentScreenshotUpload, portalImageUpload, portalVideoUpload, profilePhotoUpload, playerRegistrationUpload, toProfileImageMeta } from "../middleware/upload.js";
+import { socialIconUpload, toSocialIconUrl, eventImageUpload, toEventImageUrl, memberImageUpload, toMemberImageUrl, rewardImageUpload, toRewardImageUrl, mapWithProfileImageUrl, withProfileImageUrl, paymentScreenshotUpload, portalImageUpload, portalVideoUpload, profilePhotoUpload, playerRegistrationUpload, playerDocumentsUpload, toProfileImageMeta } from "../middleware/upload.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isReferralProgramEnabled, normalizeModuleVisibility, normalizeSocials, normalizeUpcomingEvents, normalizeMembersIntro, publicBoardMembers, normalizeBoardMembers, publicKeyDates, normalizeKeyDates, normalizeNavLabels } from "../models/SiteSettings.js";
+import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isReferralProgramEnabled, isPlayerDocumentsUploadEnabled, isPlayerPayNowEnabled, normalizeModuleVisibility, normalizeSocials, normalizeUpcomingEvents, normalizeMembersIntro, publicBoardMembers, normalizeBoardMembers, publicKeyDates, normalizeKeyDates, normalizeNavLabels } from "../models/SiteSettings.js";
 import { getGatewayStatus } from "../utils/paymentGateway.js";
+import {
+  applyPlayerDocumentFiles,
+  bankStatementCount,
+  canAdminManagePlayerDocuments,
+  parseDocumentPasswords,
+  normalizeRequestedDocKeys,
+  satisfyDocumentRequests,
+  uploadedDocumentFieldNames,
+  enrichRegistration,
+  enrichRegistrationAsync,
+  mapEnrichedRegistrationsAsync,
+  playerDocumentDiskPath,
+} from "../utils/playerDocuments.js";
+import fs from "fs";
+import path from "path";
 import { normalizeRegistrationFees, getRegistrationFeeInr } from "../utils/registrationFees.js";
 import { User } from "../models/User.js";
 import { PlayerActivity } from "../models/PlayerActivity.js";
@@ -20,7 +35,8 @@ import { FRANCHISES, getFranchiseName } from "../utils/franchises.js";
 import { buildPointsTable } from "../utils/points.js";
 import { persistUploadedFile } from "../utils/mediaStore.js";
 import { isValidPlayerRole, playerRoleLabel } from "../constants/playerRoles.js";
-import { allocateNextPlayerCode, backfillMissingPlayerCodes, buildRegistrationsCsv } from "../utils/playerCode.js";
+import { allocateNextPlayerCode, backfillMissingPlayerCodes } from "../utils/playerCode.js";
+import { buildRegistrationsCsv, parseReportColumnIds } from "../utils/reportColumns.js";
 import { mapReferredPlayer, resolveReferralCode } from "../utils/referrals.js";
 import {
   isValidImageSectionId,
@@ -265,13 +281,43 @@ router.patch("/users/:id/contact", adminRequired, async (req, res) => {
   }
 });
 
+function parseAdminListParam(raw, allowed, { mapAccepted = false } = {}) {
+  if (raw == null || raw === "") return null;
+  const parts = String(raw)
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .map((s) => (mapAccepted && s === "accepted" ? "verified" : s));
+  const valid = parts.filter((p) => allowed.includes(p));
+  return valid.length ? valid : null;
+}
+
 router.get("/registrations", adminRequired, async (req, res) => {
   const filter = {};
-  if (["pending", "verified", "rejected"].includes(req.query.status)) {
-    filter.status = req.query.status;
+  const statusAllowed = ["pending", "verified", "rejected"];
+  if (req.query.status === "") {
+    filter.status = { $in: [] };
+  } else {
+    const statusList = parseAdminListParam(req.query.status, statusAllowed, { mapAccepted: true });
+    if (statusList) {
+      filter.status = statusList.length === 1 ? statusList[0] : { $in: statusList };
+    } else if (req.query.status == null) {
+      filter.status = { $in: ["pending", "verified"] };
+    } else if (["pending", "verified", "rejected"].includes(String(req.query.status))) {
+      filter.status = String(req.query.status);
+    }
   }
-  if (["player", "captain", "franchise", "sponsor"].includes(req.query.interest)) {
-    filter.interest = req.query.interest;
+
+  const interestAllowed = ["player", "captain", "franchise", "sponsor"];
+  if (req.query.interest === "") {
+    filter.interest = { $in: [] };
+  } else {
+    const interestList = parseAdminListParam(req.query.interest, interestAllowed);
+    if (interestList) {
+      filter.interest = interestList.length === 1 ? interestList[0] : { $in: interestList };
+    } else if (["player", "captain", "franchise", "sponsor"].includes(req.query.interest)) {
+      filter.interest = String(req.query.interest);
+    }
   }
   if (["not_listed", "unsold", "sold"].includes(req.query.auctionStatus)) {
     filter.auctionStatus = req.query.auctionStatus;
@@ -281,7 +327,20 @@ router.get("/registrations", adminRequired, async (req, res) => {
   }
 
   const registrations = await PlayerRegistration.find(filter).sort({ createdAt: -1 }).lean();
-  return res.json({ registrations: mapWithProfileImageUrl(registrations) });
+  return res.json({ registrations: await mapEnrichedRegistrationsAsync(registrations) });
+});
+
+router.get("/registrations/:id", adminRequired, async (req, res) => {
+  try {
+    const registration = await PlayerRegistration.findById(req.params.id).lean();
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+    return res.json({ registration: await enrichRegistrationAsync(registration) });
+  } catch (error) {
+    console.error("admin registration get error", error);
+    return res.status(500).json({ error: "Unable to load registration." });
+  }
 });
 
 router.get("/reports/preview", adminRequired, async (req, res) => {
@@ -304,13 +363,25 @@ router.get("/reports/export", adminRequired, async (req, res) => {
     await backfillMissingPlayerCodes();
     const filter = buildReportFilter(req.query);
     const registrations = await PlayerRegistration.find(filter).sort({ playerCode: 1, createdAt: 1 }).lean();
-    const csv = buildRegistrationsCsv(registrations);
+    const columnIds = parseReportColumnIds(req.query.fields);
+    const csv = buildRegistrationsCsv(registrations, columnIds);
 
     const bits = ["uscl-report"];
-    if (filter.status) bits.push(filter.status === "verified" ? "accepted" : filter.status);
-    if (filter.interest) bits.push(filter.interest);
-    if (filter.paymentStatus) bits.push(`pay-${filter.paymentStatus}`);
-    if (filter.auctionStatus) bits.push(filter.auctionStatus);
+    if (filter.status) {
+      const st = filter.status.$in ? filter.status.$in.join("-") : filter.status;
+      bits.push(st === "verified" ? "accepted" : st);
+    }
+    if (filter.interest) {
+      bits.push(filter.interest.$in ? filter.interest.$in.join("-") : filter.interest);
+    }
+    if (filter.paymentStatus) {
+      bits.push(
+        `pay-${filter.paymentStatus.$in ? filter.paymentStatus.$in.join("-") : filter.paymentStatus}`
+      );
+    }
+    if (filter.auctionStatus) {
+      bits.push(filter.auctionStatus.$in ? filter.auctionStatus.$in.join("-") : filter.auctionStatus);
+    }
     const stamp = new Date().toISOString().slice(0, 10);
     const filename = `${bits.join("-")}-${stamp}.csv`;
 
@@ -335,27 +406,18 @@ router.get("/reports/export", adminRequired, async (req, res) => {
   }
 });
 
+function applyListFilter(filter, key, raw, allowed, { mapAccepted = false } = {}) {
+  const list = parseAdminListParam(raw, allowed, { mapAccepted });
+  if (!list) return;
+  filter[key] = list.length === 1 ? list[0] : { $in: list };
+}
+
 function buildReportFilter(query = {}) {
   const filter = {};
-  const status = String(query.status || "").trim().toLowerCase();
-  if (status === "accepted") filter.status = "verified";
-  else if (["pending", "verified", "rejected"].includes(status)) filter.status = status;
-
-  const interest = String(query.interest || "").trim().toLowerCase();
-  if (["player", "captain", "franchise", "sponsor"].includes(interest)) {
-    filter.interest = interest;
-  }
-
-  const paymentStatus = String(query.paymentStatus || "").trim().toLowerCase();
-  if (["pending", "paid", "failed", "cancelled"].includes(paymentStatus)) {
-    filter.paymentStatus = paymentStatus;
-  }
-
-  const auctionStatus = String(query.auctionStatus || "").trim().toLowerCase();
-  if (["not_listed", "unsold", "sold"].includes(auctionStatus)) {
-    filter.auctionStatus = auctionStatus;
-  }
-
+  applyListFilter(filter, "status", query.status, ["pending", "verified", "rejected"], { mapAccepted: true });
+  applyListFilter(filter, "interest", query.interest, ["player", "captain", "franchise", "sponsor"]);
+  applyListFilter(filter, "paymentStatus", query.paymentStatus, ["pending", "paid", "failed", "cancelled"]);
+  applyListFilter(filter, "auctionStatus", query.auctionStatus, ["not_listed", "unsold", "sold"]);
   return filter;
 }
 
@@ -972,10 +1034,157 @@ router.patch("/registrations/:id/enable-pay-now", adminRequired, async (req, res
       details: { enabledBy: adminName },
     });
 
-    return res.json({ registration: withProfileImageUrl(registration) });
+    return res.json({ registration: await enrichRegistrationAsync(registration) });
   } catch (error) {
     console.error("enable-pay-now error", error);
     return res.status(500).json({ error: "Unable to enable Pay now." });
+  }
+});
+
+router.patch("/registrations/:id/document-requests", adminRequired, async (req, res) => {
+  try {
+    const registration = await PlayerRegistration.findById(req.params.id);
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+    if (!canAdminManagePlayerDocuments(registration)) {
+      return res.status(403).json({ error: "Document requests are not available for this registration." });
+    }
+    const keys = normalizeRequestedDocKeys(
+      req.body.documentsRequestedFromPlayer ?? req.body.requested ?? []
+    );
+    const adminName = req.user?.name || req.user?.email || "admin";
+    registration.documentsRequestedFromPlayer = keys;
+    registration.documentsRequestedAt = keys.length ? new Date() : null;
+    registration.documentsRequestedBy = keys.length ? adminName : "";
+    await registration.save();
+
+    await recordPlayerActivity({
+      registrationId: registration._id,
+      userId: registration.userId,
+      action: keys.length ? "documents.reupload_requested" : "documents.reupload_cleared",
+      summary: keys.length
+        ? `${adminName} (admin) requested re-upload: ${keys.join(", ")}`
+        : `${adminName} (admin) cleared document re-upload requests`,
+      actorName: adminName,
+      actorRole: "admin",
+      details: { requested: keys },
+    });
+
+    return res.json({ registration: await enrichRegistrationAsync(registration) });
+  } catch (error) {
+    console.error("document-requests error", error);
+    return res.status(500).json({
+      error: error?.message || "Unable to save document requests.",
+    });
+  }
+});
+
+router.patch("/registrations/:id/documents-button", adminRequired, async (req, res) => {
+  try {
+    const registration = await PlayerRegistration.findById(req.params.id);
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+    const override = String(req.body.documentsButtonOverride || req.body.override || "auto").toLowerCase();
+    if (!["auto", "show", "hide"].includes(override)) {
+      return res.status(400).json({ error: "Override must be auto, show, or hide." });
+    }
+    registration.documentsButtonOverride = override;
+    await registration.save();
+    return res.json({ registration: await enrichRegistrationAsync(registration) });
+  } catch (error) {
+    console.error("documents-button override error", error);
+    return res.status(500).json({ error: "Unable to update documents button." });
+  }
+});
+
+async function prepareAdminPlayerDocumentsUpload(req, res, next) {
+  try {
+    const registration = await PlayerRegistration.findById(req.params.id);
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+    if (!canAdminManagePlayerDocuments(registration)) {
+      return res.status(403).json({
+        error: "Documents are only available for pending or accepted players and captains.",
+      });
+    }
+    req.registrationDoc = registration;
+    req.playerDocumentCode = registration.playerCode;
+    req._bankStatementBaseIndex = bankStatementCount(registration);
+    return next();
+  } catch (error) {
+    console.error("admin player documents prep error", error);
+    return res.status(500).json({ error: "Unable to upload documents." });
+  }
+}
+
+router.post(
+  "/registrations/:id/documents",
+  adminRequired,
+  prepareAdminPlayerDocumentsUpload,
+  (req, res) => {
+    playerDocumentsUpload(req, res, async (err) => {
+      if (err) {
+        return res.status(400).json({ error: err.message || "Upload failed." });
+      }
+      try {
+        const registration = req.registrationDoc;
+        if (!registration) {
+          return res.status(404).json({ error: "Registration not found." });
+        }
+
+        const passwords = parseDocumentPasswords(req.body);
+        const applied = applyPlayerDocumentFiles(registration, req.files, {
+          partial: true,
+          passwords,
+        });
+        if (applied.error) {
+          return res.status(400).json({ error: applied.error });
+        }
+        satisfyDocumentRequests(registration, uploadedDocumentFieldNames(req.files));
+        await registration.save();
+
+        const adminName = req.user?.name || req.user?.email || "admin";
+        await recordPlayerActivity({
+          registrationId: registration._id,
+          userId: registration.userId,
+          action: "documents.submitted",
+          summary: `${adminName} (admin) uploaded verification documents for ${registration.fullName}`,
+          actorName: adminName,
+          actorRole: "admin",
+          details: { count: registration.playerDocuments.length },
+        });
+
+        return res.json({ registration: await enrichRegistrationAsync(registration) });
+      } catch (error) {
+        console.error("admin player documents upload error", error);
+        return res.status(500).json({ error: "Unable to save documents." });
+      }
+    });
+  }
+);
+
+router.get("/registrations/:id/documents/:filename", adminRequired, async (req, res) => {
+  try {
+    const registration = await PlayerRegistration.findById(req.params.id).lean();
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+    const filename = path.basename(String(req.params.filename || ""));
+    const allowed = (registration.playerDocuments || []).some((row) => row.filename === filename);
+    if (!allowed) {
+      return res.status(404).json({ error: "Document not found." });
+    }
+    const full = playerDocumentDiskPath(filename);
+    if (!full || !fs.existsSync(full)) {
+      return res.status(404).json({ error: "Document not found." });
+    }
+    return res.sendFile(full);
+  } catch (error) {
+    console.error("admin player document download error", error);
+    return res.status(500).json({ error: "Unable to open document." });
   }
 });
 
@@ -1377,6 +1586,8 @@ router.get("/settings", adminRequired, async (_req, res) => {
         registrationFees: normalizeRegistrationFees(settings.registrationFees),
         sponsorPackages: await getSponsorPackageConfig(),
         registrationEnabled: isRegistrationEnabled(settings),
+        playerDocumentsUploadEnabled: isPlayerDocumentsUploadEnabled(settings),
+        playerPayNowEnabled: isPlayerPayNowEnabled(settings),
         referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
         navLabels: normalizeNavLabels(settings.navLabels),
@@ -1443,6 +1654,18 @@ router.put("/settings", adminRequired, async (req, res) => {
       auditBits.push(
         req.body.registrationEnabled ? "registration shown" : "registration hidden"
       );
+    }
+
+    if (typeof req.body.playerDocumentsUploadEnabled === "boolean") {
+      settings.playerDocumentsUploadEnabled = req.body.playerDocumentsUploadEnabled;
+      auditBits.push(
+        req.body.playerDocumentsUploadEnabled ? "player document uploads on" : "player document uploads off"
+      );
+    }
+
+    if (typeof req.body.playerPayNowEnabled === "boolean") {
+      settings.playerPayNowEnabled = req.body.playerPayNowEnabled;
+      auditBits.push(req.body.playerPayNowEnabled ? "player Pay now on" : "player Pay now off");
     }
 
     if (typeof req.body.referralProgramEnabled === "boolean") {
@@ -1536,6 +1759,8 @@ router.put("/settings", adminRequired, async (req, res) => {
         registrationFees: normalizeRegistrationFees(settings.registrationFees),
         sponsorPackages: await getSponsorPackageConfig(),
         registrationEnabled: isRegistrationEnabled(settings),
+        playerDocumentsUploadEnabled: isPlayerDocumentsUploadEnabled(settings),
+        playerPayNowEnabled: isPlayerPayNowEnabled(settings),
         referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
         navLabels: normalizeNavLabels(settings.navLabels),

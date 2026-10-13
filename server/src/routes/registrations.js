@@ -1,6 +1,29 @@
 import { Router } from "express";
 import { approvedRequired } from "../middleware/auth.js";
-import { playerRegistrationUpload, paymentScreenshotUpload, profilePhotoUpload, toProfileImageMeta, withProfileImageUrl, mapWithProfileImageUrl } from "../middleware/upload.js";
+import {
+  playerRegistrationUpload,
+  paymentScreenshotUpload,
+  profilePhotoUpload,
+  playerDocumentsUpload,
+  toProfileImageMeta,
+  withProfileImageUrl,
+  mapWithProfileImageUrl,
+} from "../middleware/upload.js";
+import {
+  bankStatementCount,
+  enrichRegistrationForPlayerAsync,
+  mapEnrichedRegistrationsForPlayerAsync,
+  sanitizeRegistrationForPlayerPortal,
+  playerDocumentsUploadContext,
+  shouldShowAddDocuments,
+  playerDocumentDiskPath,
+  applyPlayerDocumentFiles,
+  parseDocumentPasswords,
+  satisfyDocumentRequests,
+  uploadedDocumentFieldNames,
+} from "../utils/playerDocuments.js";
+import path from "path";
+import fs from "fs";
 import { persistUploadedFile } from "../utils/mediaStore.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
 import { isValidPlayerRole, playerRoleLabel } from "../constants/playerRoles.js";
@@ -24,7 +47,7 @@ import {
   verifyGatewayPayment,
 } from "../utils/paymentGateway.js";
 import { sendRegistrationReceivedEmail } from "../utils/mail.js";
-import { getSiteSettings, isRegistrationEnabled } from "../models/SiteSettings.js";
+import { getSiteSettings, isRegistrationEnabled, isPlayerPayNowEnabled } from "../models/SiteSettings.js";
 import { User } from "../models/User.js";
 import { allocateNextPlayerCode } from "../utils/playerCode.js";
 import { isReferralProgramEnabled, mapReferredPlayer, resolveReferralCode } from "../utils/referrals.js";
@@ -186,7 +209,7 @@ router.get("/", approvedRequired, async (req, res) => {
   const registrations = await PlayerRegistration.find({ userId: req.user.userId })
     .sort({ createdAt: -1 })
     .lean();
-  return res.json({ registrations: mapWithProfileImageUrl(registrations) });
+  return res.json({ registrations: await mapEnrichedRegistrationsForPlayerAsync(registrations) });
 });
 
 router.get("/referrals", approvedRequired, async (req, res) => {
@@ -551,7 +574,9 @@ router.post("/", approvedRequired, (req, res) => {
         feeInr,
       });
 
-      return res.status(201).json({ registration: withProfileImageUrl(registration) });
+      return res.status(201).json({
+        registration: sanitizeRegistrationForPlayerPortal(withProfileImageUrl(registration)),
+      });
     } catch (error) {
       console.error("registration error", error);
       if (error?.code === 11000 && String(error?.message || "").includes("utrNumber")) {
@@ -660,7 +685,9 @@ router.patch("/:id/payment-details", approvedRequired, (req, res) => {
         });
       }
 
-      return res.json({ registration: withProfileImageUrl(registration) });
+      return res.json({
+        registration: sanitizeRegistrationForPlayerPortal(withProfileImageUrl(registration)),
+      });
     } catch (error) {
       console.error("payment-details update error", error);
       if (error?.code === 11000 && String(error?.message || "").includes("utrNumber")) {
@@ -685,6 +712,14 @@ router.post("/:id/create-payment-order", approvedRequired, async (req, res) => {
     const status = String(registration.paymentStatus || registration.payment?.status || "pending").toLowerCase();
     if (status === "paid") {
       return res.status(400).json({ error: "Payment is already completed for this registration." });
+    }
+
+    const siteSettings = await getSiteSettings();
+    if (!isPlayerPayNowEnabled(siteSettings)) {
+      return res.status(403).json({ error: "Online payment is not available right now." });
+    }
+    if (!registration.payNowEnabled) {
+      return res.status(403).json({ error: "Pay now has not been enabled for your registration yet." });
     }
 
     const gateway = await getActivePaymentGateway();
@@ -743,7 +778,9 @@ router.patch("/:id/confirm-payment", approvedRequired, async (req, res) => {
 
     const current = String(registration.paymentStatus || registration.payment?.status || "pending").toLowerCase();
     if (current === "paid") {
-      return res.json({ registration: withProfileImageUrl(registration) });
+      return res.json({
+        registration: sanitizeRegistrationForPlayerPortal(withProfileImageUrl(registration)),
+      });
     }
 
     const razorpayOrderId = String(req.body.razorpayOrderId || "").trim();
@@ -811,7 +848,9 @@ router.patch("/:id/confirm-payment", approvedRequired, async (req, res) => {
 
     // Only persist failed/cancelled if status actually changes; always persist paid
     if (paymentStatus !== "paid" && paymentStatus === current) {
-      return res.json({ registration: withProfileImageUrl(registration) });
+      return res.json({
+        registration: sanitizeRegistrationForPlayerPortal(withProfileImageUrl(registration)),
+      });
     }
 
     const feeInr =
@@ -867,7 +906,9 @@ router.patch("/:id/confirm-payment", approvedRequired, async (req, res) => {
       });
     }
 
-    return res.json({ registration: withProfileImageUrl(registration) });
+    return res.json({
+        registration: sanitizeRegistrationForPlayerPortal(withProfileImageUrl(registration)),
+      });
   } catch (error) {
     console.error("confirm-payment error", error);
     return res.status(500).json({ error: "Unable to update payment." });
@@ -916,12 +957,101 @@ router.patch("/:id/profile-image", approvedRequired, (req, res) => {
         details: { profileImage: photo.filename },
       });
 
-      return res.json({ registration: withProfileImageUrl(registration) });
+      return res.json({ registration: await enrichRegistrationForPlayerAsync(registration) });
     } catch (error) {
       console.error("profile-image update error", error);
       return res.status(500).json({ error: "Unable to update profile picture." });
     }
   });
+});
+
+async function preparePlayerDocumentsUpload(req, res, next) {
+  try {
+    const registration = await PlayerRegistration.findOne({
+      _id: req.params.id,
+      userId: req.user.userId,
+    });
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+    const docCtx = await playerDocumentsUploadContext();
+    if (!shouldShowAddDocuments(registration, docCtx)) {
+      return res.status(403).json({ error: "Document upload is not available for this registration." });
+    }
+    req.registrationDoc = registration;
+    req.playerDocumentCode = registration.playerCode;
+    req._bankStatementBaseIndex = bankStatementCount(registration);
+    return next();
+  } catch (error) {
+    console.error("player documents prep error", error);
+    return res.status(500).json({ error: "Unable to upload documents." });
+  }
+}
+
+router.post("/:id/documents", approvedRequired, preparePlayerDocumentsUpload, (req, res) => {
+  playerDocumentsUpload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || "Upload failed." });
+    }
+    try {
+      const registration = req.registrationDoc;
+      if (!registration) {
+        return res.status(404).json({ error: "Registration not found." });
+      }
+
+      const passwords = parseDocumentPasswords(req.body);
+      const applied = applyPlayerDocumentFiles(registration, req.files, {
+        partial: true,
+        passwords,
+      });
+      if (applied.error) {
+        return res.status(400).json({ error: applied.error });
+      }
+      satisfyDocumentRequests(registration, uploadedDocumentFieldNames(req.files));
+      await registration.save();
+
+      const actorName = registration.fullName || req.user.name || "player";
+      await recordPlayerActivity({
+        registrationId: registration._id,
+        userId: registration.userId,
+        action: "documents.submitted",
+        summary: `${actorName} (player) uploaded verification documents`,
+        actorName,
+        actorRole: "player",
+        details: { count: registration.playerDocuments.length },
+      });
+
+      return res.json({ registration: await enrichRegistrationForPlayerAsync(registration) });
+    } catch (error) {
+      console.error("player documents upload error", error);
+      return res.status(500).json({ error: "Unable to save documents." });
+    }
+  });
+});
+
+router.get("/:id/documents/:filename", approvedRequired, async (req, res) => {
+  try {
+    const registration = await PlayerRegistration.findOne({
+      _id: req.params.id,
+      userId: req.user.userId,
+    }).lean();
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+    const filename = path.basename(String(req.params.filename || ""));
+    const allowed = (registration.playerDocuments || []).some((row) => row.filename === filename);
+    if (!allowed) {
+      return res.status(404).json({ error: "Document not found." });
+    }
+    const full = playerDocumentDiskPath(filename);
+    if (!full || !fs.existsSync(full)) {
+      return res.status(404).json({ error: "Document not found." });
+    }
+    return res.sendFile(full);
+  } catch (error) {
+    console.error("player document download error", error);
+    return res.status(500).json({ error: "Unable to open document." });
+  }
 });
 
 export default router;

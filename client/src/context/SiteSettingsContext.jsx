@@ -52,6 +52,7 @@ const DEFAULTS = {
     { label: "WhatsApp", href: DEFAULT_WHATSAPP_HREF, iconUrl: "" },
   ],
   registrationEnabled: true,
+  playerPayNowEnabled: true,
   referralProgramEnabled: true,
   moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
   navLabels: normalizeNavLabels({}),
@@ -69,6 +70,7 @@ const SiteSettingsContext = createContext({
   contact: DEFAULTS.contact,
   socials: DEFAULTS.socials,
   registrationEnabled: true,
+  playerPayNowEnabled: true,
   referralProgramEnabled: true,
   moduleVisibility: DEFAULTS.moduleVisibility,
   navLabels: DEFAULTS.navLabels,
@@ -87,6 +89,7 @@ export function SiteSettingsProvider({ children }) {
   const [contact, setContact] = useState(DEFAULTS.contact);
   const [socials, setSocials] = useState(DEFAULTS.socials);
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
+  const [playerPayNowEnabled, setPlayerPayNowEnabled] = useState(true);
   const [referralProgramEnabled, setReferralProgramEnabled] = useState(true);
   const [moduleVisibility, setModuleVisibility] = useState(DEFAULTS.moduleVisibility);
   const [navLabels, setNavLabels] = useState(DEFAULTS.navLabels);
@@ -105,6 +108,7 @@ export function SiteSettingsProvider({ children }) {
         setSocials(normalizeSocials(data.settings.socials, data.settings.contact));
       }
       setRegistrationEnabled(data.settings?.registrationEnabled !== false);
+      setPlayerPayNowEnabled(data.settings?.playerPayNowEnabled !== false);
       setReferralProgramEnabled(data.settings?.referralProgramEnabled !== false);
       setModuleVisibility(normalizeModuleVisibility(data.settings?.moduleVisibility));
       setNavLabels(normalizeNavLabels(data.settings?.navLabels));
@@ -146,6 +150,7 @@ export function SiteSettingsProvider({ children }) {
       contact,
       socials,
       registrationEnabled,
+      playerPayNowEnabled,
       referralProgramEnabled,
       moduleVisibility,
       navLabels,
@@ -159,7 +164,7 @@ export function SiteSettingsProvider({ children }) {
       loading,
       refresh,
     }),
-    [contact, socials, registrationEnabled, referralProgramEnabled, moduleVisibility, navLabels, navLabel, whatsappGroupUrl, upcomingEvents, membersIntro, boardMembers, keyDates, isModuleVisible, loading, refresh]
+    [contact, socials, registrationEnabled, playerPayNowEnabled, referralProgramEnabled, moduleVisibility, navLabels, navLabel, whatsappGroupUrl, upcomingEvents, membersIntro, boardMembers, keyDates, isModuleVisible, loading, refresh]
   );
 
   return <SiteSettingsContext.Provider value={value}>{children}</SiteSettingsContext.Provider>;

@@ -745,12 +745,7 @@ export default function Register() {
             {!paymentStepReg || !isQrPayment ? (
               <button
                 type="button"
-                disabled={
-                  submitting ||
-                  feeLoading ||
-                  feeInr == null ||
-                  (!isQrPayment && !paymentConfigured)
-                }
+                disabled={submitting || feeLoading || feeInr == null}
                 className="btn-primary sm:col-span-2"
                 onClick={handlePayNow}
               >

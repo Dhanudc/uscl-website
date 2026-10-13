@@ -37,9 +37,8 @@ function GallerySection({ section }) {
   return (
     <article className="media-gallery-section" id={section.id}>
       <div className="media-gallery-section__head">
-        <p className="eyebrow text-accent">Gallery</p>
         <h3 className="media-gallery-section__title">{section.title}</h3>
-        <p className="media-gallery-section__body">{section.body}</p>
+        {section.body ? <p className="media-gallery-section__body">{section.body}</p> : null}
         <p className="media-gallery-section__count">{images.length} photo{images.length === 1 ? "" : "s"}</p>
       </div>
 

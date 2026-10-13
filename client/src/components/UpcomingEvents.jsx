@@ -21,25 +21,27 @@ export function EventPost({ event }) {
   const when = formatEventWhen(event.eventDate);
   const external = /^https?:\/\//i.test(event.link || "");
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-[color:var(--border)] bg-ink-card text-center">
+    <article className="event-post-card flex h-full flex-col overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
       {event.imageUrl ? (
         <ZoomableImage
           src={event.imageUrl}
           alt={event.title || "Event"}
           buttonClassName="block w-full"
-          className="aspect-square w-full object-cover"
+          className="event-post-card__img aspect-[4/3] w-full object-cover"
         />
       ) : null}
-      <div className="flex flex-1 flex-col items-center px-5 py-6">
+      <div className="flex flex-1 flex-col px-3 py-3 text-left">
         {when ? (
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">{when}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-accent">{when}</p>
         ) : null}
-        <h3 className="mt-3 font-display text-2xl leading-tight text-[color:var(--title)]">{event.title}</h3>
+        <h3 className="mt-1 font-display text-base leading-snug text-[color:var(--title)]">{event.title}</h3>
         {event.caption ? (
-          <p className="mt-2 text-sm leading-relaxed text-[color:var(--text)]">{event.caption}</p>
+          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[color:var(--text-muted)]">{event.caption}</p>
         ) : null}
         {event.location ? (
-          <p className="mt-4 rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-white">{event.location}</p>
+          <p className="mt-2 inline-flex max-w-full self-start rounded-full bg-accent/15 px-2.5 py-0.5 text-[11px] font-semibold text-accent-soft">
+            {event.location}
+          </p>
         ) : null}
         {event.link ? (
           external ? (
