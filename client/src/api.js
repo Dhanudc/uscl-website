@@ -1,4 +1,4 @@
-import { PLAYER_DOCUMENT_UPLOAD_SIZE_HINT } from "./utils/playerDocumentUploadBatches.js";
+import { PLAYER_DOCUMENT_UPLOAD_SIZE_HINT } from "./utils/playerDocumentUpload.js";
 
 // Same-origin in production so Vercel rewrites proxy /api → Render.
 // Calling Render directly breaks the session cookie (third-party blocked).

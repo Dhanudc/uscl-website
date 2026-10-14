@@ -215,6 +215,8 @@ function playerDocumentDiskFilename(req, file, cb) {
 }
 
 /** Private verification docs (PAN, payslips, bank statement, etc.). */
+const PLAYER_DOCUMENT_MAX_BYTES = 50 * 1024 * 1024;
+
 export const playerDocumentsUpload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, playerDocumentsRoot),
@@ -222,8 +224,8 @@ export const playerDocumentsUpload = multer({
   }),
   fileFilter,
   limits: {
-    fileSize: 200 * 1024 * 1024,
-    fieldSize: 200 * 1024 * 1024,
+    fileSize: PLAYER_DOCUMENT_MAX_BYTES,
+    fieldSize: 2 * 1024 * 1024,
     files: 20,
   },
 }).fields([

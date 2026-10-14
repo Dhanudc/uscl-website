@@ -17,6 +17,8 @@ services:
         value: https://uscl-website-opal.vercel.app
       - key: CLIENT_URLS
         value: https://www.usclt20.com,https://usclt20.com
+      - key: PUBLIC_API_URL
+        value: https://uscl-website.onrender.com
       - key: JWT_SECRET
         generateValue: true
       - key: MONGODB_URI

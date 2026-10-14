@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { adminRequired, hashPassword } from "../middleware/auth.js";
+import { documentUploadAuth } from "../middleware/documentUploadAuth.js";
+import { getPublicApiBase, signDocumentUploadToken } from "../utils/documentUploadToken.js";
 import { socialIconUpload, toSocialIconUrl, eventImageUpload, toEventImageUrl, memberImageUpload, toMemberImageUrl, rewardImageUpload, toRewardImageUrl, mapWithProfileImageUrl, withProfileImageUrl, paymentScreenshotUpload, portalImageUpload, portalVideoUpload, profilePhotoUpload, playerRegistrationUpload, playerDocumentsUpload, toProfileImageMeta } from "../middleware/upload.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
@@ -1257,9 +1259,35 @@ async function prepareAdminPlayerDocumentsUpload(req, res, next) {
   }
 }
 
+router.post("/registrations/:id/documents/upload-token", adminRequired, async (req, res) => {
+  try {
+    const registration = await PlayerRegistration.findById(req.params.id);
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+    if (!canAdminManagePlayerDocuments(registration)) {
+      return res.status(403).json({
+        error: "Documents are only available for pending or accepted players and captains.",
+      });
+    }
+    const token = signDocumentUploadToken({
+      user: req.user,
+      registrationId: registration._id,
+      admin: true,
+    });
+    return res.json({
+      directApiBase: getPublicApiBase(req),
+      token,
+    });
+  } catch (error) {
+    console.error("admin documents upload-token error", error);
+    return res.status(500).json({ error: "Unable to start upload." });
+  }
+});
+
 router.post(
   "/registrations/:id/documents",
-  adminRequired,
+  documentUploadAuth({ requireAdmin: true }),
   prepareAdminPlayerDocumentsUpload,
   (req, res) => {
     playerDocumentsUpload(req, res, async (err) => {

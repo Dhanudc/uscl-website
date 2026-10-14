@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
-import { api } from "../api";
+import { apiDocumentUpload } from "../apiDocumentUpload";
 import {
-  buildPlayerDocumentUploadBatches,
+  buildPlayerDocumentFormData,
   PLAYER_DOCUMENT_UPLOAD_SIZE_HINT,
-} from "../utils/playerDocumentUploadBatches";
+} from "../utils/playerDocumentUpload";
 import {
   PLAYER_DOCUMENT_FIELDS,
   playerUploadFieldRows,
@@ -79,26 +79,24 @@ export default function PlayerDocumentsModal({
         }
       }
 
-      const batches = buildPlayerDocumentUploadBatches({
+      const formData = buildPlayerDocumentFormData({
         rowsToShow,
         files,
         textValues,
         statementPassword,
       });
-      if (!batches.length) {
+      if (!formData) {
         throw new Error("Nothing to save.");
       }
 
-      const path = uploadPath || `/api/registrations/${registration._id}/documents`;
-      let latestRegistration = registration;
-      for (const body of batches) {
-        const data = await api(path, {
-          method: "POST",
-          body,
-        });
-        latestRegistration = data.registration;
-      }
-      onSaved?.(latestRegistration);
+      const regId = registration._id;
+      const path = uploadPath || `/api/registrations/${regId}/documents`;
+      const tokenPath = uploadPath?.includes("/api/admin/")
+        ? `/api/admin/registrations/${regId}/documents/upload-token`
+        : `/api/registrations/${regId}/documents/upload-token`;
+
+      const data = await apiDocumentUpload(path, formData, { tokenPath });
+      onSaved?.(data.registration);
       onClose?.();
     } catch (err) {
       setError(err.message || "Unable to upload documents.");

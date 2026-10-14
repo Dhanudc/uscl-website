@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { approvedRequired } from "../middleware/auth.js";
+import { documentUploadAuth } from "../middleware/documentUploadAuth.js";
+import { getPublicApiBase, signDocumentUploadToken } from "../utils/documentUploadToken.js";
 import {
   playerRegistrationUpload,
   paymentScreenshotUpload,
@@ -996,7 +998,31 @@ async function preparePlayerDocumentsUpload(req, res, next) {
   }
 }
 
-router.post("/:id/documents", approvedRequired, preparePlayerDocumentsUpload, (req, res) => {
+router.post("/:id/documents/upload-token", approvedRequired, async (req, res) => {
+  try {
+    const registration = await PlayerRegistration.findOne({
+      _id: req.params.id,
+      userId: req.user.userId,
+    });
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+    const token = signDocumentUploadToken({
+      user: req.user,
+      registrationId: registration._id,
+      admin: false,
+    });
+    return res.json({
+      directApiBase: getPublicApiBase(req),
+      token,
+    });
+  } catch (error) {
+    console.error("documents upload-token error", error);
+    return res.status(500).json({ error: "Unable to start upload." });
+  }
+});
+
+router.post("/:id/documents", documentUploadAuth(), preparePlayerDocumentsUpload, (req, res) => {
   playerDocumentsUpload(req, res, async (err) => {
     if (err) {
       return res.status(400).json({ error: err.message || "Upload failed." });
