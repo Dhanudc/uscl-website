@@ -739,7 +739,7 @@ export default function Dashboard() {
             setRegs((prev) =>
               prev.map((r) => (String(r._id) === String(updated._id) ? updated : r))
             );
-            setDocumentsModalReg(null);
+            setDocumentsModalReg(updated);
           }}
         />
       ) : null}

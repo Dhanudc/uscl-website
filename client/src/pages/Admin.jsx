@@ -2070,8 +2070,8 @@ function PlayersPage() {
             if (detailReg && String(detailReg._id) === String(updated._id)) {
               setDetailReg(updated);
             }
-            setDocumentsAddReg(null);
-            setMessage(`Documents saved for ${updated.fullName}.`);
+            setDocumentsAddReg(updated);
+            setMessage(`Documents saved for ${updated.fullName}. You can upload more or tap Done.`);
           }}
         />
       ) : null}
