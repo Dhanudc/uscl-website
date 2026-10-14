@@ -5,6 +5,7 @@ const DOC_LABELS = {
   payslip_1: "Payslip 1",
   payslip_2: "Payslip 2",
   payslip_3: "Payslip 3",
+  hr_noc: "HR NOC",
   payment_utr: "Payment UTR",
   payment_attachment: "Payment attachment",
 };

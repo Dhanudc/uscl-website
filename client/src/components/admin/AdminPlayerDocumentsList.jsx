@@ -82,6 +82,7 @@ export default function AdminPlayerDocumentsList({ registration, compact = false
 
   const identity = docs.filter((d) => ["pan", "aadhar_front", "aadhar_back"].includes(docKeyBaseFamily(d.docKey)));
   const payslips = docs.filter((d) => docKeyBaseFamily(d.docKey).startsWith("payslip_"));
+  const hrNoc = docs.filter((d) => docKeyBaseFamily(d.docKey) === "hr_noc");
   const banks = docs.filter((d) => docKeyBaseFamily(d.docKey) === "bank_statement");
   const paymentAttachments = docs.filter((d) => docKeyBaseFamily(d.docKey) === "payment_attachment");
   const legacyUtrFiles = docs.filter((d) => docKeyBaseFamily(d.docKey) === "payment_utr");
@@ -178,6 +179,13 @@ export default function AdminPlayerDocumentsList({ registration, compact = false
       <DocSection
         title="Payslips"
         docs={payslips}
+        busy={busy}
+        onView={viewDocument}
+        onDownload={downloadDocument}
+      />
+      <DocSection
+        title="HR NOC"
+        docs={hrNoc}
         busy={busy}
         onView={viewDocument}
         onDownload={downloadDocument}

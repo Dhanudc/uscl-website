@@ -16,6 +16,7 @@ export const REQUIRED_DOC_KEYS = [
   "payslip_1",
   "payslip_2",
   "payslip_3",
+  "hr_noc",
 ];
 
 export const DOC_FIELD_NAMES = [
@@ -25,6 +26,7 @@ export const DOC_FIELD_NAMES = [
   "payslip_1",
   "payslip_2",
   "payslip_3",
+  "hr_noc",
   "bank_statement",
   "payment_utr",
   "payment_attachment",
@@ -63,6 +65,7 @@ export const REQUESTABLE_DOC_KEYS = [
   "payslip_1",
   "payslip_2",
   "payslip_3",
+  "hr_noc",
   "bank_statement",
   "payment_utr",
   "payment_attachment",
@@ -425,6 +428,7 @@ export const DOC_LABELS = {
   payslip_1: "Payslip 1",
   payslip_2: "Payslip 2",
   payslip_3: "Payslip 3",
+  hr_noc: "HR NOC",
   payment_utr: "Payment UTR",
   payment_attachment: "Payment attachment",
 };

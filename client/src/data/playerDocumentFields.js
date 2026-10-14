@@ -7,6 +7,7 @@ export const PLAYER_DOCUMENT_FIELDS = [
   { key: "payslip_1", label: "Payslip 1", multiple: false, needsPassword: false, section: "payslips" },
   { key: "payslip_2", label: "Payslip 2", multiple: false, needsPassword: false, section: "payslips" },
   { key: "payslip_3", label: "Payslip 3", multiple: false, needsPassword: false, section: "payslips" },
+  { key: "hr_noc", label: "HR NOC", multiple: false, needsPassword: false, section: "employment" },
   {
     key: "bank_statement",
     label: "Bank statement",

@@ -5,6 +5,7 @@ const VERSIONED_BASES = new Set([
   "payslip_1",
   "payslip_2",
   "payslip_3",
+  "hr_noc",
   "payment_utr",
   "payment_attachment",
 ]);

@@ -235,6 +235,7 @@ export const playerDocumentsUpload = multer({
   { name: "payslip_1", maxCount: 1 },
   { name: "payslip_2", maxCount: 1 },
   { name: "payslip_3", maxCount: 1 },
+  { name: "hr_noc", maxCount: 1 },
   { name: "bank_statement", maxCount: 10 },
   { name: "payment_attachment", maxCount: 1 },
 ]);
