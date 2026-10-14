@@ -1,3 +1,5 @@
+import { PLAYER_DOCUMENT_UPLOAD_SIZE_HINT } from "./utils/playerDocumentUploadBatches.js";
+
 // Same-origin in production so Vercel rewrites proxy /api → Render.
 // Calling Render directly breaks the session cookie (third-party blocked).
 const API_BASE = String(import.meta.env.VITE_API_URL || "")
@@ -33,9 +35,16 @@ export async function api(path, options = {}) {
     }
   }
   if (!res.ok) {
+    if (res.status === 413) {
+      throw new Error(PLAYER_DOCUMENT_UPLOAD_SIZE_HINT);
+    }
+    const rawSnippet =
+      raw && !raw.startsWith("{")
+        ? raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200)
+        : "";
     const fallback =
       data.error ||
-      (raw && !raw.startsWith("{") ? raw.trim().slice(0, 240) : "") ||
+      rawSnippet ||
       res.statusText ||
       `HTTP ${res.status}`;
     if (res.status === 404) {

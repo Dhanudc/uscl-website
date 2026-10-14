@@ -1,6 +1,10 @@
 import { useMemo, useState } from "react";
 import { api } from "../api";
 import {
+  buildPlayerDocumentUploadBatches,
+  PLAYER_DOCUMENT_UPLOAD_SIZE_HINT,
+} from "../utils/playerDocumentUploadBatches";
+import {
   PLAYER_DOCUMENT_FIELDS,
   playerUploadFieldRows,
 } from "../data/playerDocumentFields";
@@ -61,53 +65,40 @@ export default function PlayerDocumentsModal({
         throw new Error("No documents are required right now.");
       }
 
-      const formData = new FormData();
-      const passwords = {};
-      let hasPayload = false;
-
       for (const row of rowsToShow) {
         if (row.inputType === "text") {
           const val = String(textValues[row.key] || "").trim();
           if (!val) {
             throw new Error(`Please enter ${row.label}.`);
           }
-          if (row.key === "payment_utr") {
-            formData.set("paymentUtr", val);
-            hasPayload = true;
-          }
           continue;
         }
-
         const picked = files[row.key];
         if (!picked || !picked.length) {
           throw new Error(`Please choose a file for ${row.label}.`);
         }
-        hasPayload = true;
-        if (row.multiple) {
-          for (const file of picked) {
-            formData.append("bank_statement", file);
-          }
-          const pwd = statementPassword.trim();
-          if (pwd) passwords.bank_statement = pwd;
-        } else {
-          formData.append(row.key, picked[0]);
-        }
       }
 
-      if (!hasPayload) {
+      const batches = buildPlayerDocumentUploadBatches({
+        rowsToShow,
+        files,
+        textValues,
+        statementPassword,
+      });
+      if (!batches.length) {
         throw new Error("Nothing to save.");
       }
 
-      if (Object.keys(passwords).length) {
-        formData.set("documentPasswords", JSON.stringify(passwords));
-      }
-
       const path = uploadPath || `/api/registrations/${registration._id}/documents`;
-      const data = await api(path, {
-        method: "POST",
-        body: formData,
-      });
-      onSaved?.(data.registration);
+      let latestRegistration = registration;
+      for (const body of batches) {
+        const data = await api(path, {
+          method: "POST",
+          body,
+        });
+        latestRegistration = data.registration;
+      }
+      onSaved?.(latestRegistration);
       onClose?.();
     } catch (err) {
       setError(err.message || "Unable to upload documents.");
@@ -139,6 +130,9 @@ export default function PlayerDocumentsModal({
             : hasPendingRequest
               ? "Your admin asked you to re-upload only the documents listed below."
               : "Upload the required documents still missing from your profile. Bank statement and payment attachment are optional unless admin requested them. Payment UTR is a text reference, not a file."}
+        </p>
+        <p className="mt-2 text-xs leading-relaxed text-[color:var(--text-muted)]">
+          {PLAYER_DOCUMENT_UPLOAD_SIZE_HINT}
         </p>
 
         {error ? (
