@@ -13,6 +13,10 @@ function isLocalDevHost() {
   return host === "localhost" || host === "127.0.0.1";
 }
 
+function isAdminDocumentUploadPath(uploadPath) {
+  return String(uploadPath || "").includes("/api/admin/");
+}
+
 function resolveDirectApiBase(raw) {
   const base = String(raw || "").trim().replace(/\/$/, "");
   if (!base || /localhost|127\.0\.0\.1/i.test(base)) {
@@ -39,7 +43,9 @@ async function parseUploadResponse(res) {
       raw && !raw.startsWith("{")
         ? raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200)
         : "";
-    throw new Error(data.error || rawSnippet || res.statusText || `HTTP ${res.status}`);
+    const err = new Error(data.error || rawSnippet || res.statusText || `HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
   }
   return data;
 }
@@ -80,6 +86,11 @@ async function postViaDirectApi(uploadPath, formData, session) {
   } catch {
     throw new Error("DIRECT_UPLOAD_NETWORK_ERROR");
   }
+
+  if (res.status === 401 || res.status === 403) {
+    return postViaSameOrigin(uploadPath, formData);
+  }
+
   return parseUploadResponse(res);
 }
 
@@ -94,22 +105,29 @@ async function postDocumentUpload(uploadPath, formData, session) {
     if (err?.message === "DIRECT_UPLOAD_NETWORK_ERROR") {
       try {
         return await postViaSameOrigin(uploadPath, formData);
-      } catch (fallbackErr) {
+      } catch {
         throw new Error(
           "Upload could not reach the server. Check your internet connection and try again. " +
             PLAYER_DOCUMENT_UPLOAD_SIZE_HINT
         );
       }
     }
+    if (err?.status === 401 || err?.status === 403) {
+      return postViaSameOrigin(uploadPath, formData);
+    }
     throw err;
   }
 }
 
 /**
- * Upload player documents (multipart). Uses a short-lived token + direct API URL in production
- * so large files bypass the Vercel /api body limit.
+ * Upload player documents (multipart). Admin uploads use same-origin + session cookies.
+ * Players try direct API first (large files), then fall back to same-origin on auth errors.
  */
 export async function apiDocumentUpload(uploadPath, formData, { tokenPath, session }) {
+  if (isAdminDocumentUploadPath(uploadPath)) {
+    return postViaSameOrigin(uploadPath, formData);
+  }
+
   const activeSession = session ?? (await fetchDocumentUploadSession(tokenPath));
   return postDocumentUpload(uploadPath, formData, activeSession);
 }

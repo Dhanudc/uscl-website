@@ -94,7 +94,6 @@ export default function Dashboard() {
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [documentsModalReg, setDocumentsModalReg] = useState(null);
-
   const [refsOpen, setRefsOpen] = useState(false);
   const [refsLoading, setRefsLoading] = useState(false);
   const [refsError, setRefsError] = useState("");
