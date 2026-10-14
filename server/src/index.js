@@ -61,6 +61,9 @@ app.use(
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-USCL-Portal", "Accept"],
+    maxAge: 86400,
   })
 );
 app.use(express.json({ limit: "2mb" }));

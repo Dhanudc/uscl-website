@@ -2,19 +2,17 @@ import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || "uscl-dev-secret";
 
-export function getPublicApiBase(req) {
+const PRODUCTION_API_FALLBACK = "https://uscl-website.onrender.com";
+
+export function getPublicApiBase(_req) {
   const fromEnv = String(
     process.env.PUBLIC_API_URL || process.env.RENDER_EXTERNAL_URL || process.env.API_PUBLIC_URL || ""
   )
     .trim()
     .replace(/\/$/, "");
   if (fromEnv) return fromEnv;
-  if (req) {
-    const proto = String(req.get("x-forwarded-proto") || req.protocol || "https").split(",")[0].trim();
-    const host = String(req.get("x-forwarded-host") || req.get("host") || "").split(",")[0].trim();
-    if (host && !host.includes("usclt20.com") && !host.includes("vercel.app")) {
-      return `${proto}://${host}`.replace(/\/$/, "");
-    }
+  if (process.env.NODE_ENV === "production") {
+    return PRODUCTION_API_FALLBACK;
   }
   return "http://localhost:5000";
 }

@@ -14,9 +14,9 @@ services:
       - key: COOKIE_SAME_SITE
         value: none
       - key: CLIENT_URL
-        value: https://uscl-website-opal.vercel.app
+        value: https://www.usclt20.com
       - key: CLIENT_URLS
-        value: https://www.usclt20.com,https://usclt20.com
+        value: https://www.usclt20.com,https://usclt20.com,https://uscl-website-opal.vercel.app
       - key: PUBLIC_API_URL
         value: https://uscl-website.onrender.com
       - key: JWT_SECRET

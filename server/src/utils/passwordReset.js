@@ -6,7 +6,10 @@ export function hashResetToken(token) {
 }
 
 export function buildPasswordResetUrl(user, rawToken) {
-  const clientUrl = String(process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
+  const clientUrl = String(
+    process.env.CLIENT_URL ||
+      (process.env.NODE_ENV === "production" ? "https://www.usclt20.com" : "http://localhost:5173")
+  ).replace(/\/$/, "");
   const email = String(user?.email || "").trim().toLowerCase();
   return `${clientUrl}/reset-password?token=${rawToken}&email=${encodeURIComponent(email)}`;
 }
