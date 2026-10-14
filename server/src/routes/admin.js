@@ -39,6 +39,10 @@ import { buildPointsTable } from "../utils/points.js";
 import { persistUploadedFile } from "../utils/mediaStore.js";
 import { isValidPlayerRole, playerRoleLabel } from "../constants/playerRoles.js";
 import { allocateNextPlayerCode, backfillMissingPlayerCodes } from "../utils/playerCode.js";
+import {
+  appendProfileImagesToArchive,
+  createProfileImagesZipStream,
+} from "../utils/exportProfileImagesZip.js";
 import { buildRegistrationsCsv, parseReportColumnIds } from "../utils/reportColumns.js";
 import { mapReferredPlayer, resolveReferralCode } from "../utils/referrals.js";
 import {
@@ -412,6 +416,43 @@ router.get("/reports/preview", adminRequired, async (req, res) => {
   } catch (error) {
     console.error("reports preview error", error);
     return res.status(500).json({ error: "Unable to load report preview." });
+  }
+});
+
+router.get("/profile-images/export.zip", adminRequired, async (req, res) => {
+  try {
+    await backfillMissingPlayerCodes();
+    const registrations = await PlayerRegistration.find({
+      $or: [
+        { profileImage: { $exists: true, $nin: ["", null] } },
+        { "photo.filename": { $exists: true, $nin: ["", null] } },
+      ],
+    })
+      .select("playerCode fullName profileImage photo")
+      .sort({ playerCode: 1, createdAt: 1 })
+      .lean();
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    const filename = `uscl-profile-photos-${stamp}.zip`;
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+    const archive = createProfileImagesZipStream(res);
+    const { added, skipped } = await appendProfileImagesToArchive(archive, registrations);
+    await archive.finalize();
+
+    await writeAudit(req, {
+      action: "profile_images.export",
+      targetType: "export",
+      targetId: null,
+      targetLabel: filename,
+      details: { summary: `Exported ${added} profile photo(s)`, added, skipped },
+    });
+  } catch (error) {
+    console.error("profile images export error", error);
+    if (!res.headersSent) {
+      return res.status(500).json({ error: "Unable to export profile photos." });
+    }
   }
 });
 

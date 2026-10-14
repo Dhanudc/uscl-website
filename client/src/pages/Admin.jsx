@@ -3301,8 +3301,26 @@ function SiteSettingsPage() {
   const [navLabels, setNavLabels] = useState(() => normalizeNavLabels({}));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [exportingPics, setExportingPics] = useState(false);
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
+
+  async function exportProfilePhotos() {
+    setError("");
+    setOk("");
+    setExportingPics(true);
+    try {
+      const stamp = new Date().toISOString().slice(0, 10);
+      await apiDownload("/api/admin/profile-images/export.zip", {
+        filename: `uscl-profile-photos-${stamp}.zip`,
+      });
+      setOk("Profile photos ZIP downloaded.");
+    } catch (err) {
+      setError(err.message || "Unable to export profile photos.");
+    } finally {
+      setExportingPics(false);
+    }
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -3449,8 +3467,32 @@ function SiteSettingsPage() {
             </div>
           </section>
 
+          <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
+            <div className="border-b border-[color:var(--border)] px-5 py-4">
+              <p className="eyebrow text-accent">Exports</p>
+              <h2 className="font-display mt-1 text-xl text-[color:var(--title)]">
+                Player profile photos
+              </h2>
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                Download a ZIP of all profile pictures. Each file is named like{" "}
+                <span className="font-mono text-[color:var(--text)]">USCL-00042_Koushik_Reddy.jpg</span>{" "}
+                (player ID + name).
+              </p>
+            </div>
+            <div className="p-5">
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={exportingPics || saving}
+                onClick={exportProfilePhotos}
+              >
+                {exportingPics ? "Preparing ZIP…" : "Player profile pics export"}
+              </button>
+            </div>
+          </section>
+
           <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button type="submit" disabled={saving || exportingPics} className="btn-primary">
               {saving ? "Saving..." : "Save settings"}
             </button>
             {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
