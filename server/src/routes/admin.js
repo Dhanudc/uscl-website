@@ -12,11 +12,15 @@ import {
   bankStatementCount,
   canAdminManagePlayerDocuments,
   normalizeRequestedDocKeys,
+  normalizeDocumentsVerificationStatus,
+  buildDocumentsVerificationFilterOr,
+  promotePendingDocumentReviewsToInProgress,
   enrichRegistration,
   enrichRegistrationAsync,
   mapEnrichedRegistrationsAsync,
   playerDocumentDiskPath,
 } from "../utils/playerDocuments.js";
+import { sendUserPasswordResetEmail } from "../utils/passwordReset.js";
 import fs from "fs";
 import path from "path";
 import { normalizeRegistrationFees, getRegistrationFeeInr } from "../utils/registrationFees.js";
@@ -176,6 +180,46 @@ router.patch("/users/:id", adminRequired, async (req, res) => {
   }
 });
 
+router.post("/users/:id/send-password-reset", adminRequired, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ error: "User not found." });
+    if (user.role === "admin") {
+      return res.status(400).json({ error: "Cannot send player reset email for an admin account." });
+    }
+    if (!String(user.email || "").trim()) {
+      return res.status(400).json({ error: "User has no email address." });
+    }
+
+    const result = await sendUserPasswordResetEmail(user);
+
+    await writeAudit(req, {
+      action: "user.password_reset_email",
+      targetType: "user",
+      targetId: user._id,
+      targetLabel: `${user.name} <${user.email}>`,
+      details: { sent: Boolean(result.sent) },
+    });
+
+    if (result.sent) {
+      return res.json({
+        ok: true,
+        message: `Password reset email sent to ${user.email} from notifications@usclt20.com.`,
+      });
+    }
+
+    return res.json({
+      ok: true,
+      message: "SMTP is not configured. Use this reset link (valid 1 hour):",
+      resetLink: result.resetLink,
+      email: user.email,
+    });
+  } catch (error) {
+    console.error("admin send password reset error", error);
+    return res.status(500).json({ error: "Unable to send password reset email." });
+  }
+});
+
 router.post("/users/:id/password", adminRequired, async (req, res) => {
   try {
     const password = String(req.body.password || "");
@@ -323,6 +367,19 @@ router.get("/registrations", adminRequired, async (req, res) => {
     filter.franchiseId = String(req.query.franchiseId);
   }
 
+  const docStatusAllowed = ["in_progress", "uploaded", "verified", "rejected"];
+  if (req.query.docStatus === "") {
+    filter._id = { $in: [] };
+  } else {
+    const docList = parseAdminListParam(req.query.docStatus, docStatusAllowed);
+    const or = buildDocumentsVerificationFilterOr(docList || []);
+    if (or.length) {
+      filter.$and = [...(filter.$and || []), { $or: or }];
+    }
+  }
+
+  await promotePendingDocumentReviewsToInProgress();
+
   const registrations = await PlayerRegistration.find(filter).sort({ createdAt: -1 }).lean();
   return res.json({ registrations: await mapEnrichedRegistrationsAsync(registrations) });
 });
@@ -343,6 +400,7 @@ router.get("/registrations/:id", adminRequired, async (req, res) => {
 router.get("/reports/preview", adminRequired, async (req, res) => {
   try {
     await backfillMissingPlayerCodes();
+    await promotePendingDocumentReviewsToInProgress();
     const filter = buildReportFilter(req.query);
     const registrations = await PlayerRegistration.find(filter).sort({ playerCode: 1, createdAt: 1 }).lean();
     return res.json({
@@ -358,6 +416,7 @@ router.get("/reports/preview", adminRequired, async (req, res) => {
 router.get("/reports/export", adminRequired, async (req, res) => {
   try {
     await backfillMissingPlayerCodes();
+    await promotePendingDocumentReviewsToInProgress();
     const filter = buildReportFilter(req.query);
     const registrations = await PlayerRegistration.find(filter).sort({ playerCode: 1, createdAt: 1 }).lean();
     const columnIds = parseReportColumnIds(req.query.fields);
@@ -415,6 +474,13 @@ function buildReportFilter(query = {}) {
   applyListFilter(filter, "interest", query.interest, ["player", "captain", "franchise", "sponsor"]);
   applyListFilter(filter, "paymentStatus", query.paymentStatus, ["pending", "paid", "failed", "cancelled"]);
   applyListFilter(filter, "auctionStatus", query.auctionStatus, ["not_listed", "unsold", "sold"]);
+
+  const docList = parseAdminListParam(query.docStatus, ["in_progress", "uploaded", "verified", "rejected"]);
+  const docOr = buildDocumentsVerificationFilterOr(docList || []);
+  if (docOr.length) {
+    filter.$and = [...(filter.$and || []), { $or: docOr }];
+  }
+
   return filter;
 }
 
@@ -1074,6 +1140,80 @@ router.patch("/registrations/:id/document-requests", adminRequired, async (req, 
     return res.status(500).json({
       error: error?.message || "Unable to save document requests.",
     });
+  }
+});
+
+router.patch("/registrations/:id/documents-verification", adminRequired, async (req, res) => {
+  try {
+    const registration = await PlayerRegistration.findById(req.params.id);
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+    if (!canAdminManagePlayerDocuments(registration)) {
+      return res.status(403).json({ error: "Document verification is not available for this registration." });
+    }
+
+    const decision = String(req.body.status || req.body.decision || "").toLowerCase();
+    if (!["verified", "rejected", "in_progress"].includes(decision)) {
+      return res.status(400).json({ error: 'Status must be "in_progress", "verified", or "rejected".' });
+    }
+
+    const adminName = req.user?.name || req.user?.email || "admin";
+    const patch = {
+      documentsVerificationStatus: decision,
+      documentsVerificationAt: new Date(),
+      documentsVerificationBy: decision === "in_progress" ? "" : adminName,
+    };
+    const updated = await PlayerRegistration.findByIdAndUpdate(
+      registration._id,
+      { $set: patch },
+      { new: true, runValidators: true }
+    );
+    if (!updated) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+
+    const activityAction =
+      decision === "verified"
+        ? "documents.verified"
+        : decision === "rejected"
+          ? "documents.rejected"
+          : "documents.in_progress";
+    const activitySummary =
+      decision === "verified"
+        ? `${adminName} (admin) marked documents verified for ${updated.fullName}`
+        : decision === "rejected"
+          ? `${adminName} (admin) rejected documents for ${updated.fullName}`
+          : `${adminName} (admin) set document review to in progress for ${updated.fullName}`;
+    await recordPlayerActivity({
+      registrationId: updated._id,
+      userId: updated.userId,
+      action: activityAction,
+      summary: activitySummary,
+      actorName: adminName,
+      actorRole: "admin",
+      details: { status: decision },
+    });
+
+    const auditAction =
+      decision === "verified"
+        ? "registration.documents_verified"
+        : decision === "rejected"
+          ? "registration.documents_rejected"
+          : "registration.documents_in_progress";
+    await writeAudit(req, {
+      action: auditAction,
+      targetType: "registration",
+      targetId: updated._id,
+      targetLabel: `${updated.fullName} <${updated.email}>`,
+      details: { status: decision, by: adminName },
+    });
+
+    return res.json({ registration: await enrichRegistrationAsync(updated) });
+  } catch (error) {
+    console.error("documents-verification error", error);
+    const msg = error?.message || "Unable to update document verification.";
+    return res.status(500).json({ error: msg });
   }
 });
 

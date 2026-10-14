@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { createHash, randomBytes } from "crypto";
 import { User } from "../models/User.js";
 import {
   authRequired,
@@ -9,13 +8,10 @@ import {
   signToken,
   verifyPassword,
 } from "../middleware/auth.js";
-import { isMailConfigured, sendPasswordResetEmail } from "../utils/mail.js";
+import { isMailConfigured } from "../utils/mail.js";
+import { hashResetToken, sendUserPasswordResetEmail } from "../utils/passwordReset.js";
 
 const router = Router();
-
-function hashToken(token) {
-  return createHash("sha256").update(token).digest("hex");
-}
 
 function publicUser(user) {
   return {
@@ -196,29 +192,23 @@ router.post("/forgot-password", async (req, res) => {
       });
     }
 
-    const rawToken = randomBytes(32).toString("hex");
-    user.resetPasswordTokenHash = hashToken(rawToken);
-    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
-    await user.save();
-
-    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
-    const resetLink = `${clientUrl}/reset-password?token=${rawToken}&email=${encodeURIComponent(email)}`;
-
-    if (isMailConfigured()) {
-      try {
-        await sendPasswordResetEmail({ to: email, name: user.name, resetLink });
+    try {
+      const result = await sendUserPasswordResetEmail(user);
+      if (result.sent) {
         return res.json(generic);
-      } catch (mailError) {
-        console.error("forgot-password mail error", mailError);
+      }
+      return res.json({
+        message: "Reset link created. Open it within 1 hour to set a new password.",
+        resetLink: result.resetLink,
+        email,
+      });
+    } catch (mailError) {
+      console.error("forgot-password mail error", mailError);
+      if (isMailConfigured()) {
         return res.status(500).json({ error: "Unable to send reset email. Please try again." });
       }
+      return res.status(500).json({ error: "Unable to process request." });
     }
-
-    return res.json({
-      message: "Reset link created. Open it within 1 hour to set a new password.",
-      resetLink,
-      email,
-    });
   } catch (error) {
     console.error("forgot-password error", error);
     return res.status(500).json({ error: "Unable to process request." });
@@ -241,7 +231,7 @@ router.post("/reset-password", async (req, res) => {
     const user = await User.findOne({
       email,
       role: { $ne: "admin" },
-      resetPasswordTokenHash: hashToken(token),
+      resetPasswordTokenHash: hashResetToken(token),
       resetPasswordExpires: { $gt: new Date() },
     });
 

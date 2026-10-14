@@ -13,6 +13,8 @@ export default function AdminPlayerDocumentsPanel({ registration, busyId, onUpda
   const [savingRequest, setSavingRequest] = useState(false);
   const [requestError, setRequestError] = useState("");
   const [requestMessage, setRequestMessage] = useState("");
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
 
   useEffect(() => {
     const initial = Object.fromEntries(
@@ -52,9 +54,36 @@ export default function AdminPlayerDocumentsPanel({ registration, busyId, onUpda
     }
   }
 
+  async function setDocumentsVerification(status) {
+    if (!registration?._id) return;
+    setVerifyBusy(true);
+    setVerifyError("");
+    try {
+      const regId = String(registration._id).trim();
+      const data = await api(`/api/admin/registrations/${regId}/documents-verification`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      onUpdated?.(data.registration);
+      setRequestMessage(
+        status === "verified"
+          ? "Documents marked as verified for this player."
+          : status === "rejected"
+            ? "Documents marked as rejected."
+            : "Document review set to in progress (shows under Registrations → In progress filter)."
+      );
+    } catch (err) {
+      setVerifyError(err.message || "Unable to update verification.");
+    } finally {
+      setVerifyBusy(false);
+    }
+  }
+
   const pending = registration?.documentsRequestedFromPlayer || [];
+  const docVerStatus = String(registration?.documentsVerificationStatus || "none").toLowerCase();
   const hasFiles =
     (registration?.playerDocuments || []).length > 0 || Boolean(String(registration?.paymentUtr || "").trim());
+  const canReviewDocs = hasFiles;
 
   return (
     <div className="mt-3 space-y-4 border-t border-[color:var(--border)] pt-3">
@@ -88,9 +117,78 @@ export default function AdminPlayerDocumentsPanel({ registration, busyId, onUpda
         <p className="text-xs text-[color:var(--text-muted)]">No documents on file yet.</p>
       )}
 
+      <section className="rounded-lg border border-[color:var(--border)] bg-ink-soft/30 p-3 sm:p-4">
+        <h3 className="text-xs font-bold uppercase tracking-wide text-[color:var(--title)]">
+          2. Document verification
+        </h3>
+        <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+          Review the files above, then set status below. Use <strong className="text-[color:var(--title)]">In progress</strong>{" "}
+          while waiting to decide (or to re-open after verified/rejected). Registrations list filters match these
+          statuses.
+        </p>
+        {docVerStatus === "verified" ? (
+          <p className="mt-2 text-sm font-semibold text-emerald-300">
+            Current: Documents verified
+            {registration.documentsVerificationBy ? ` · ${registration.documentsVerificationBy}` : ""}
+          </p>
+        ) : docVerStatus === "rejected" ? (
+          <p className="mt-2 text-sm font-semibold text-accent-soft">
+            Current: Documents rejected
+            {registration.documentsVerificationBy ? ` · ${registration.documentsVerificationBy}` : ""}
+          </p>
+        ) : docVerStatus === "in_progress" ? (
+          <p className="mt-2 text-sm font-semibold text-amber-200">
+            Documents uploaded — awaiting your verified / rejected decision.
+          </p>
+        ) : hasFiles ? (
+          <p className="mt-2 text-xs text-[color:var(--text-muted)]">
+            Files on record. Choose verified or rejected when review is complete.
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-[color:var(--text-muted)]">No documents uploaded yet.</p>
+        )}
+        {verifyError ? (
+          <div className="mt-3">
+            <AlertBanner tone="error">{verifyError}</AlertBanner>
+          </div>
+        ) : null}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={`btn-ghost !py-1.5 !text-xs ${
+              docVerStatus === "in_progress" ? "!border-amber-400/60 !text-amber-200" : ""
+            }`}
+            disabled={!canReviewDocs || verifyBusy || busyId === registration?._id}
+            onClick={() => setDocumentsVerification("in_progress")}
+          >
+            {verifyBusy ? "Saving…" : "In progress"}
+          </button>
+          <button
+            type="button"
+            className={`btn-ghost !py-1.5 !text-xs ${
+              docVerStatus === "verified" ? "!border-emerald-400/60 !text-emerald-300" : ""
+            }`}
+            disabled={!canReviewDocs || verifyBusy || busyId === registration?._id}
+            onClick={() => setDocumentsVerification("verified")}
+          >
+            Documents verified
+          </button>
+          <button
+            type="button"
+            className={`btn-ghost !py-1.5 !text-xs ${
+              docVerStatus === "rejected" ? "!border-accent/60 !text-accent-soft" : ""
+            }`}
+            disabled={!canReviewDocs || verifyBusy || busyId === registration?._id}
+            onClick={() => setDocumentsVerification("rejected")}
+          >
+            Documents rejected
+          </button>
+        </div>
+      </section>
+
       <section className="rounded-lg border border-accent/25 bg-accent/5 p-3 sm:p-4">
         <h3 className="text-xs font-bold uppercase tracking-wide text-[color:var(--title)]">
-          2. Request re-upload from player
+          3. Request re-upload from player
         </h3>
         <p className="mt-1 text-xs text-[color:var(--text-muted)]">
           Select which documents the player must submit again. They will only see those fields on their dashboard.

@@ -101,6 +101,15 @@ const registrationSchema = new mongoose.Schema(
     playerDocuments: { type: [playerDocumentFileSchema], default: [] },
     /** Payment transaction UTR (text, not a file upload). */
     paymentUtr: { type: String, default: "" },
+    /** Admin review of uploaded verification documents. */
+    documentsVerificationStatus: {
+      type: String,
+      enum: ["none", "in_progress", "verified", "rejected"],
+      default: "none",
+      index: true,
+    },
+    documentsVerificationAt: { type: Date, default: null },
+    documentsVerificationBy: { type: String, default: "" },
     documentsSubmittedAt: { type: Date, default: null },
     /** Admin-selected doc types the player must re-upload (field keys, e.g. aadhar_back). */
     documentsRequestedFromPlayer: { type: [String], default: [] },

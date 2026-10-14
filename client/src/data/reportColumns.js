@@ -26,6 +26,23 @@ export const REPORT_AUCTION_OPTIONS = [
   { id: "sold", label: "Sold" },
 ];
 
+export const REPORT_DOC_STATUS_OPTIONS = [
+  { id: "in_progress", label: "In progress" },
+  { id: "verified", label: "Documents verified" },
+  { id: "rejected", label: "Documents rejected" },
+];
+
+export function documentsVerificationReportLabel(reg) {
+  const s = String(reg?.documentsVerificationStatus || "none").toLowerCase();
+  const hasUploads =
+    (reg?.playerDocuments?.length || 0) > 0 || Boolean(String(reg?.paymentUtr || "").trim());
+  if (s === "verified") return "Documents verified";
+  if (s === "rejected") return "Documents rejected";
+  if (s === "in_progress") return "In progress";
+  if (hasUploads && s === "none") return "In progress";
+  return "—";
+}
+
 export const REGISTRATION_REPORT_COLUMNS = [
   { id: "playerCode", label: "Player ID", default: true },
   { id: "fullName", label: "Name", default: true },
@@ -34,6 +51,7 @@ export const REGISTRATION_REPORT_COLUMNS = [
   { id: "designation", label: "Designation", default: false },
   { id: "status", label: "Status", default: true },
   { id: "paymentStatus", label: "Payment", default: true },
+  { id: "documentsVerification", label: "Documents verification", default: false },
   { id: "referredBy", label: "Referred by", default: true },
   { id: "email", label: "Email", default: true },
   { id: "phone", label: "Phone", default: false },
@@ -72,6 +90,8 @@ export function formatReportCell(reg, columnId) {
       return reg.status === "verified" ? "accepted" : reg.status || "—";
     case "paymentStatus":
       return paymentStatusLabel(getPaymentStatus(reg));
+    case "documentsVerification":
+      return documentsVerificationReportLabel(reg);
     case "referredBy":
       return reg.referredByPlayerCode
         ? `${reg.referredByPlayerCode}${reg.referredByName ? ` · ${reg.referredByName}` : ""}`
@@ -118,6 +138,7 @@ export function initialReportFilterState() {
     interest: all(REPORT_INTEREST_OPTIONS),
     paymentStatus: all(REPORT_PAYMENT_OPTIONS),
     auctionStatus: all(REPORT_AUCTION_OPTIONS),
+    docStatus: all(REPORT_DOC_STATUS_OPTIONS),
   };
 }
 
@@ -138,6 +159,7 @@ export function validateReportFilters(filterMaps, columnMap) {
     ["Type", filterMaps.interest, REPORT_INTEREST_OPTIONS],
     ["Payment", filterMaps.paymentStatus, REPORT_PAYMENT_OPTIONS],
     ["Auction", filterMaps.auctionStatus, REPORT_AUCTION_OPTIONS],
+    ["Documents", filterMaps.docStatus, REPORT_DOC_STATUS_OPTIONS],
   ];
   for (const [label, map, options] of groups) {
     if (!options.some((o) => map[o.id])) {
@@ -160,6 +182,8 @@ export function buildReportQueryParams(filterMaps, columnMap) {
   if (payment?.length) qs.set("paymentStatus", payment.join(","));
   const auction = selectedIds(filterMaps.auctionStatus, REPORT_AUCTION_OPTIONS);
   if (auction?.length) qs.set("auctionStatus", auction.join(","));
+  const docStatus = selectedIds(filterMaps.docStatus, REPORT_DOC_STATUS_OPTIONS);
+  if (docStatus?.length) qs.set("docStatus", docStatus.join(","));
   const fields = REGISTRATION_REPORT_COLUMNS.filter((c) => columnMap[c.id]).map((c) => c.id);
   if (fields.length) qs.set("fields", fields.join(","));
   return qs;

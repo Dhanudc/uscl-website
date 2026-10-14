@@ -8,6 +8,7 @@ export const REGISTRATION_REPORT_COLUMNS = [
   { id: "designation", header: "Designation", default: false },
   { id: "status", header: "Status", default: true },
   { id: "paymentStatus", header: "Payment", default: true },
+  { id: "documentsVerification", header: "Documents Verification", default: false },
   { id: "referredBy", header: "Referred By", default: true },
   { id: "email", header: "Email", default: true },
   { id: "phone", header: "Phone", default: false },
@@ -49,6 +50,17 @@ function paymentStatusValue(reg) {
   return String(reg.paymentStatus || reg.payment?.status || "").trim();
 }
 
+function documentsVerificationValue(reg) {
+  const s = String(reg.documentsVerificationStatus || "none").toLowerCase();
+  const hasUploads =
+    (reg.playerDocuments?.length || 0) > 0 || Boolean(String(reg.paymentUtr || "").trim());
+  if (s === "verified") return "Documents verified";
+  if (s === "rejected") return "Documents rejected";
+  if (s === "in_progress") return "In progress";
+  if (hasUploads && s === "none") return "In progress";
+  return "";
+}
+
 export function registrationReportCell(reg, columnId) {
   switch (columnId) {
     case "playerCode":
@@ -65,6 +77,8 @@ export function registrationReportCell(reg, columnId) {
       return reg.status === "verified" ? "accepted" : reg.status || "";
     case "paymentStatus":
       return paymentStatusValue(reg);
+    case "documentsVerification":
+      return documentsVerificationValue(reg);
     case "referredBy": {
       const code = reg.referredByPlayerCode || "";
       const name = reg.referredByName || "";

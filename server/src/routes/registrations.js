@@ -203,6 +203,17 @@ router.post("/create-order", approvedRequired, async (req, res) => {
 });
 
 router.get("/", approvedRequired, async (req, res) => {
+  await PlayerRegistration.updateMany(
+    {
+      userId: req.user.userId,
+      documentsVerificationStatus: { $in: ["none", ""] },
+      $or: [
+        { "playerDocuments.0": { $exists: true } },
+        { paymentUtr: { $regex: /\S/ } },
+      ],
+    },
+    { $set: { documentsVerificationStatus: "in_progress" } }
+  );
   const registrations = await PlayerRegistration.find({ userId: req.user.userId })
     .sort({ createdAt: -1 })
     .lean();

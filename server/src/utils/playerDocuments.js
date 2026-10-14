@@ -126,6 +126,72 @@ export function arePlayerDocumentsComplete(reg) {
   return true;
 }
 
+export function normalizeDocumentsVerificationStatus(raw) {
+  const s = String(raw || "none").toLowerCase();
+  if (s === "in_progress" || s === "verified" || s === "rejected") return s;
+  return "none";
+}
+
+export function registrationHasDocumentUploads(reg) {
+  if (normalizePaymentUtr(reg?.paymentUtr)) return true;
+  return listPlayerDocuments(reg).length > 0;
+}
+
+/** Mongo fragment: player has at least one document file or payment UTR on record. */
+export const HAS_DOCUMENT_UPLOADS_QUERY = {
+  $or: [
+    { "playerDocuments.0": { $exists: true } },
+    { paymentUtr: { $regex: /\S/ } },
+  ],
+};
+
+/** Build $or clauses for admin docStatus=in_progress|verified|rejected filters. */
+export function buildDocumentsVerificationFilterOr(docList) {
+  const or = [];
+  if (!Array.isArray(docList) || !docList.length) return or;
+
+  if (docList.includes("in_progress") || docList.includes("uploaded")) {
+    or.push({ documentsVerificationStatus: "in_progress" });
+  }
+  if (docList.includes("verified")) {
+    or.push({ documentsVerificationStatus: "verified" });
+  }
+  if (docList.includes("rejected")) {
+    or.push({ documentsVerificationStatus: "rejected" });
+  }
+  return or;
+}
+
+/** After uploads: queue for admin review (any files / UTR, or required set complete). */
+export function syncDocumentsVerificationAfterUpload(registration) {
+  const current = normalizeDocumentsVerificationStatus(registration.documentsVerificationStatus);
+  if (current === "verified") return;
+  if (!registrationHasDocumentUploads(registration) && !arePlayerDocumentsComplete(registration)) {
+    return;
+  }
+  registration.documentsVerificationStatus = "in_progress";
+}
+
+/** Players with files awaiting admin review should be in_progress (not none). */
+export async function promotePendingDocumentReviewsToInProgress() {
+  const { PlayerRegistration } = await import("../models/PlayerRegistration.js");
+  await PlayerRegistration.updateMany(
+    {
+      documentsVerificationStatus: { $in: ["none", ""] },
+      ...HAS_DOCUMENT_UPLOADS_QUERY,
+    },
+    { $set: { documentsVerificationStatus: "in_progress" } }
+  );
+}
+
+export function documentsVerificationLabel(status) {
+  const s = normalizeDocumentsVerificationStatus(status);
+  if (s === "in_progress") return "Document verification in progress";
+  if (s === "verified") return "Document verification completed";
+  if (s === "rejected") return "Document verification rejected";
+  return "";
+}
+
 export { docKeyBaseFamily, familyVersionNumber, hasDocFamily } from "./playerDocumentVersions.js";
 
 export function playerDocumentDiskPath(filename) {
@@ -150,6 +216,9 @@ export function enrichRegistration(reg, { playerDocumentsUploadEnabled = true } 
   const plain = withProfileImageUrl(reg);
   plain.showAddDocumentsButton = shouldShowAddDocuments(plain, { playerDocumentsUploadEnabled });
   plain.documentsComplete = arePlayerDocumentsComplete(plain);
+  plain.documentsVerificationStatus = normalizeDocumentsVerificationStatus(plain.documentsVerificationStatus);
+  plain.documentsVerificationLabel = documentsVerificationLabel(plain.documentsVerificationStatus);
+  plain.hasDocumentUploads = registrationHasDocumentUploads(plain);
   plain.playerDocuments = listPlayerDocuments(plain).map((row) => ({
     docKey: row.docKey,
     filename: row.filename,
@@ -344,6 +413,7 @@ export function applyPlayerDocumentSubmission(registration, multerFiles, body, o
     satisfiedFields.push("payment_utr");
   }
   satisfyDocumentRequests(registration, satisfiedFields);
+  syncDocumentsVerificationAfterUpload(registration);
 
   return { error: null, uploadedKeys, satisfiedFields };
 }

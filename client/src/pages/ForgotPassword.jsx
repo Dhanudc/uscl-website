@@ -35,7 +35,8 @@ export default function ForgotPassword() {
         <p className="eyebrow">Password help</p>
         <h1 className="page-title mt-1.5">Forgot password?</h1>
         <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-          Enter your registered email to create a password reset link.
+          Enter your registered email. We will send a secure reset link from notifications@usclt20.com (valid for 1
+          hour).
         </p>
 
         {!resetLink ? (

@@ -38,6 +38,7 @@ import { AlertBanner, PageLoader, StatGridSkeleton } from "../components/ui";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
 import {
   REPORT_AUCTION_OPTIONS,
+  REPORT_DOC_STATUS_OPTIONS,
   REPORT_INTEREST_OPTIONS,
   REPORT_PAYMENT_OPTIONS,
   REPORT_STATUS_OPTIONS,
@@ -65,6 +66,12 @@ const ADMIN_INTEREST_KEYS = ["captain", "player", "franchise", "sponsor"];
 const ADMIN_STATUS_KEYS = ["pending", "accepted", "rejected"];
 const DEFAULT_ADMIN_STATUS = ["pending", "accepted"];
 const PLAYERS_LIST_PAGE_SIZES = [25, 50, 100];
+const DOC_STATUS_FILTER_OPTIONS = [
+  { id: "in_progress", label: "In progress" },
+  { id: "verified", label: "Documents verified" },
+  { id: "rejected", label: "Documents rejected" },
+];
+const DOC_STATUS_FILTER_KEYS = DOC_STATUS_FILTER_OPTIONS.map((o) => o.id);
 
 function isMongoRegistrationId(value) {
   return /^[a-f0-9]{24}$/i.test(String(value || ""));
@@ -109,6 +116,27 @@ function statusFilterMapFromSearch(searchParams) {
   return Object.fromEntries(REPORT_STATUS_OPTIONS.map((o) => [o.id, active.has(o.id)]));
 }
 
+function parseDocStatusFilterFromSearch(searchParams) {
+  const raw = searchParams.get("docStatus");
+  if (raw === null) return null;
+  if (raw === "") return [];
+  const values = raw
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .map((s) => (s === "uploaded" ? "in_progress" : s))
+    .filter((s) => DOC_STATUS_FILTER_KEYS.includes(s));
+  return values.length ? values : [];
+}
+
+function docStatusFilterMapFromSearch(searchParams) {
+  const active = parseDocStatusFilterFromSearch(searchParams);
+  if (active === null) {
+    return Object.fromEntries(DOC_STATUS_FILTER_OPTIONS.map((o) => [o.id, false]));
+  }
+  const set = new Set(active);
+  return Object.fromEntries(DOC_STATUS_FILTER_OPTIONS.map((o) => [o.id, set.has(o.id)]));
+}
+
 function buildPlayersListQuery(searchParams) {
   const statuses = parseStatusFilterFromSearch(searchParams);
   const interests = parseInterestFilterFromSearch(searchParams);
@@ -119,7 +147,24 @@ function buildPlayersListQuery(searchParams) {
   else if (interests.length && interests.length < ADMIN_INTEREST_KEYS.length) {
     qs.set("interest", interests.join(","));
   }
+  const docStatuses = parseDocStatusFilterFromSearch(searchParams);
+  if (docStatuses !== null) {
+    if (!docStatuses.length) qs.set("docStatus", "");
+    else qs.set("docStatus", docStatuses.join(","));
+  }
   return qs.toString();
+}
+
+function docVerificationListLabel(reg) {
+  const s = String(reg?.documentsVerificationStatus || "none").toLowerCase();
+  const hasUploads =
+    (reg?.playerDocuments?.length || 0) > 0 || Boolean(String(reg?.paymentUtr || "").trim());
+  if (s === "verified") return "Verified";
+  if (s === "rejected") return "Rejected";
+  if (s === "in_progress") return "In review";
+  if (hasUploads && s === "none") return "In progress";
+  if (hasUploads) return reg?.documentsComplete ? "In review" : "Partial";
+  return "—";
 }
 
 function StatusBadge({ status }) {
@@ -552,6 +597,15 @@ function PlayersPage() {
     if (!picked.length) next.set("interest", "");
     else if (picked.length === ADMIN_INTEREST_KEYS.length) next.delete("interest");
     else next.set("interest", picked.join(","));
+    setSearchParams(next);
+    setListPage(1);
+  }
+
+  function applyDocStatusFilterMap(nextMap) {
+    const picked = DOC_STATUS_FILTER_OPTIONS.filter((o) => nextMap[o.id]).map((o) => o.id);
+    const next = new URLSearchParams(searchParams);
+    if (!picked.length) next.delete("docStatus");
+    else next.set("docStatus", picked.join(","));
     setSearchParams(next);
     setListPage(1);
   }
@@ -1367,7 +1421,7 @@ function PlayersPage() {
         </div>
       ) : (
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 grid flex-1 gap-3 sm:grid-cols-2">
+          <div className="min-w-0 grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <ReportCheckboxGroup
               title="Status"
               groupKey="status"
@@ -1381,6 +1435,13 @@ function PlayersPage() {
               options={REPORT_INTEREST_OPTIONS}
               values={interestFilterMapFromSearch(searchParams)}
               onChange={(_, nextMap) => applyInterestFilterMap(nextMap)}
+            />
+            <ReportCheckboxGroup
+              title="Documents"
+              groupKey="docStatus"
+              options={DOC_STATUS_FILTER_OPTIONS}
+              values={docStatusFilterMapFromSearch(searchParams)}
+              onChange={(_, nextMap) => applyDocStatusFilterMap(nextMap)}
             />
           </div>
 
@@ -1468,7 +1529,12 @@ function PlayersPage() {
                     {reg.payment?.amountInr ? ` · ₹${reg.payment.amountInr}` : ""}
                   </td>
                   <td className="px-3 py-2.5 text-xs text-[color:var(--text-muted)]">
-                    {reg.playerDocuments?.length ? `${reg.playerDocuments.length} file(s)` : "—"}
+                    <span className="block">{docVerificationListLabel(reg)}</span>
+                    {reg.playerDocuments?.length ? (
+                      <span className="text-[10px] text-[color:var(--text-muted)]">
+                        {reg.playerDocuments.length} file(s)
+                      </span>
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -2013,9 +2079,10 @@ function PlayersPage() {
   );
 }
 
-function PasswordResetBox({ userId, busyId, onSave }) {
+function PasswordResetBox({ userId, busyId, onSave, onSendResetEmail }) {
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
 
   async function handleSave() {
     await onSave(userId, password);
@@ -2089,9 +2156,27 @@ function PasswordResetBox({ userId, busyId, onSave }) {
         >
           Save password
         </button>
+        {onSendResetEmail ? (
+          <button
+            type="button"
+            disabled={emailBusy || busyId === userId}
+            onClick={async () => {
+              setEmailBusy(true);
+              try {
+                await onSendResetEmail(userId);
+              } finally {
+                setEmailBusy(false);
+              }
+            }}
+            className="rounded-md border border-[color:var(--border)] px-3 py-1.5 text-xs font-semibold text-[color:var(--text)] hover:border-accent/50 disabled:opacity-40"
+          >
+            {emailBusy ? "Sending…" : "Email reset link"}
+          </button>
+        ) : null}
       </div>
       <p className="mt-1.5 text-[11px] text-[color:var(--text-muted)]">
-        Share this password with the player so they can sign in.
+        Save a password manually, or email a secure reset link (same as Forgot password; sent from
+        notifications@usclt20.com when SMTP is configured).
       </p>
     </div>
   );
@@ -2156,6 +2241,24 @@ function AccountsPage() {
         body: JSON.stringify({ password }),
       });
       setMessage(data.message || "Password updated.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function sendResetEmail(id) {
+    setBusyId(id);
+    setError("");
+    setMessage("");
+    try {
+      const data = await api(`/api/admin/users/${id}/send-password-reset`, { method: "POST" });
+      if (data.resetLink) {
+        setMessage(`${data.message} ${data.resetLink}`);
+      } else {
+        setMessage(data.message || "Reset email sent.");
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -2257,7 +2360,12 @@ function AccountsPage() {
               </>
             )}
 
-            <PasswordResetBox userId={u._id} busyId={busyId} onSave={setPassword} />
+            <PasswordResetBox
+              userId={u._id}
+              busyId={busyId}
+              onSave={setPassword}
+              onSendResetEmail={sendResetEmail}
+            />
           </article>
         ))}
       </div>
@@ -2294,6 +2402,24 @@ function PasswordsPage() {
         body: JSON.stringify({ password }),
       });
       setMessage(data.message || "Password updated.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  async function sendResetEmail(id) {
+    setBusyId(id);
+    setError("");
+    setMessage("");
+    try {
+      const data = await api(`/api/admin/users/${id}/send-password-reset`, { method: "POST" });
+      if (data.resetLink) {
+        setMessage(`${data.message} ${data.resetLink}`);
+      } else {
+        setMessage(data.message || "Reset email sent.");
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -2418,7 +2544,12 @@ function PasswordsPage() {
               </div>
             )}
 
-            <PasswordResetBox userId={u._id} busyId={busyId} onSave={setPassword} />
+            <PasswordResetBox
+              userId={u._id}
+              busyId={busyId}
+              onSave={setPassword}
+              onSendResetEmail={sendResetEmail}
+            />
           </article>
         ))}
       </div>
@@ -3947,7 +4078,7 @@ function ReportsPage() {
         <p className="text-sm text-[color:var(--text-muted)]">
           Leave every box checked in a group to include all values. Uncheck options to narrow the report.
         </p>
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <ReportCheckboxGroup
             title="Status"
             groupKey="status"
@@ -3960,6 +4091,13 @@ function ReportsPage() {
             groupKey="interest"
             options={REPORT_INTEREST_OPTIONS}
             values={filterMaps.interest}
+            onChange={updateFilterGroup}
+          />
+          <ReportCheckboxGroup
+            title="Documents"
+            groupKey="docStatus"
+            options={REPORT_DOC_STATUS_OPTIONS}
+            values={filterMaps.docStatus}
             onChange={updateFilterGroup}
           />
           <ReportCheckboxGroup
