@@ -11,6 +11,7 @@ import {
   isReferralProgramEnabled,
   isRegistrationEnabled,
   isPlayerPayNowEnabled,
+  isPlayerTeamCardEnabled,
 } from "../models/SiteSettings.js";
 import { buildPortalMediaResponse } from "../utils/portalMedia.js";
 
@@ -24,6 +25,8 @@ router.get("/", async (_req, res) => {
         contact: settings.contact,
         socials: settings.socials,
         registrationEnabled: isRegistrationEnabled(settings),
+        playerPayNowEnabled: isPlayerPayNowEnabled(settings),
+        playerTeamCardEnabled: isPlayerTeamCardEnabled(settings),
         referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
         navLabels: normalizeNavLabels(settings.navLabels),

@@ -50,6 +50,7 @@ import { getSiteSettings, isRegistrationEnabled, isPlayerPayNowEnabled } from ".
 import { User } from "../models/User.js";
 import { allocateNextPlayerCode } from "../utils/playerCode.js";
 import { isReferralProgramEnabled, mapReferredPlayer, resolveReferralCode } from "../utils/referrals.js";
+import { buildLineupPayloadForUser, saveLineupForCaptain } from "../utils/teamLineup.js";
 
 const router = Router();
 
@@ -260,6 +261,34 @@ async function getFranchiseOwnerRecord(userId) {
     status: "verified",
   }).lean();
 }
+
+/** Captain / vice / squad: team lineup (vice & players view-only). */
+router.get("/team-lineup", approvedRequired, async (req, res) => {
+  try {
+    const payload = await buildLineupPayloadForUser(req.user.userId);
+    if (payload.error) {
+      return res.status(payload.status || 403).json({ error: payload.message });
+    }
+    return res.json(payload);
+  } catch (error) {
+    console.error("team-lineup get error", error);
+    return res.status(500).json({ error: "Unable to load team lineup." });
+  }
+});
+
+router.put("/team-lineup", approvedRequired, async (req, res) => {
+  try {
+    const result = await saveLineupForCaptain(req.user.userId, req.body);
+    if (result.error) {
+      return res.status(result.status || 400).json({ error: result.message });
+    }
+    const payload = await buildLineupPayloadForUser(req.user.userId);
+    return res.json(payload);
+  } catch (error) {
+    console.error("team-lineup save error", error);
+    return res.status(500).json({ error: "Unable to save team lineup." });
+  }
+});
 
 /** Franchise owner: sold players for the team admin assigned. */
 router.get("/squad", approvedRequired, async (req, res) => {

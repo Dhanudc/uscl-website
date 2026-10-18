@@ -3,6 +3,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { withProfileImageUrl } from "../middleware/upload.js";
 import { docKeyBaseFamily, familyVersionNumber, hasDocFamily } from "./playerDocumentVersions.js";
+import { resolveFranchiseId } from "./franchises.js";
+import { findTeamCaptainsByFranchiseIds, playerShouldSeeTeamCaptain } from "./teamCaptain.js";
+import { resolveSquadRoleForReg, squadRoleMapForRegistrations } from "./teamLineup.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const PLAYER_DOCUMENTS_DIR = path.join(__dirname, "../../private/player-documents");
@@ -263,13 +266,40 @@ export function sanitizeRegistrationForPlayerPortal(reg) {
   return rest;
 }
 
+async function attachTeamCaptainForPlayer(reg) {
+  if (!playerShouldSeeTeamCaptain(reg)) return reg;
+  const franchiseId = resolveFranchiseId(reg.franchiseId);
+  const [captains, squadRoles] = await Promise.all([
+    findTeamCaptainsByFranchiseIds([franchiseId]),
+    squadRoleMapForRegistrations([reg]),
+  ]);
+  const teamCaptain = captains[franchiseId] || null;
+  const squadRole = resolveSquadRoleForReg(reg, squadRoles);
+  const withCaptain = teamCaptain ? { ...reg, teamCaptain } : { ...reg };
+  return { ...withCaptain, squadRole };
+}
+
 export async function enrichRegistrationForPlayerAsync(reg) {
-  return sanitizeRegistrationForPlayerPortal(await enrichRegistrationAsync(reg));
+  const enriched = sanitizeRegistrationForPlayerPortal(await enrichRegistrationAsync(reg));
+  return attachTeamCaptainForPlayer(enriched);
 }
 
 export async function mapEnrichedRegistrationsForPlayerAsync(list) {
-  const rows = await mapEnrichedRegistrationsAsync(list);
-  return rows.map(sanitizeRegistrationForPlayerPortal);
+  const rows = (await mapEnrichedRegistrationsAsync(list)).map(sanitizeRegistrationForPlayerPortal);
+  const squadRows = rows.filter((reg) => playerShouldSeeTeamCaptain(reg));
+  const franchiseIds = squadRows.map((reg) => resolveFranchiseId(reg.franchiseId));
+  const [captains, squadRoles] = await Promise.all([
+    findTeamCaptainsByFranchiseIds(franchiseIds),
+    squadRoleMapForRegistrations(squadRows),
+  ]);
+  return rows.map((reg) => {
+    if (!playerShouldSeeTeamCaptain(reg)) return reg;
+    const key = resolveFranchiseId(reg.franchiseId);
+    const teamCaptain = captains[key] || null;
+    const squadRole = resolveSquadRoleForReg(reg, squadRoles);
+    const withCaptain = teamCaptain ? { ...reg, teamCaptain } : { ...reg };
+    return { ...withCaptain, squadRole };
+  });
 }
 
 export function collectUploadedDocumentFiles(files) {

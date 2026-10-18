@@ -33,6 +33,7 @@ import EventsAdmin from "../components/admin/EventsAdmin.jsx";
 import MembersAdmin from "../components/admin/MembersAdmin.jsx";
 import AdminPlayerDocumentsViewModal from "../components/admin/AdminPlayerDocumentsViewModal.jsx";
 import AdminPlayerDocumentsPanel from "../components/admin/AdminPlayerDocumentsPanel.jsx";
+import SquadRoleBadge from "../components/SquadRoleBadge.jsx";
 import PlayerDocumentsModal from "../components/PlayerDocumentsModal.jsx";
 import { AlertBanner, PageLoader, StatGridSkeleton } from "../components/ui";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
@@ -239,6 +240,7 @@ function AdminShell({ children, title, subtitle }) {
       links: [
         { to: "/admin/teams", label: "Teams" },
         { to: "/admin/auction", label: "Auction desk" },
+        { to: "/admin/auction-spending", label: "Auction purse" },
         { to: "/admin/live", label: "Live updates" },
         { to: "/admin/events", label: "Photos" },
         { to: "/admin/members", label: "About members" },
@@ -2877,14 +2879,25 @@ function AuctionPage() {
       .catch((err) => setError(err.message));
   }, [filter]);
 
-  async function saveAuction(id) {
+  async function saveAuction(id, reg) {
     setBusyId(id);
     setError("");
     setMessage("");
     try {
+      const draft = { ...(drafts[id] || {}) };
+      if (String(reg?.interest || "").toLowerCase() === "captain") {
+        if (draft.franchiseId) {
+          draft.auctionStatus = "sold";
+          draft.basePrice = 0;
+          draft.soldPrice = 0;
+        } else {
+          draft.auctionStatus = "not_listed";
+          draft.franchiseId = "";
+        }
+      }
       await api(`/api/admin/registrations/${id}/auction`, {
         method: "PATCH",
-        body: JSON.stringify(drafts[id]),
+        body: JSON.stringify(draft),
       });
       setMessage("Auction assignment saved.");
       const url =
@@ -2903,7 +2916,7 @@ function AuctionPage() {
   return (
     <AdminShell
       title="Auction desk"
-      subtitle="Assign franchise, base price, and sold / unsold status for accepted players."
+      subtitle="Assign teams and auction prices for players. Captains: assign team only (name, Player ID, and mobile show on player dashboards)."
     >
       <div className="mb-4 flex flex-wrap gap-2">
         {[
@@ -2936,6 +2949,7 @@ function AuctionPage() {
         )}
         {regs.map((reg) => {
           const d = drafts[reg._id] || {};
+          const isCaptain = String(reg.interest || "").toLowerCase() === "captain";
           return (
             <article key={reg._id} className="rounded-lg border border-[color:var(--border)] bg-ink-card p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -2953,97 +2967,282 @@ function AuctionPage() {
                       <p className="text-xs font-semibold text-accent">Player ID: {reg.playerCode}</p>
                     ) : null}
                     <p className="text-sm text-[color:var(--text-muted)]">
+                      {isCaptain ? (
+                        <span className="font-semibold text-accent">Captain</span>
+                      ) : null}
+                      {isCaptain ? " · " : ""}
                       {reg.company}
                       {reg.role ? ` · ${playerRoleLabel(reg.role)}` : ""} · {reg.email}
+                      {reg.phone ? ` · ${reg.phone}` : ""}
                       {` · Pay ${paymentStatusLabel(getPaymentStatus(reg))}`}
                     </p>
                   </div>
                 </div>
-                <StatusBadge status={reg.auctionStatus || "not_listed"} />
+                <StatusBadge status={isCaptain && d.franchiseId ? "sold" : reg.auctionStatus || "not_listed"} />
               </div>
 
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                <label className="block text-xs text-[color:var(--text-muted)]">
-                  Auction status
-                  <select
-                    className="input-dark mt-1"
-                    value={d.auctionStatus || "not_listed"}
-                    onChange={(e) =>
-                      setDrafts((prev) => ({
-                        ...prev,
-                        [reg._id]: { ...prev[reg._id], auctionStatus: e.target.value },
-                      }))
-                    }
-                  >
-                    <option value="not_listed">Not listed</option>
-                    <option value="unsold">Unsold</option>
-                    <option value="sold">Sold</option>
-                  </select>
-                </label>
-                <label className="block text-xs text-[color:var(--text-muted)]">
-                  Franchise
-                  <select
-                    className="input-dark mt-1"
-                    value={d.franchiseId || ""}
-                    onChange={(e) =>
-                      setDrafts((prev) => ({
-                        ...prev,
-                        [reg._id]: { ...prev[reg._id], franchiseId: e.target.value },
-                      }))
-                    }
-                  >
-                    <option value="">Select team</option>
-                    {franchises.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block text-xs text-[color:var(--text-muted)]">
-                  Base price (₹)
-                  <input
-                    type="number"
-                    min="0"
-                    className="input-dark mt-1"
-                    value={d.basePrice ?? 0}
-                    onChange={(e) =>
-                      setDrafts((prev) => ({
-                        ...prev,
-                        [reg._id]: { ...prev[reg._id], basePrice: Number(e.target.value) },
-                      }))
-                    }
-                  />
-                </label>
-                <label className="block text-xs text-[color:var(--text-muted)]">
-                  Sold price (₹)
-                  <input
-                    type="number"
-                    min="0"
-                    className="input-dark mt-1"
-                    value={d.soldPrice ?? 0}
-                    onChange={(e) =>
-                      setDrafts((prev) => ({
-                        ...prev,
-                        [reg._id]: { ...prev[reg._id], soldPrice: Number(e.target.value) },
-                      }))
-                    }
-                  />
-                </label>
-              </div>
+              {isCaptain ? (
+                <div className="mt-3 max-w-md">
+                  <label className="block text-xs text-[color:var(--text-muted)]">
+                    Assign team
+                    <select
+                      className="input-dark mt-1"
+                      value={d.franchiseId || ""}
+                      onChange={(e) =>
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [reg._id]: { ...prev[reg._id], franchiseId: e.target.value },
+                        }))
+                      }
+                    >
+                      <option value="">No team</option>
+                      {franchises.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="mt-2 text-xs text-[color:var(--text-muted)]">
+                    Players sold to this team will see this captain&apos;s name, Player ID, and mobile on their dashboard.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <label className="block text-xs text-[color:var(--text-muted)]">
+                    Auction status
+                    <select
+                      className="input-dark mt-1"
+                      value={d.auctionStatus || "not_listed"}
+                      onChange={(e) =>
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [reg._id]: { ...prev[reg._id], auctionStatus: e.target.value },
+                        }))
+                      }
+                    >
+                      <option value="not_listed">Not listed</option>
+                      <option value="unsold">Unsold</option>
+                      <option value="sold">Sold</option>
+                    </select>
+                  </label>
+                  <label className="block text-xs text-[color:var(--text-muted)]">
+                    Franchise
+                    <select
+                      className="input-dark mt-1"
+                      value={d.franchiseId || ""}
+                      onChange={(e) =>
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [reg._id]: { ...prev[reg._id], franchiseId: e.target.value },
+                        }))
+                      }
+                    >
+                      <option value="">Select team</option>
+                      {franchises.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-xs text-[color:var(--text-muted)]">
+                    Base price (₹)
+                    <input
+                      type="number"
+                      min="0"
+                      className="input-dark mt-1"
+                      value={d.basePrice ?? 0}
+                      onChange={(e) =>
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [reg._id]: { ...prev[reg._id], basePrice: Number(e.target.value) },
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="block text-xs text-[color:var(--text-muted)]">
+                    Sold price (₹)
+                    <input
+                      type="number"
+                      min="0"
+                      className="input-dark mt-1"
+                      value={d.soldPrice ?? 0}
+                      onChange={(e) =>
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [reg._id]: { ...prev[reg._id], soldPrice: Number(e.target.value) },
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+              )}
 
               <button
                 type="button"
                 disabled={busyId === reg._id}
-                onClick={() => saveAuction(reg._id)}
+                onClick={() => saveAuction(reg._id, reg)}
                 className="btn-primary mt-3 !py-1.5 !text-xs"
               >
-                Save assignment
+                {isCaptain ? "Save team assignment" : "Save assignment"}
               </button>
             </article>
           );
         })}
       </div>
+    </AdminShell>
+  );
+}
+
+function formatAuctionInr(amount) {
+  return `₹${Math.round(Number(amount) || 0).toLocaleString("en-IN")}`;
+}
+
+function AuctionSpendingPage() {
+  const [budgetDraft, setBudgetDraft] = useState(250000);
+  const [report, setReport] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [ok, setOk] = useState("");
+
+  function loadReport() {
+    return api("/api/admin/auction/spending").then((data) => setReport(data));
+  }
+
+  useEffect(() => {
+    setLoading(true);
+    setError("");
+    Promise.all([api("/api/admin/settings"), api("/api/admin/auction/spending")])
+      .then(([settingsRes, spendingRes]) => {
+        setBudgetDraft(settingsRes.settings?.auctionTeamBudgetInr ?? 250000);
+        setReport(spendingRes);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function saveBudget(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    setOk("");
+    try {
+      const amount = Math.round(Number(budgetDraft));
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error("Purse must be a positive amount in INR.");
+      }
+      await api("/api/admin/settings", {
+        method: "PUT",
+        body: JSON.stringify({ auctionTeamBudgetInr: amount }),
+      });
+      setOk("Auction purse saved.");
+      await loadReport();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const budget = report?.budgetInr ?? budgetDraft;
+
+  return (
+    <AdminShell
+      title="Auction purse"
+      subtitle="Set each team’s auction budget and track total sold prices from the auction desk."
+    >
+      {loading ? (
+        <PageLoader message="Loading auction spending…" />
+      ) : (
+        <div className="max-w-4xl space-y-5">
+          <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
+            <div className="border-b border-[color:var(--border)] px-5 py-4">
+              <p className="eyebrow text-accent">Settings</p>
+              <h2 className="font-display mt-1 text-xl text-[color:var(--title)]">Purse per team</h2>
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                Default is ₹2,50,000. Spent totals sum sold prices for verified, sold players and captains on each
+                franchise.
+              </p>
+            </div>
+            <form onSubmit={saveBudget} className="flex flex-col gap-3 p-5 sm:flex-row sm:items-end">
+              <label className="block min-w-0 flex-1 text-sm">
+                <span className="font-medium text-[color:var(--title)]">Budget (INR)</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1000"
+                  className="input-dark mt-1.5"
+                  value={budgetDraft}
+                  onChange={(e) => setBudgetDraft(e.target.value)}
+                />
+              </label>
+              <button type="submit" className="btn-primary shrink-0 !py-2.5" disabled={saving}>
+                {saving ? "Saving…" : "Save purse"}
+              </button>
+            </form>
+          </section>
+
+          {error ? <p className="text-sm text-accent">{error}</p> : null}
+          {ok ? <p className="text-sm text-emerald-300">{ok}</p> : null}
+
+          <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[color:var(--border)] px-5 py-4">
+              <div>
+                <p className="eyebrow text-accent">League totals</p>
+                <h2 className="font-display mt-1 text-xl text-[color:var(--title)]">Team spending</h2>
+              </div>
+              <button type="button" className="btn-ghost !py-1.5 !text-xs" onClick={() => loadReport().catch(() => {})}>
+                Refresh
+              </button>
+            </div>
+            <p className="border-b border-[color:var(--border)] px-5 py-3 text-sm text-[color:var(--text-muted)]">
+              League spent {formatAuctionInr(report?.totalSpent ?? 0)} across all teams (purse{" "}
+              {formatAuctionInr(budget)} per team).
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[color:var(--border)] text-[11px] uppercase tracking-wide text-[color:var(--text-muted)]">
+                    <th className="px-5 py-3 font-semibold">Team</th>
+                    <th className="px-3 py-3 font-semibold text-right">Spent</th>
+                    <th className="px-3 py-3 font-semibold text-right">Remaining</th>
+                    <th className="px-3 py-3 font-semibold text-right">Used</th>
+                    <th className="px-5 py-3 font-semibold text-right">Players sold</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(report?.teams || []).map((row) => {
+                    const accent = franchiseCatalog.find((f) => f.id === row.id)?.accent || "var(--accent)";
+                    const remainingClass = row.overBudget ? "text-accent font-semibold" : "text-emerald-300";
+                    return (
+                      <tr key={row.id} className="border-b border-[color:var(--border)] last:border-0">
+                        <td className="px-5 py-3">
+                          <span
+                            className="mr-2 inline-block h-2 w-2 rounded-full"
+                            style={{ background: accent }}
+                            aria-hidden
+                          />
+                          <span className="font-medium text-[color:var(--title)]">{row.name}</span>
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums">{formatAuctionInr(row.spent)}</td>
+                        <td className={`px-3 py-3 text-right tabular-nums ${remainingClass}`}>
+                          {row.overBudget
+                            ? `${formatAuctionInr(Math.abs(row.remaining))} over`
+                            : formatAuctionInr(row.remaining)}
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums">{row.spentPercent ?? 0}%</td>
+                        <td className="px-5 py-3 text-right tabular-nums">{row.playersSold}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      )}
     </AdminShell>
   );
 }
@@ -3079,49 +3278,210 @@ function PlayerIcon({ size = 18 }) {
   );
 }
 
+const SQUAD_REPLACE_PRICE_INR = 3000;
+
 function TeamsPage() {
   const [teams, setTeams] = useState([]);
   const [popupTeam, setPopupTeam] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [busyMemberId, setBusyMemberId] = useState("");
+  const [teamChangeMember, setTeamChangeMember] = useState(null);
+  const [teamChangeMode, setTeamChangeMode] = useState("change");
+  const [changeForm, setChangeForm] = useState({
+    franchiseId: "",
+    auctionStatus: "sold",
+    soldPrice: "",
+    basePrice: "",
+  });
+  const [replacePool, setReplacePool] = useState([]);
+  const [replacePick, setReplacePick] = useState("");
+  const [replaceFranchiseId, setReplaceFranchiseId] = useState("");
+  const [poolLoading, setPoolLoading] = useState(false);
 
-  useEffect(() => {
+  function mergeTeamsList(list) {
+    return franchiseCatalog.map((f) => {
+      const row = list.find((t) => t.id === f.id) || {};
+      return {
+        ...f,
+        ...row,
+        image: f.image,
+        accent: f.accent,
+        shortName: f.shortName,
+        city: f.city,
+        playerCount: row.playerCount ?? row.players?.length ?? 0,
+        players: row.players || [],
+        captain: row.captain || null,
+      };
+    });
+  }
+
+  function loadTeams({ keepPopupId } = {}) {
     setLoading(true);
-    api("/api/admin/teams")
+    setError("");
+    return api("/api/admin/teams")
       .then((data) => {
-        const list = data.teams || [];
-        const merged = franchiseCatalog.map((f) => {
-          const row = list.find((t) => t.id === f.id) || {};
-          return {
-            ...f,
-            ...row,
-            image: f.image,
-            accent: f.accent,
-            shortName: f.shortName,
-            city: f.city,
-            playerCount: row.playerCount ?? row.players?.length ?? 0,
-            players: row.players || [],
-          };
-        });
+        const merged = mergeTeamsList(data.teams || []);
         setTeams(merged);
+        if (keepPopupId) {
+          const next = merged.find((t) => t.id === keepPopupId);
+          if (next) setPopupTeam(next);
+        }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadTeams();
   }, []);
+
+  async function setSquadInterest(member, interest) {
+    if (!member?._id) return;
+    setBusyMemberId(String(member._id));
+    setError("");
+    try {
+      await api(`/api/admin/registrations/${member._id}/squad-interest`, {
+        method: "PATCH",
+        body: JSON.stringify({ interest }),
+      });
+      await loadTeams({ keepPopupId: popupTeam?.id });
+    } catch (err) {
+      setError(err.message || "Unable to update.");
+    } finally {
+      setBusyMemberId("");
+    }
+  }
+
+  function closePopup() {
+    setPopupTeam(null);
+    setTeamChangeMember(null);
+    setReplacePool([]);
+    setReplacePick("");
+  }
+
+  function openTeamChange(member) {
+    setTeamChangeMember(member);
+    setTeamChangeMode("change");
+    setChangeForm({
+      franchiseId: popupTeam?.id || member.franchiseId || "",
+      auctionStatus: member.auctionStatus === "unsold" ? "unsold" : "sold",
+      soldPrice: member.soldPrice ? String(member.soldPrice) : "",
+      basePrice: member.basePrice ? String(member.basePrice) : "",
+    });
+    setReplaceFranchiseId(popupTeam?.id || "");
+    setReplacePick("");
+    setReplacePool([]);
+  }
+
+  async function loadReplacePool(excludeId) {
+    setPoolLoading(true);
+    setError("");
+    try {
+      const q = excludeId ? `?exclude=${encodeURIComponent(excludeId)}` : "";
+      const data = await api(`/api/admin/registrations/replacement-pool${q}`);
+      setReplacePool(data.players || []);
+    } catch (err) {
+      setError(err.message || "Unable to load replacement list.");
+      setReplacePool([]);
+    } finally {
+      setPoolLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!teamChangeMember || teamChangeMode !== "replace") return;
+    loadReplacePool(teamChangeMember._id);
+  }, [teamChangeMember, teamChangeMode]);
+
+  async function submitTeamChange() {
+    if (!teamChangeMember?._id) return;
+    setBusyMemberId(String(teamChangeMember._id));
+    setError("");
+    try {
+      const memberId = teamChangeMember._id || teamChangeMember.id;
+      if (!memberId) {
+        throw new Error("Missing player id. Close and reopen the team list.");
+      }
+
+      if (teamChangeMode === "replace") {
+        if (!replacePick) {
+          throw new Error("Select a replacement player.");
+        }
+        await api(`/api/admin/registrations/${memberId}/squad-team`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            mode: "replace",
+            replacementRegistrationId: replacePick,
+            franchiseId: replaceFranchiseId || popupTeam?.id || undefined,
+          }),
+        });
+      } else {
+        const soldPrice = Math.round(Number(changeForm.soldPrice));
+        const basePrice = Math.round(Number(changeForm.basePrice || changeForm.soldPrice));
+        if (changeForm.auctionStatus === "sold") {
+          if (!changeForm.franchiseId) {
+            throw new Error("Select a team.");
+          }
+          if (!Number.isFinite(soldPrice) || soldPrice < 0) {
+            throw new Error("Enter a valid auction amount.");
+          }
+        }
+        const auctionBody = {
+          franchiseId: changeForm.franchiseId,
+          auctionStatus: changeForm.auctionStatus,
+          soldPrice: changeForm.auctionStatus === "sold" ? soldPrice : 0,
+          basePrice: changeForm.auctionStatus === "sold" ? basePrice : 0,
+        };
+        try {
+          await api(`/api/admin/registrations/${memberId}/squad-team`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              mode: "change",
+              ...auctionBody,
+            }),
+          });
+        } catch (err) {
+          const msg = String(err?.message || "");
+          if (msg.includes("route not found") || msg.includes("Not found")) {
+            await api(`/api/admin/registrations/${memberId}/auction`, {
+              method: "PATCH",
+              body: JSON.stringify(auctionBody),
+            });
+          } else {
+            throw err;
+          }
+        }
+      }
+      setTeamChangeMember(null);
+      setReplacePick("");
+      await loadTeams({ keepPopupId: popupTeam?.id });
+    } catch (err) {
+      setError(err.message || "Unable to save.");
+    } finally {
+      setBusyMemberId("");
+    }
+  }
 
   useEffect(() => {
     if (!popupTeam) return undefined;
     function onKey(e) {
-      if (e.key === "Escape") setPopupTeam(null);
+      if (e.key === "Escape") {
+        if (teamChangeMember) {
+          setTeamChangeMember(null);
+        } else {
+          closePopup();
+        }
+      }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [popupTeam]);
+  }, [popupTeam, teamChangeMember]);
 
   return (
     <AdminShell
       title="Teams"
-      subtitle="Click the player icon on a team to view assigned players."
+      subtitle="View squad members. Change player ↔ captain for sold members on a team."
     >
       {error && <p className="mb-3 text-sm text-accent">{error}</p>}
       {loading && (
@@ -3162,14 +3522,14 @@ function TeamsPage() {
       {popupTeam && (
         <div
           className="fixed inset-0 z-[80] flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-4"
-          onClick={() => setPopupTeam(null)}
+          onClick={closePopup}
           role="presentation"
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="team-players-title"
-            className="modal-sheet max-h-[85vh] w-full overflow-hidden rounded-t-2xl border border-[color:var(--border)] bg-ink-card shadow-2xl sm:max-w-lg sm:rounded-xl"
+            className="modal-sheet flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl border border-[color:var(--border)] bg-ink-card shadow-2xl sm:max-w-lg sm:rounded-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
@@ -3185,56 +3545,267 @@ function TeamsPage() {
                   {popupTeam.playerCount === 1 ? "" : "s"}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setPopupTeam(null)}
-                className="btn-ghost !py-1.5 !text-xs"
-              >
+              <button type="button" onClick={closePopup} className="btn-ghost !py-1.5 !text-xs">
                 Close
               </button>
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto p-4">
+            {popupTeam.captain && !teamChangeMember ? (
+              <div className="border-b border-[color:var(--border)] px-4 py-3 text-sm">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+                  Team captain
+                </p>
+                <p className="mt-1 font-semibold text-[color:var(--title)]">{popupTeam.captain.fullName}</p>
+                <p className="text-xs text-[color:var(--text-muted)]">
+                  {popupTeam.captain.playerCode ? `Player ID: ${popupTeam.captain.playerCode}` : ""}
+                  {popupTeam.captain.phone ? ` · Mobile: ${popupTeam.captain.phone}` : ""}
+                </p>
+              </div>
+            ) : null}
+
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {(popupTeam.players?.length || 0) === 0 ? (
                 <p className="text-sm text-[color:var(--text-muted)]">
                   No players assigned yet. Use Auction desk and set status to Sold.
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {popupTeam.players.map((p) => (
-                    <article
-                      key={p._id}
-                      className="flex items-center gap-3 rounded-md border border-[color:var(--border)] px-3 py-2.5"
-                    >
-                      {profileImageUrl(p) ? (
-                        <ZoomableImage
-                          src={profileImageUrl(p)}
-                          alt={p.fullName}
-                          className="h-9 w-9 shrink-0 rounded-full border border-[color:var(--border)] object-cover bg-ink-soft"
-                        />
-                      ) : (
-                        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
-                          <PlayerIcon size={16} />
-                        </span>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-[color:var(--title)]">{p.fullName}</p>
-                        <p className="truncate text-xs text-[color:var(--text-muted)]">
-                          {p.playerCode ? `${p.playerCode} · ` : ""}
-                          {playerRoleLabel(p.role)}
-                          {p.company ? ` · ${p.company}` : ""}
-                          {` · Pay ${paymentStatusLabel(getPaymentStatus(p))}`}
-                          {p.email ? ` · ${p.email}` : ""}
-                        </p>
-                      </div>
-                      {p.soldPrice ? (
-                        <p className="text-xs font-semibold text-accent">₹{p.soldPrice}</p>
-                      ) : null}
-                    </article>
-                  ))}
+                  {(teamChangeMember
+                    ? popupTeam.players.filter(
+                        (row) => String(row._id) === String(teamChangeMember._id)
+                      )
+                    : popupTeam.players
+                  ).map((p) => {
+                    const squadRole =
+                      p.squadRole ||
+                      (String(p.interest || "").toLowerCase() === "captain" ? "captain" : "player");
+                    const isCaptain = squadRole === "captain";
+                    const busy = busyMemberId === String(p._id);
+                    return (
+                      <article
+                        key={p._id}
+                        className="flex flex-col gap-2 rounded-md border border-[color:var(--border)] px-3 py-2.5 sm:flex-row sm:items-center"
+                      >
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          {profileImageUrl(p) ? (
+                            <ZoomableImage
+                              src={profileImageUrl(p)}
+                              alt={p.fullName}
+                              className="h-9 w-9 shrink-0 rounded-full border border-[color:var(--border)] object-cover bg-ink-soft"
+                            />
+                          ) : (
+                            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+                              <PlayerIcon size={16} />
+                            </span>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="flex flex-wrap items-center gap-2 font-semibold text-[color:var(--title)]">
+                              <span>{p.fullName}</span>
+                              <SquadRoleBadge role={squadRole} accent={popupTeam.accent} compact />
+                            </p>
+                            <p className="truncate text-xs text-[color:var(--text-muted)]">
+                              {p.playerCode ? `${p.playerCode} · ` : ""}
+                              {playerRoleLabel(p.role)}
+                              {p.company ? ` · ${p.company}` : ""}
+                              {` · Pay ${paymentStatusLabel(getPaymentStatus(p))}`}
+                            </p>
+                          </div>
+                          {p.soldPrice ? (
+                            <p className="text-xs font-semibold text-accent shrink-0">₹{p.soldPrice}</p>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap gap-1 sm:justify-end">
+                          {!teamChangeMember ? (
+                            <button
+                              type="button"
+                              className="rounded-md border border-[color:var(--border)] px-2 py-1 text-[10px] font-semibold disabled:opacity-50"
+                              disabled={busy}
+                              onClick={() => openTeamChange(p)}
+                            >
+                              Change team
+                            </button>
+                          ) : null}
+                          {!teamChangeMember && isCaptain ? (
+                            <button
+                              type="button"
+                              className="rounded-md border border-[color:var(--border)] px-2 py-1 text-[10px] font-semibold disabled:opacity-50"
+                              disabled={busy}
+                              onClick={() => setSquadInterest(p, "player")}
+                            >
+                              {busy ? "…" : "Make player"}
+                            </button>
+                          ) : !teamChangeMember ? (
+                            <button
+                              type="button"
+                              className="rounded-md border border-accent/50 bg-accent/15 px-2 py-1 text-[10px] font-semibold text-accent disabled:opacity-50"
+                              disabled={busy}
+                              onClick={() => setSquadInterest(p, "captain")}
+                            >
+                              {busy ? "…" : "Make captain"}
+                            </button>
+                          ) : null}
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               )}
             </div>
+
+            {teamChangeMember ? (
+              <div className="shrink-0 border-t border-[color:var(--border)] bg-ink-soft/30 px-4 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-[color:var(--title)]">
+                    {teamChangeMember.fullName}
+                  </p>
+                  <button
+                    type="button"
+                    className="text-[10px] text-[color:var(--text-muted)] underline"
+                    onClick={() => setTeamChangeMember(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <div className="mt-2 flex gap-2">
+                  {[
+                    ["change", "Change team"],
+                    ["replace", "Replace"],
+                  ].map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                        teamChangeMode === key
+                          ? "bg-accent text-white"
+                          : "border border-[color:var(--border)] text-[color:var(--text-muted)]"
+                      }`}
+                      onClick={() => setTeamChangeMode(key)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {teamChangeMode === "change" ? (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <label className="block text-[10px] text-[color:var(--text-muted)] sm:col-span-2">
+                      Team
+                      <select
+                        className="input-dark mt-1 !text-xs"
+                        value={changeForm.franchiseId}
+                        onChange={(e) =>
+                          setChangeForm((prev) => ({ ...prev, franchiseId: e.target.value }))
+                        }
+                        disabled={changeForm.auctionStatus === "unsold"}
+                      >
+                        <option value="">Select team</option>
+                        {franchiseCatalog.map((f) => (
+                          <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block text-[10px] text-[color:var(--text-muted)]">
+                      Auction status
+                      <select
+                        className="input-dark mt-1 !text-xs"
+                        value={changeForm.auctionStatus}
+                        onChange={(e) =>
+                          setChangeForm((prev) => ({ ...prev, auctionStatus: e.target.value }))
+                        }
+                      >
+                        <option value="sold">Sold</option>
+                        <option value="unsold">Unsold</option>
+                      </select>
+                    </label>
+                    <label className="block text-[10px] text-[color:var(--text-muted)]">
+                      Auction amount (₹)
+                      <input
+                        type="number"
+                        min="0"
+                        className="input-dark mt-1 !text-xs"
+                        value={changeForm.soldPrice}
+                        disabled={changeForm.auctionStatus !== "sold"}
+                        onChange={(e) =>
+                          setChangeForm((prev) => ({ ...prev, soldPrice: e.target.value }))
+                        }
+                      />
+                    </label>
+                    <label className="block text-[10px] text-[color:var(--text-muted)] sm:col-span-2">
+                      Base price (₹) — optional, defaults to auction amount
+                      <input
+                        type="number"
+                        min="0"
+                        className="input-dark mt-1 !text-xs"
+                        value={changeForm.basePrice}
+                        disabled={changeForm.auctionStatus !== "sold"}
+                        onChange={(e) =>
+                          setChangeForm((prev) => ({ ...prev, basePrice: e.target.value }))
+                        }
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-[10px] text-[color:var(--text-muted)]">
+                      Replacement uses base and sold price of ₹
+                      {SQUAD_REPLACE_PRICE_INR.toLocaleString("en-IN")}. Team is optional (defaults to
+                      current team).
+                    </p>
+                    <label className="block text-[10px] text-[color:var(--text-muted)]">
+                      Team (optional)
+                      <select
+                        className="input-dark mt-1 !text-xs"
+                        value={replaceFranchiseId}
+                        onChange={(e) => setReplaceFranchiseId(e.target.value)}
+                      >
+                        <option value="">Same team ({popupTeam?.name})</option>
+                        {franchiseCatalog.map((f) => (
+                          <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="max-h-36 overflow-y-auto rounded-md border border-[color:var(--border)]">
+                      {poolLoading ? (
+                        <p className="p-2 text-xs text-[color:var(--text-muted)]">Loading players…</p>
+                      ) : replacePool.length === 0 ? (
+                        <p className="p-2 text-xs text-[color:var(--text-muted)]">
+                          No accepted players without base price available.
+                        </p>
+                      ) : (
+                        <ul className="divide-y divide-[color:var(--border)]">
+                          {replacePool.map((r) => (
+                            <li key={r._id}>
+                              <label className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-xs hover:bg-ink-soft/40">
+                                <input
+                                  type="radio"
+                                  name="replacePick"
+                                  checked={replacePick === String(r._id)}
+                                  onChange={() => setReplacePick(String(r._id))}
+                                />
+                                <span className="font-medium text-[color:var(--title)]">{r.fullName}</span>
+                                <span className="text-[color:var(--text-muted)]">
+                                  {r.playerCode ? `· ${r.playerCode}` : ""}
+                                  {r.role ? ` · ${playerRoleLabel(r.role)}` : ""}
+                                </span>
+                              </label>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="btn-primary mt-3 w-full !py-2 !text-xs"
+                  disabled={busyMemberId === String(teamChangeMember._id)}
+                  onClick={submitTeamChange}
+                >
+                  {busyMemberId === String(teamChangeMember._id) ? "Saving…" : "Save"}
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
@@ -3520,6 +4091,7 @@ function RegistrationFeesPage() {
   const [paymentGateway, setPaymentGateway] = useState("razorpay");
   const [playerDocumentsUploadEnabled, setPlayerDocumentsUploadEnabled] = useState(true);
   const [playerPayNowEnabled, setPlayerPayNowEnabled] = useState(true);
+  const [playerTeamCardEnabled, setPlayerTeamCardEnabled] = useState(true);
   const [gatewayStatus, setGatewayStatus] = useState({
     razorpay: { configured: false },
     cashfree: { configured: false, mode: "sandbox" },
@@ -3544,6 +4116,7 @@ function RegistrationFeesPage() {
         setPaymentGateway(data.settings?.paymentGateway || "razorpay");
         setPlayerDocumentsUploadEnabled(data.settings?.playerDocumentsUploadEnabled !== false);
         setPlayerPayNowEnabled(data.settings?.playerPayNowEnabled !== false);
+        setPlayerTeamCardEnabled(data.settings?.playerTeamCardEnabled !== false);
         setGatewayStatus(
           data.settings?.paymentGatewayStatus || {
             razorpay: { configured: false },
@@ -3581,12 +4154,14 @@ function RegistrationFeesPage() {
           paymentGateway,
           playerDocumentsUploadEnabled,
           playerPayNowEnabled,
+          playerTeamCardEnabled,
         }),
       });
       setFees(data.settings.registrationFees);
       setPaymentGateway(data.settings.paymentGateway || paymentGateway);
       setPlayerDocumentsUploadEnabled(data.settings?.playerDocumentsUploadEnabled !== false);
       setPlayerPayNowEnabled(data.settings?.playerPayNowEnabled !== false);
+      setPlayerTeamCardEnabled(data.settings?.playerTeamCardEnabled !== false);
       setGatewayStatus(
         data.settings.paymentGatewayStatus || {
           razorpay: { configured: false },
@@ -3709,6 +4284,21 @@ function RegistrationFeesPage() {
                   <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
                     When off, the Pay now button is hidden for everyone until you turn it back on (even if admin enabled
                     Pay now for a player).
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[color:var(--border)] px-4 py-3">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                  checked={playerTeamCardEnabled}
+                  onChange={(e) => setPlayerTeamCardEnabled(e.target.checked)}
+                />
+                <span className="text-sm">
+                  <span className="font-medium text-[color:var(--title)]">Show Team card on player dashboard</span>
+                  <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+                    When off, sold players and captains will not see the Team card button (My team / Manage team stays
+                    available).
                   </span>
                 </span>
               </label>
@@ -4282,6 +4872,7 @@ export default function Admin() {
       <Route path="teams" element={<TeamsPage />} />
       <Route path="passwords" element={<PasswordsPage />} />
       <Route path="auction" element={<AuctionPage />} />
+      <Route path="auction-spending" element={<AuctionSpendingPage />} />
       <Route path="live" element={<AdminLivePage AdminShell={AdminShell} />} />
       <Route path="settings" element={<SiteSettingsPage />} />
       <Route path="fees" element={<RegistrationFeesPage />} />

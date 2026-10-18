@@ -6,6 +6,7 @@ import RegisterCta from "../components/RegisterCta";
 import ZoomableImage from "../components/ZoomableImage";
 import PaymentQrModal from "../components/PaymentQrModal";
 import PlayerDocumentsModal from "../components/PlayerDocumentsModal";
+import PlayerTeamCardModal from "../components/PlayerTeamCardModal";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 import { playerRoleLabel } from "../data/playerRoles";
@@ -62,9 +63,16 @@ function missingProfileImage(reg, brokenIds) {
   return !profileImageUrl(reg);
 }
 
+function isSoldOnFranchise(reg) {
+  return (
+    String(reg?.auctionStatus || "").toLowerCase() === "sold" &&
+    Boolean(String(reg?.franchiseId || "").trim())
+  );
+}
+
 export default function Dashboard() {
   const { user, loading, logout } = useAuth();
-  const { referralProgramEnabled, playerPayNowEnabled } = useSiteSettings();
+  const { referralProgramEnabled, playerPayNowEnabled, playerTeamCardEnabled } = useSiteSettings();
 
   function canPayNow(reg) {
     return (
@@ -94,6 +102,7 @@ export default function Dashboard() {
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [documentsModalReg, setDocumentsModalReg] = useState(null);
+  const [teamCardReg, setTeamCardReg] = useState(null);
   const [refsOpen, setRefsOpen] = useState(false);
   const [refsLoading, setRefsLoading] = useState(false);
   const [refsError, setRefsError] = useState("");
@@ -494,6 +503,22 @@ export default function Dashboard() {
                               : ""}
                           </p>
                         )}
+                        {reg.teamCaptain ? (
+                          <div className="mt-3 rounded-lg border border-[color:var(--border)] bg-ink-soft/40 px-3 py-2.5 text-sm">
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+                              Your team captain
+                            </p>
+                            <p className="mt-1 font-semibold text-[color:var(--title)]">
+                              {reg.teamCaptain.fullName || "—"}
+                            </p>
+                            <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                              {reg.teamCaptain.playerCode
+                                ? `Player ID: ${reg.teamCaptain.playerCode}`
+                                : "Player ID: —"}
+                              {reg.teamCaptain.phone ? ` · Mobile: ${reg.teamCaptain.phone}` : ""}
+                            </p>
+                          </div>
+                        ) : null}
                         {reg.referredByPlayerCode ? (
                           <p className="mt-2 text-xs text-[color:var(--text-muted)]">
                             Referred by Player ID: {reg.referredByPlayerCode}
@@ -564,6 +589,23 @@ export default function Dashboard() {
                       >
                         Add documents
                       </button>
+                    ) : null}
+                    {isSoldOnFranchise(reg) &&
+                    (reg.interest === "player" || reg.interest === "captain") ? (
+                      <>
+                        {playerTeamCardEnabled !== false ? (
+                          <button
+                            type="button"
+                            className="btn-primary !py-2 !text-xs"
+                            onClick={() => setTeamCardReg(reg)}
+                          >
+                            Team card
+                          </button>
+                        ) : null}
+                        <Link to="/dashboard/team" className="btn-ghost !py-2 !text-xs">
+                          {reg.interest === "captain" ? "Manage team" : "My team"}
+                        </Link>
+                      </>
                     ) : null}
                   </div>
                   {reg.showAddDocumentsButton ? (
@@ -741,6 +783,10 @@ export default function Dashboard() {
             setDocumentsModalReg(updated);
           }}
         />
+      ) : null}
+
+      {teamCardReg ? (
+        <PlayerTeamCardModal registration={teamCardReg} onClose={() => setTeamCardReg(null)} />
       ) : null}
 
       <PaymentQrModal

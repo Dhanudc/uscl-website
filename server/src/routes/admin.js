@@ -7,7 +7,7 @@ import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isReferralProgramEnabled, isPlayerDocumentsUploadEnabled, isPlayerPayNowEnabled, normalizeModuleVisibility, normalizeSocials, normalizeUpcomingEvents, normalizeMembersIntro, publicBoardMembers, normalizeBoardMembers, publicKeyDates, normalizeKeyDates, normalizeNavLabels } from "../models/SiteSettings.js";
+import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isReferralProgramEnabled, isPlayerDocumentsUploadEnabled, isPlayerPayNowEnabled, isPlayerTeamCardEnabled, normalizeModuleVisibility, normalizeSocials, normalizeUpcomingEvents, normalizeMembersIntro, publicBoardMembers, normalizeBoardMembers, publicKeyDates, normalizeKeyDates, normalizeNavLabels } from "../models/SiteSettings.js";
 import { getGatewayStatus } from "../utils/paymentGateway.js";
 import {
   applyPlayerDocumentSubmission,
@@ -34,7 +34,22 @@ import {
   sendRegistrationRejectedEmail,
 } from "../utils/mail.js";
 import { recordPlayerActivity } from "../utils/activity.js";
-import { FRANCHISES, getFranchiseName } from "../utils/franchises.js";
+import { FRANCHISES, getFranchiseName, resolveFranchiseId } from "../utils/franchises.js";
+import {
+  buildAuctionSpendingReport,
+  getAuctionTeamBudgetInr,
+  normalizeAuctionTeamBudgetInr,
+} from "../utils/auctionSpending.js";
+import { TeamLineup } from "../models/TeamLineup.js";
+import { findTeamCaptainByFranchiseId, findTeamCaptainsByFranchiseIds } from "../utils/teamCaptain.js";
+import {
+  syncRegistrationInterestWithLineup,
+  removeRegistrationFromLineup,
+  addRegistrationToLineup,
+  replaceSoldMemberInLineup,
+} from "../utils/teamLineup.js";
+
+const SQUAD_REPLACE_PRICE_INR = 3000;
 import { buildPointsTable } from "../utils/points.js";
 import { persistUploadedFile } from "../utils/mediaStore.js";
 import { isValidPlayerRole, playerRoleLabel } from "../constants/playerRoles.js";
@@ -388,6 +403,33 @@ router.get("/registrations", adminRequired, async (req, res) => {
 
   const registrations = await PlayerRegistration.find(filter).sort({ createdAt: -1 }).lean();
   return res.json({ registrations: await mapEnrichedRegistrationsAsync(registrations) });
+});
+
+router.get("/registrations/replacement-pool", adminRequired, async (req, res) => {
+  try {
+    const exclude = String(req.query.exclude || "").trim();
+    const filter = {
+      status: "verified",
+      interest: { $in: ["player", "captain"] },
+      auctionStatus: { $in: ["not_listed", "unsold"] },
+      franchiseId: { $in: ["", null] },
+      $or: [{ basePrice: { $lte: 0 } }, { basePrice: { $exists: false } }],
+    };
+    if (exclude) {
+      filter._id = { $ne: exclude };
+    }
+    const players = await PlayerRegistration.find(filter)
+      .select(
+        "fullName email playerCode role company interest basePrice soldPrice auctionStatus franchiseId status"
+      )
+      .sort({ fullName: 1 })
+      .limit(250)
+      .lean();
+    return res.json({ players: mapWithProfileImageUrl(players) });
+  } catch (error) {
+    console.error("replacement-pool error", error);
+    return res.status(500).json({ error: "Unable to load replacement players." });
+  }
 });
 
 router.get("/registrations/:id", adminRequired, async (req, res) => {
@@ -855,32 +897,243 @@ router.patch("/registrations/:id/details", adminRequired, async (req, res) => {
   }
 });
 
+router.patch("/registrations/:id/squad-interest", adminRequired, async (req, res) => {
+  try {
+    const registration = await PlayerRegistration.findById(req.params.id);
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+    if (registration.status !== "verified") {
+      return res.status(400).json({ error: "Only accepted registrations can be updated." });
+    }
+    if (String(registration.auctionStatus || "") !== "sold" || !String(registration.franchiseId || "").trim()) {
+      return res.status(400).json({ error: "Member must be sold to a franchise team first." });
+    }
+
+    const current = String(registration.interest || "").toLowerCase();
+    if (current !== "player" && current !== "captain") {
+      return res.status(400).json({ error: "Only players and captains can be changed here." });
+    }
+
+    const interest = String(req.body.interest || "").trim().toLowerCase();
+    if (interest !== "player" && interest !== "captain") {
+      return res.status(400).json({ error: "Interest must be player or captain." });
+    }
+    if (interest === current) {
+      return res.json({ registration: withProfileImageUrl(registration), unchanged: true });
+    }
+
+    const fid = resolveFranchiseId(registration.franchiseId);
+    const prevInterest = registration.interest;
+
+    if (interest === "captain") {
+      await PlayerRegistration.updateMany(
+        {
+          franchiseId: fid,
+          interest: "captain",
+          _id: { $ne: registration._id },
+        },
+        { $set: { interest: "player" } }
+      );
+    }
+
+    registration.interest = interest;
+    await registration.save();
+    await syncRegistrationInterestWithLineup(registration, interest);
+
+    await writeAudit(req, {
+      action: "registration.squad_interest_update",
+      targetType: "registration",
+      targetId: registration._id,
+      targetLabel: `${registration.fullName} <${registration.email}>`,
+      details: {
+        summary: `Changed squad type ${prevInterest} → ${interest} (${registration.franchiseName || fid})`,
+        from: prevInterest,
+        to: interest,
+        franchiseId: fid,
+      },
+    });
+
+    return res.json({ registration: withProfileImageUrl(registration) });
+  } catch (error) {
+    console.error("squad-interest update error", error);
+    return res.status(500).json({ error: "Unable to update player/captain type." });
+  }
+});
+
+router.patch("/registrations/:id/squad-team", adminRequired, async (req, res) => {
+  try {
+    const outgoing = await PlayerRegistration.findById(req.params.id);
+    if (!outgoing) {
+      return res.status(404).json({ error: "Registration not found." });
+    }
+    if (outgoing.status !== "verified") {
+      return res.status(400).json({ error: "Only accepted players can be moved." });
+    }
+    if (String(outgoing.auctionStatus || "") !== "sold" || !String(outgoing.franchiseId || "").trim()) {
+      return res.status(400).json({ error: "Player must be sold to a team before change or replace." });
+    }
+
+    const mode = String(req.body.mode || "change").toLowerCase();
+    const prevFranchiseId = resolveFranchiseId(outgoing.franchiseId);
+
+    if (mode === "replace") {
+      const replacementId = String(req.body.replacementRegistrationId || "").trim();
+      if (!replacementId) {
+        return res.status(400).json({ error: "Select a replacement player." });
+      }
+      const incoming = await PlayerRegistration.findById(replacementId);
+      if (!incoming) {
+        return res.status(404).json({ error: "Replacement player not found." });
+      }
+      if (incoming.status !== "verified") {
+        return res.status(400).json({ error: "Replacement must be an accepted registration." });
+      }
+      const base = Number(incoming.basePrice || 0);
+      if (base > 0) {
+        return res.status(400).json({ error: "Replacement must have no base price set." });
+      }
+      if (!["not_listed", "unsold"].includes(String(incoming.auctionStatus || ""))) {
+        return res.status(400).json({ error: "Replacement must not already be sold." });
+      }
+      if (String(incoming.franchiseId || "").trim()) {
+        return res.status(400).json({ error: "Replacement is already assigned to a team." });
+      }
+
+      const teamId = resolveFranchiseId(req.body.franchiseId || outgoing.franchiseId);
+      if (!teamId) {
+        return res.status(400).json({ error: "Select a team or keep the current team." });
+      }
+      const teamName = getFranchiseName(teamId);
+
+      outgoing.auctionStatus = "unsold";
+      outgoing.franchiseId = "";
+      outgoing.franchiseName = "";
+      outgoing.basePrice = 0;
+      outgoing.soldPrice = 0;
+      await outgoing.save();
+      await removeRegistrationFromLineup(prevFranchiseId, outgoing._id);
+
+      incoming.auctionStatus = "sold";
+      incoming.franchiseId = teamId;
+      incoming.franchiseName = teamName;
+      incoming.basePrice = SQUAD_REPLACE_PRICE_INR;
+      incoming.soldPrice = SQUAD_REPLACE_PRICE_INR;
+      await incoming.save();
+      await replaceSoldMemberInLineup(teamId, outgoing._id, incoming._id);
+
+      await writeAudit(req, {
+        action: "registration.squad_replace",
+        targetType: "registration",
+        targetId: outgoing._id,
+        targetLabel: `${outgoing.fullName} → ${incoming.fullName}`,
+        details: {
+          summary: `Replaced on ${teamName} at ₹${SQUAD_REPLACE_PRICE_INR}`,
+          outgoingId: String(outgoing._id),
+          incomingId: String(incoming._id),
+          franchiseId: teamId,
+        },
+      });
+
+      return res.json({
+        outgoing: withProfileImageUrl(outgoing),
+        incoming: withProfileImageUrl(incoming),
+      });
+    }
+
+    let auctionStatus = String(req.body.auctionStatus || "sold");
+    if (!["sold", "unsold"].includes(auctionStatus)) {
+      return res.status(400).json({ error: "Auction status must be sold or unsold." });
+    }
+
+    const franchiseId = String(req.body.franchiseId || "").trim();
+    const soldPrice = Math.max(0, Number(req.body.soldPrice) || 0);
+    const basePrice = Math.max(0, Number(req.body.basePrice ?? req.body.soldPrice) || 0);
+
+    if (auctionStatus === "sold" && !franchiseId) {
+      return res.status(400).json({ error: "Select a team for sold status." });
+    }
+
+    const nextFranchiseId = auctionStatus === "sold" ? resolveFranchiseId(franchiseId) : "";
+    const nextFranchiseName = nextFranchiseId ? getFranchiseName(nextFranchiseId) : "";
+
+    outgoing.auctionStatus = auctionStatus;
+    outgoing.franchiseId = nextFranchiseId;
+    outgoing.franchiseName = nextFranchiseName;
+    outgoing.basePrice = auctionStatus === "sold" ? basePrice : 0;
+    outgoing.soldPrice = auctionStatus === "sold" ? soldPrice : 0;
+    await outgoing.save();
+
+    await removeRegistrationFromLineup(prevFranchiseId, outgoing._id);
+    if (auctionStatus === "sold" && nextFranchiseId) {
+      await addRegistrationToLineup(nextFranchiseId, outgoing._id);
+    }
+
+    await writeAudit(req, {
+      action: "registration.squad_team_change",
+      targetType: "registration",
+      targetId: outgoing._id,
+      targetLabel: `${outgoing.fullName} <${outgoing.email}>`,
+      details: {
+        summary: `Team change ${prevFranchiseId} → ${nextFranchiseId || "none"} (${auctionStatus})`,
+        auctionStatus,
+        franchiseId: nextFranchiseId,
+        soldPrice: outgoing.soldPrice,
+        basePrice: outgoing.basePrice,
+      },
+    });
+
+    return res.json({ registration: withProfileImageUrl(outgoing) });
+  } catch (error) {
+    console.error("squad-team change error", error);
+    return res.status(500).json({ error: "Unable to update team assignment." });
+  }
+});
+
 router.get("/teams", adminRequired, async (_req, res) => {
   const sold = await PlayerRegistration.find({
     status: "verified",
     auctionStatus: "sold",
     franchiseId: { $ne: "" },
+    interest: { $in: ["player", "captain"] },
   })
     .select(
-      "fullName email phone company role city franchiseId franchiseName basePrice soldPrice auctionStatus interest photo profileImage paymentStatus payment utrNumber paymentScreenshot"
+      "fullName email phone company role city franchiseId franchiseName basePrice soldPrice auctionStatus interest photo profileImage paymentStatus payment utrNumber paymentScreenshot playerCode"
     )
     .sort({ fullName: 1 })
     .lean();
+
+  const lineupDocs = await TeamLineup.find({
+    franchiseId: { $in: FRANCHISES.map((f) => f.id) },
+  }).lean();
+  const squadRoleByRegId = {};
+  for (const doc of lineupDocs) {
+    for (const entry of doc.entries || []) {
+      squadRoleByRegId[String(entry.registrationId)] = entry.squadRole;
+    }
+  }
 
   const byTeam = {};
   for (const f of FRANCHISES) {
     byTeam[f.id] = [];
   }
   for (const player of sold) {
-    if (!byTeam[player.franchiseId]) byTeam[player.franchiseId] = [];
-    byTeam[player.franchiseId].push(withProfileImageUrl(player));
+    const teamKey = resolveFranchiseId(player.franchiseId);
+    if (!byTeam[teamKey]) byTeam[teamKey] = [];
+    const squadRole =
+      squadRoleByRegId[String(player._id)] ||
+      (String(player.interest || "").toLowerCase() === "captain" ? "captain" : "player");
+    byTeam[teamKey].push(withProfileImageUrl({ ...player, squadRole }));
   }
+
+  const captainsByTeam = await findTeamCaptainsByFranchiseIds(FRANCHISES.map((f) => f.id));
 
   return res.json({
     teams: FRANCHISES.map((f) => ({
       ...f,
       playerCount: byTeam[f.id]?.length || 0,
       players: byTeam[f.id] || [],
+      captain: captainsByTeam[f.id] || null,
     })),
   });
 });
@@ -1585,6 +1838,17 @@ router.patch("/registrations/:id", adminRequired, async (req, res) => {
   }
 });
 
+router.get("/auction/spending", adminRequired, async (_req, res) => {
+  try {
+    const settings = await getSiteSettings();
+    const report = await buildAuctionSpendingReport(getAuctionTeamBudgetInr(settings));
+    return res.json(report);
+  } catch (error) {
+    console.error("auction spending error", error);
+    return res.status(500).json({ error: "Unable to load auction spending." });
+  }
+});
+
 router.patch("/registrations/:id/auction", adminRequired, async (req, res) => {
   try {
     const registration = await PlayerRegistration.findById(req.params.id);
@@ -1593,7 +1857,7 @@ router.patch("/registrations/:id/auction", adminRequired, async (req, res) => {
       return res.status(400).json({ error: "Only accepted players can be assigned in auction." });
     }
 
-    const auctionStatus = String(req.body.auctionStatus || "not_listed");
+    let auctionStatus = String(req.body.auctionStatus || "not_listed");
     if (!["not_listed", "unsold", "sold"].includes(auctionStatus)) {
       return res.status(400).json({ error: "Invalid auction status." });
     }
@@ -1601,9 +1865,26 @@ router.patch("/registrations/:id/auction", adminRequired, async (req, res) => {
     const franchiseId = String(req.body.franchiseId || "").trim();
     const basePrice = Number(req.body.basePrice || 0);
     const soldPrice = Number(req.body.soldPrice || 0);
+    const isCaptain = String(registration.interest || "").toLowerCase() === "captain";
+
+    if (isCaptain && franchiseId && auctionStatus === "not_listed") {
+      auctionStatus = "sold";
+    }
 
     if (auctionStatus === "sold" && !franchiseId) {
       return res.status(400).json({ error: "Select a franchise for sold players." });
+    }
+
+    if (isCaptain && franchiseId) {
+      const resolvedTeam = resolveFranchiseId(franchiseId);
+      const otherCaptain = await findTeamCaptainByFranchiseId(resolvedTeam, {
+        excludeRegistrationId: registration._id,
+      });
+      if (otherCaptain) {
+        return res.status(400).json({
+          error: `This team already has captain ${otherCaptain.fullName || otherCaptain.playerCode || "assigned"}.`,
+        });
+      }
     }
 
     const prev = {
@@ -1789,6 +2070,8 @@ router.get("/settings", adminRequired, async (_req, res) => {
         registrationEnabled: isRegistrationEnabled(settings),
         playerDocumentsUploadEnabled: isPlayerDocumentsUploadEnabled(settings),
         playerPayNowEnabled: isPlayerPayNowEnabled(settings),
+        playerTeamCardEnabled: isPlayerTeamCardEnabled(settings),
+        auctionTeamBudgetInr: getAuctionTeamBudgetInr(settings),
         referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
         navLabels: normalizeNavLabels(settings.navLabels),
@@ -1867,6 +2150,16 @@ router.put("/settings", adminRequired, async (req, res) => {
     if (typeof req.body.playerPayNowEnabled === "boolean") {
       settings.playerPayNowEnabled = req.body.playerPayNowEnabled;
       auditBits.push(req.body.playerPayNowEnabled ? "player Pay now on" : "player Pay now off");
+    }
+
+    if (typeof req.body.playerTeamCardEnabled === "boolean") {
+      settings.playerTeamCardEnabled = req.body.playerTeamCardEnabled;
+      auditBits.push(req.body.playerTeamCardEnabled ? "player team card on" : "player team card off");
+    }
+
+    if (req.body.auctionTeamBudgetInr !== undefined && req.body.auctionTeamBudgetInr !== null) {
+      settings.auctionTeamBudgetInr = normalizeAuctionTeamBudgetInr(req.body.auctionTeamBudgetInr);
+      auditBits.push(`auction purse ₹${settings.auctionTeamBudgetInr.toLocaleString("en-IN")} per team`);
     }
 
     if (typeof req.body.referralProgramEnabled === "boolean") {
@@ -1962,6 +2255,8 @@ router.put("/settings", adminRequired, async (req, res) => {
         registrationEnabled: isRegistrationEnabled(settings),
         playerDocumentsUploadEnabled: isPlayerDocumentsUploadEnabled(settings),
         playerPayNowEnabled: isPlayerPayNowEnabled(settings),
+        playerTeamCardEnabled: isPlayerTeamCardEnabled(settings),
+        auctionTeamBudgetInr: getAuctionTeamBudgetInr(settings),
         referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
         navLabels: normalizeNavLabels(settings.navLabels),

@@ -146,6 +146,10 @@ const siteSettingsSchema = new mongoose.Schema(
     playerDocumentsUploadEnabled: { type: Boolean, default: true },
     /** When false, Pay now is hidden on the player dashboard even if enabled per registration. */
     playerPayNowEnabled: { type: Boolean, default: true },
+    /** When false, Team card button is hidden for sold players/captains on the dashboard. */
+    playerTeamCardEnabled: { type: Boolean, default: true },
+    /** Max auction spend per franchise team (INR). */
+    auctionTeamBudgetInr: { type: Number, default: 250000 },
     /** When false, referral field is hidden and new referral codes are ignored. */
     referralProgramEnabled: { type: Boolean, default: true },
     /** Show/hide public module links (Media, Live, Wesley, etc.). */
@@ -281,6 +285,8 @@ export const DEFAULT_SITE_SETTINGS = {
   registrationEnabled: true,
   playerDocumentsUploadEnabled: true,
   playerPayNowEnabled: true,
+  playerTeamCardEnabled: true,
+  auctionTeamBudgetInr: 250000,
   referralProgramEnabled: true,
   moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
   navLabels: normalizeNavLabels({}),
@@ -563,6 +569,10 @@ export function isPlayerDocumentsUploadEnabled(settings) {
 
 export function isPlayerPayNowEnabled(settings) {
   return settings?.playerPayNowEnabled !== false;
+}
+
+export function isPlayerTeamCardEnabled(settings) {
+  return settings?.playerTeamCardEnabled !== false;
 }
 
 export function isReferralProgramEnabled(settings) {

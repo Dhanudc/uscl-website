@@ -22,6 +22,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import FranchiseSquad from "./pages/FranchiseSquad";
 import FranchisePlayerDashboard from "./pages/FranchisePlayerDashboard";
+import TeamLineup from "./pages/TeamLineup";
 import Admin from "./pages/Admin";
 import AdminLogin from "./pages/AdminLogin";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -131,6 +132,14 @@ function AppRoutes() {
           element={
             <ApprovedOnly>
               <FranchisePlayerDashboard />
+            </ApprovedOnly>
+          }
+        />
+        <Route
+          path="/dashboard/team"
+          element={
+            <ApprovedOnly>
+              <TeamLineup />
             </ApprovedOnly>
           }
         />

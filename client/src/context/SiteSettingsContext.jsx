@@ -53,6 +53,7 @@ const DEFAULTS = {
   ],
   registrationEnabled: true,
   playerPayNowEnabled: true,
+  playerTeamCardEnabled: true,
   referralProgramEnabled: true,
   moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
   navLabels: normalizeNavLabels({}),
@@ -71,6 +72,7 @@ const SiteSettingsContext = createContext({
   socials: DEFAULTS.socials,
   registrationEnabled: true,
   playerPayNowEnabled: true,
+  playerTeamCardEnabled: true,
   referralProgramEnabled: true,
   moduleVisibility: DEFAULTS.moduleVisibility,
   navLabels: DEFAULTS.navLabels,
@@ -90,6 +92,7 @@ export function SiteSettingsProvider({ children }) {
   const [socials, setSocials] = useState(DEFAULTS.socials);
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [playerPayNowEnabled, setPlayerPayNowEnabled] = useState(true);
+  const [playerTeamCardEnabled, setPlayerTeamCardEnabled] = useState(true);
   const [referralProgramEnabled, setReferralProgramEnabled] = useState(true);
   const [moduleVisibility, setModuleVisibility] = useState(DEFAULTS.moduleVisibility);
   const [navLabels, setNavLabels] = useState(DEFAULTS.navLabels);
@@ -109,6 +112,7 @@ export function SiteSettingsProvider({ children }) {
       }
       setRegistrationEnabled(data.settings?.registrationEnabled !== false);
       setPlayerPayNowEnabled(data.settings?.playerPayNowEnabled !== false);
+      setPlayerTeamCardEnabled(data.settings?.playerTeamCardEnabled !== false);
       setReferralProgramEnabled(data.settings?.referralProgramEnabled !== false);
       setModuleVisibility(normalizeModuleVisibility(data.settings?.moduleVisibility));
       setNavLabels(normalizeNavLabels(data.settings?.navLabels));
@@ -151,6 +155,7 @@ export function SiteSettingsProvider({ children }) {
       socials,
       registrationEnabled,
       playerPayNowEnabled,
+      playerTeamCardEnabled,
       referralProgramEnabled,
       moduleVisibility,
       navLabels,
@@ -164,7 +169,7 @@ export function SiteSettingsProvider({ children }) {
       loading,
       refresh,
     }),
-    [contact, socials, registrationEnabled, playerPayNowEnabled, referralProgramEnabled, moduleVisibility, navLabels, navLabel, whatsappGroupUrl, upcomingEvents, membersIntro, boardMembers, keyDates, isModuleVisible, loading, refresh]
+    [contact, socials, registrationEnabled, playerPayNowEnabled, playerTeamCardEnabled, referralProgramEnabled, moduleVisibility, navLabels, navLabel, whatsappGroupUrl, upcomingEvents, membersIntro, boardMembers, keyDates, isModuleVisible, loading, refresh]
   );
 
   return <SiteSettingsContext.Provider value={value}>{children}</SiteSettingsContext.Provider>;
