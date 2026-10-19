@@ -5,6 +5,7 @@ import { withProfileImageUrl } from "../middleware/upload.js";
 import { docKeyBaseFamily, familyVersionNumber, hasDocFamily } from "./playerDocumentVersions.js";
 import { resolveFranchiseId } from "./franchises.js";
 import { findTeamCaptainsByFranchiseIds, playerShouldSeeTeamCaptain } from "./teamCaptain.js";
+import { getMentorForFranchise, getMentorsByFranchiseIds } from "./teamMentor.js";
 import { resolveSquadRoleForReg, squadRoleMapForRegistrations } from "./teamLineup.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -288,18 +289,33 @@ export async function mapEnrichedRegistrationsForPlayerAsync(list) {
   const rows = (await mapEnrichedRegistrationsAsync(list)).map(sanitizeRegistrationForPlayerPortal);
   const squadRows = rows.filter((reg) => playerShouldSeeTeamCaptain(reg));
   const franchiseIds = squadRows.map((reg) => resolveFranchiseId(reg.franchiseId));
-  const [captains, squadRoles] = await Promise.all([
+  const [captains, squadRoles, mentorsByTeam] = await Promise.all([
     findTeamCaptainsByFranchiseIds(franchiseIds),
     squadRoleMapForRegistrations(squadRows),
+    getMentorsByFranchiseIds(franchiseIds),
   ]);
-  return rows.map((reg) => {
+  const mapped = rows.map((reg) => {
     if (!playerShouldSeeTeamCaptain(reg)) return reg;
     const key = resolveFranchiseId(reg.franchiseId);
     const teamCaptain = captains[key] || null;
     const squadRole = resolveSquadRoleForReg(reg, squadRoles);
     const withCaptain = teamCaptain ? { ...reg, teamCaptain } : { ...reg };
-    return { ...withCaptain, squadRole };
+    const isCaptain =
+      squadRole === "captain" || String(reg.interest || "").toLowerCase() === "captain";
+    const teamMentor = isCaptain ? mentorsByTeam[key] || null : null;
+    return { ...withCaptain, squadRole, teamMentor, _franchiseKey: key, _isCaptain: isCaptain };
   });
+
+  for (const reg of mapped) {
+    if (!reg._isCaptain) continue;
+    if (!reg.teamMentor && reg._franchiseKey) {
+      reg.teamMentor = await getMentorForFranchise(reg._franchiseKey);
+    }
+    delete reg._franchiseKey;
+    delete reg._isCaptain;
+  }
+
+  return mapped;
 }
 
 export function collectUploadedDocumentFiles(files) {

@@ -34,6 +34,8 @@ import MembersAdmin from "../components/admin/MembersAdmin.jsx";
 import AdminPlayerDocumentsViewModal from "../components/admin/AdminPlayerDocumentsViewModal.jsx";
 import AdminPlayerDocumentsPanel from "../components/admin/AdminPlayerDocumentsPanel.jsx";
 import SquadRoleBadge from "../components/SquadRoleBadge.jsx";
+import TeamMentorModal from "../components/TeamMentorModal.jsx";
+import MentorBadge from "../components/MentorBadge.jsx";
 import PlayerDocumentsModal from "../components/PlayerDocumentsModal.jsx";
 import { AlertBanner, PageLoader, StatGridSkeleton } from "../components/ui";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
@@ -43,6 +45,7 @@ import {
   REPORT_INTEREST_OPTIONS,
   REPORT_PAYMENT_OPTIONS,
   REPORT_STATUS_OPTIONS,
+  REPORT_TEAM_OPTIONS,
   REGISTRATION_REPORT_COLUMNS,
   buildReportQueryParams,
   formatReportCell,
@@ -3298,6 +3301,7 @@ function TeamsPage() {
   const [replacePick, setReplacePick] = useState("");
   const [replaceFranchiseId, setReplaceFranchiseId] = useState("");
   const [poolLoading, setPoolLoading] = useState(false);
+  const [mentorModalOpen, setMentorModalOpen] = useState(false);
 
   function mergeTeamsList(list) {
     return franchiseCatalog.map((f) => {
@@ -3312,6 +3316,7 @@ function TeamsPage() {
         playerCount: row.playerCount ?? row.players?.length ?? 0,
         players: row.players || [],
         captain: row.captain || null,
+        mentor: row.mentor || null,
       };
     });
   }
@@ -3550,6 +3555,43 @@ function TeamsPage() {
               </button>
             </div>
 
+            {!teamChangeMember ? (
+              <div className="border-b border-[color:var(--border)] px-4 py-3 text-sm">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
+                    Team mentor
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-ghost !py-1 !text-[10px]"
+                    onClick={() => setMentorModalOpen(true)}
+                  >
+                    {popupTeam.mentor ? "Manage mentor" : "Add mentor"}
+                  </button>
+                </div>
+                {popupTeam.mentor ? (
+                  <div className="mt-2 flex items-center gap-3">
+                    {profileImageUrl(popupTeam.mentor) ? (
+                      <ZoomableImage
+                        src={profileImageUrl(popupTeam.mentor)}
+                        alt={popupTeam.mentor.fullName}
+                        className="h-10 w-10 rounded-full border border-[color:var(--border)] object-cover"
+                      />
+                    ) : null}
+                    <div className="min-w-0">
+                      <p className="flex flex-wrap items-center gap-2 font-semibold text-[color:var(--title)]">
+                        <span>{popupTeam.mentor.fullName}</span>
+                        <MentorBadge accent={popupTeam.accent} compact />
+                      </p>
+                      <p className="text-xs text-[color:var(--text-muted)]">Team mentor</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">No mentor assigned yet.</p>
+                )}
+              </div>
+            ) : null}
+
             {popupTeam.captain && !teamChangeMember ? (
               <div className="border-b border-[color:var(--border)] px-4 py-3 text-sm">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-[color:var(--text-muted)]">
@@ -3564,12 +3606,36 @@ function TeamsPage() {
             ) : null}
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              {(popupTeam.players?.length || 0) === 0 ? (
+              {(popupTeam.players?.length || 0) === 0 && !popupTeam.mentor ? (
                 <p className="text-sm text-[color:var(--text-muted)]">
                   No players assigned yet. Use Auction desk and set status to Sold.
                 </p>
               ) : (
                 <div className="space-y-2">
+                  {popupTeam.mentor && !teamChangeMember ? (
+                    <article
+                      className="flex items-center gap-3 rounded-md border border-[color:var(--border)] bg-ink-soft/30 px-3 py-2.5"
+                    >
+                      {profileImageUrl(popupTeam.mentor) ? (
+                        <ZoomableImage
+                          src={profileImageUrl(popupTeam.mentor)}
+                          alt={popupTeam.mentor.fullName}
+                          className="h-9 w-9 shrink-0 rounded-full border border-[color:var(--border)] object-cover bg-ink-soft"
+                        />
+                      ) : (
+                        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+                          <PlayerIcon size={16} />
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="flex flex-wrap items-center gap-2 font-semibold text-[color:var(--title)]">
+                          <span>{popupTeam.mentor.fullName}</span>
+                          <MentorBadge accent={popupTeam.accent} compact />
+                        </p>
+                        <p className="truncate text-xs text-[color:var(--text-muted)]">Team mentor</p>
+                      </div>
+                    </article>
+                  ) : null}
                   {(teamChangeMember
                     ? popupTeam.players.filter(
                         (row) => String(row._id) === String(teamChangeMember._id)
@@ -3809,6 +3875,19 @@ function TeamsPage() {
           </div>
         </div>
       )}
+
+      <TeamMentorModal
+        open={mentorModalOpen && Boolean(popupTeam)}
+        onClose={() => setMentorModalOpen(false)}
+        initial={popupTeam?.mentor}
+        teamName={popupTeam?.name}
+        title="Assign team mentor"
+        onSubmit={async (fd) => {
+          if (!popupTeam?.id) return;
+          await api(`/api/admin/teams/${popupTeam.id}/mentor`, { method: "PUT", body: fd });
+          await loadTeams({ keepPopupId: popupTeam.id });
+        }}
+      />
     </AdminShell>
   );
 }
@@ -4092,6 +4171,7 @@ function RegistrationFeesPage() {
   const [playerDocumentsUploadEnabled, setPlayerDocumentsUploadEnabled] = useState(true);
   const [playerPayNowEnabled, setPlayerPayNowEnabled] = useState(true);
   const [playerTeamCardEnabled, setPlayerTeamCardEnabled] = useState(true);
+  const [captainAddMentorEnabled, setCaptainAddMentorEnabled] = useState(true);
   const [gatewayStatus, setGatewayStatus] = useState({
     razorpay: { configured: false },
     cashfree: { configured: false, mode: "sandbox" },
@@ -4117,6 +4197,7 @@ function RegistrationFeesPage() {
         setPlayerDocumentsUploadEnabled(data.settings?.playerDocumentsUploadEnabled !== false);
         setPlayerPayNowEnabled(data.settings?.playerPayNowEnabled !== false);
         setPlayerTeamCardEnabled(data.settings?.playerTeamCardEnabled !== false);
+        setCaptainAddMentorEnabled(data.settings?.captainAddMentorEnabled !== false);
         setGatewayStatus(
           data.settings?.paymentGatewayStatus || {
             razorpay: { configured: false },
@@ -4155,6 +4236,7 @@ function RegistrationFeesPage() {
           playerDocumentsUploadEnabled,
           playerPayNowEnabled,
           playerTeamCardEnabled,
+          captainAddMentorEnabled,
         }),
       });
       setFees(data.settings.registrationFees);
@@ -4162,6 +4244,7 @@ function RegistrationFeesPage() {
       setPlayerDocumentsUploadEnabled(data.settings?.playerDocumentsUploadEnabled !== false);
       setPlayerPayNowEnabled(data.settings?.playerPayNowEnabled !== false);
       setPlayerTeamCardEnabled(data.settings?.playerTeamCardEnabled !== false);
+      setCaptainAddMentorEnabled(data.settings?.captainAddMentorEnabled !== false);
       setGatewayStatus(
         data.settings.paymentGatewayStatus || {
           razorpay: { configured: false },
@@ -4299,6 +4382,21 @@ function RegistrationFeesPage() {
                   <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
                     When off, sold players and captains will not see the Team card button (My team / Manage team stays
                     available).
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[color:var(--border)] px-4 py-3">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--accent)]"
+                  checked={captainAddMentorEnabled}
+                  onChange={(e) => setCaptainAddMentorEnabled(e.target.checked)}
+                />
+                <span className="text-sm">
+                  <span className="font-medium text-[color:var(--title)]">Show Add mentor on captain dashboard</span>
+                  <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+                    When off, team captains cannot add or edit a mentor from their dashboard (admin can still assign
+                    mentors under Teams).
                   </span>
                 </span>
               </label>
@@ -4744,6 +4842,13 @@ function ReportsPage() {
             groupKey="auctionStatus"
             options={REPORT_AUCTION_OPTIONS}
             values={filterMaps.auctionStatus}
+            onChange={updateFilterGroup}
+          />
+          <ReportCheckboxGroup
+            title="Team"
+            groupKey="team"
+            options={REPORT_TEAM_OPTIONS}
+            values={filterMaps.team}
             onChange={updateFilterGroup}
           />
         </div>

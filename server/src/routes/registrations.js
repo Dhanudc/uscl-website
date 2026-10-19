@@ -26,7 +26,7 @@ import fs from "fs";
 import { persistUploadedFile } from "../utils/mediaStore.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
 import { isValidPlayerRole, playerRoleLabel } from "../constants/playerRoles.js";
-import { getFranchiseName } from "../utils/franchises.js";
+import { getFranchiseName, resolveFranchiseId } from "../utils/franchises.js";
 import { recordPlayerActivity } from "../utils/activity.js";
 import {
   getRegistrationFeeInr,
@@ -46,11 +46,24 @@ import {
   verifyGatewayPayment,
 } from "../utils/paymentGateway.js";
 import { sendRegistrationReceivedEmail } from "../utils/mail.js";
-import { getSiteSettings, isRegistrationEnabled, isPlayerPayNowEnabled } from "../models/SiteSettings.js";
+import {
+  getSiteSettings,
+  isRegistrationEnabled,
+  isPlayerPayNowEnabled,
+  isCaptainAddMentorEnabled,
+} from "../models/SiteSettings.js";
 import { User } from "../models/User.js";
 import { allocateNextPlayerCode } from "../utils/playerCode.js";
 import { isReferralProgramEnabled, mapReferredPlayer, resolveReferralCode } from "../utils/referrals.js";
 import { buildLineupPayloadForUser, saveLineupForCaptain } from "../utils/teamLineup.js";
+import {
+  findMentorByUserId,
+  getMentorForFranchise,
+  mentorPortalProfile,
+  resolveMentorProfileForUser,
+  updateMentorSelfProfile,
+  upsertTeamMentor,
+} from "../utils/teamMentor.js";
 
 const router = Router();
 
@@ -220,7 +233,25 @@ router.get("/", approvedRequired, async (req, res) => {
   const registrations = await PlayerRegistration.find({ userId: req.user.userId })
     .sort({ createdAt: -1 })
     .lean();
-  return res.json({ registrations: await mapEnrichedRegistrationsForPlayerAsync(registrations) });
+  const mentorProfile = await resolveMentorProfileForUser(req.user.userId);
+  return res.json({
+    registrations: await mapEnrichedRegistrationsForPlayerAsync(registrations),
+    mentorProfile,
+    isTeamMentor: Boolean(mentorProfile),
+  });
+});
+
+router.get("/mentor-profile", approvedRequired, async (req, res) => {
+  try {
+    const mentorProfile = await resolveMentorProfileForUser(req.user.userId);
+    if (!mentorProfile) {
+      return res.status(404).json({ error: "No team mentor profile found for this account." });
+    }
+    return res.json({ mentorProfile });
+  } catch (error) {
+    console.error("mentor-profile get error", error);
+    return res.status(500).json({ error: "Unable to load mentor profile." });
+  }
 });
 
 router.get("/referrals", approvedRequired, async (req, res) => {
@@ -288,6 +319,103 @@ router.put("/team-lineup", approvedRequired, async (req, res) => {
     console.error("team-lineup save error", error);
     return res.status(500).json({ error: "Unable to save team lineup." });
   }
+});
+
+/** Team mentor: update own name, email, mobile, password, and photo. */
+router.post("/mentor-profile", approvedRequired, (req, res) => {
+  playerRegistrationUpload(req, res, async (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({
+          error: "Image upload failed due to size. Please try again or use a smaller file.",
+        });
+      }
+      return res.status(400).json({ error: err.message || "Upload failed." });
+    }
+    try {
+      const photoFile = req.files?.photo?.[0];
+      const result = await updateMentorSelfProfile(req.user.userId, {
+        fullName: req.body.fullName,
+        email: req.body.email,
+        phone: req.body.phone,
+        password: req.body.password,
+        photoFile,
+      });
+      if (result.error) {
+        return res.status(result.status || 400).json({ error: result.message });
+      }
+      return res.json({ mentorProfile: mentorPortalProfile(result.mentor) });
+    } catch (error) {
+      console.error("mentor-profile error", error);
+      return res.status(500).json({ error: "Unable to update mentor profile." });
+    }
+  });
+});
+
+/** Team captain: view mentor for their franchise. */
+router.get("/team-mentor", approvedRequired, async (req, res) => {
+  try {
+    const payload = await buildLineupPayloadForUser(req.user.userId);
+    if (payload.error) {
+      return res.status(payload.status || 403).json({ error: payload.message });
+    }
+    if (!payload.permissions?.canEdit) {
+      return res.status(403).json({ error: "Only the team captain can manage the mentor." });
+    }
+    const mentor = mentorPortalProfile(await getMentorForFranchise(payload.team.id));
+    return res.json({ mentor, team: payload.team });
+  } catch (error) {
+    console.error("team-mentor get error", error);
+    return res.status(500).json({ error: "Unable to load team mentor." });
+  }
+});
+
+/** Team captain: add or update mentor (when enabled in site settings). */
+router.post("/team-mentor", approvedRequired, (req, res) => {
+  playerRegistrationUpload(req, res, async (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({
+          error: "Image upload failed due to size. Please try again or use a smaller file.",
+        });
+      }
+      return res.status(400).json({ error: err.message || "Upload failed." });
+    }
+    try {
+      const settings = await getSiteSettings();
+      if (!isCaptainAddMentorEnabled(settings)) {
+        return res.status(403).json({ error: "Adding a mentor is disabled by the league admin." });
+      }
+      const payload = await buildLineupPayloadForUser(req.user.userId);
+      if (payload.error) {
+        return res.status(payload.status || 403).json({ error: payload.message });
+      }
+      if (!payload.permissions?.canEdit) {
+        return res.status(403).json({ error: "Only the team captain can add a mentor." });
+      }
+      const photoFile = req.files?.photo?.[0];
+      const result = await upsertTeamMentor({
+        franchiseId: payload.team.id,
+        fullName: req.body.fullName,
+        email: req.body.email,
+        phone: req.body.phone,
+        password: req.body.password,
+        photoFile,
+        addedByRegistrationId: payload.myRegistrationId,
+      });
+      if (result.error) {
+        return res.status(result.status || 400).json({ error: result.message });
+      }
+      return res.json({
+        mentor: result.mentor,
+        team: payload.team,
+        updated: Boolean(result.updated),
+      });
+    } catch (error) {
+      console.error("team-mentor save error", error);
+      return res.status(500).json({ error: "Unable to save team mentor." });
+    }
+  });
 });
 
 /** Franchise owner: sold players for the team admin assigned. */

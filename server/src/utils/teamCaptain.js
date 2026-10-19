@@ -70,7 +70,9 @@ export async function findTeamCaptainsByFranchiseIds(franchiseIds) {
 }
 
 export function playerShouldSeeTeamCaptain(reg) {
-  if (!reg || String(reg.interest || "").toLowerCase() !== "player") return false;
+  if (!reg) return false;
+  const interest = String(reg.interest || "").toLowerCase();
+  if (interest !== "player" && interest !== "captain") return false;
   if (String(reg.auctionStatus || "").toLowerCase() !== "sold") return false;
   return Boolean(resolveFranchiseId(reg.franchiseId));
 }

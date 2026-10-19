@@ -21,6 +21,7 @@ export default function TeamLineup() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [teamMentor, setTeamMentor] = useState(null);
 
   const load = useCallback(() => {
     setBusy(true);
@@ -32,6 +33,7 @@ export default function TeamLineup() {
         setLineup(data.lineup || []);
         setDraft(data.lineup || []);
         setPermissions(data.permissions || {});
+        setTeamMentor(data.teamMentor || null);
       })
       .catch((err) => setError(err.message || "Unable to load team."))
       .finally(() => setBusy(false));
@@ -141,6 +143,9 @@ export default function TeamLineup() {
               {permissions.mySquadRole === "vice_captain" ? (
                 <span className="text-xs text-[color:var(--text-muted)]">View only</span>
               ) : null}
+              {permissions.mySquadRole === "mentor" ? (
+                <span className="text-xs text-[color:var(--text-muted)]">Team mentor · full lineup access</span>
+              ) : null}
             </div>
           </div>
           <Link to="/dashboard" className="btn-ghost !py-1.5 !text-xs shrink-0">
@@ -189,12 +194,44 @@ export default function TeamLineup() {
 
         {busy ? (
           <p className="mt-8 text-sm text-[color:var(--text-muted)]">Loading squad…</p>
-        ) : rows.length === 0 ? (
+        ) : rows.length === 0 && !teamMentor ? (
           <p className="panel mt-8 rounded-2xl p-5 text-sm text-[color:var(--text-muted)]">
             No squad members yet.
           </p>
         ) : (
           <ul className="mt-6 space-y-2">
+            {teamMentor ? (
+              <li
+                className="flex flex-col gap-2 rounded-lg border border-[color:var(--border)] bg-ink-soft/30 p-3 sm:flex-row sm:items-center"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <span
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[10px] font-bold uppercase text-white"
+                    style={{ background: `${accent}99` }}
+                  >
+                    M
+                  </span>
+                  {profileImageUrl(teamMentor) ? (
+                    <img
+                      src={profileImageUrl(teamMentor)}
+                      alt=""
+                      className="h-10 w-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink-soft text-sm font-semibold text-accent">
+                      {(teamMentor.fullName || "?").slice(0, 1)}
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="flex flex-wrap items-center gap-2 font-semibold text-[color:var(--title)]">
+                      <span>{teamMentor.fullName}</span>
+                      <SquadRoleBadge role="mentor" accent={accent} compact />
+                    </p>
+                      <p className="text-xs text-[color:var(--text-muted)]">Team mentor</p>
+                  </div>
+                </div>
+              </li>
+            ) : null}
             {rows.map((row, index) => {
               const p = row.player || {};
               const photo = profileImageUrl(p);

@@ -1,7 +1,10 @@
 import { Router } from "express";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
 import { withProfileImageUrl } from "../middleware/upload.js";
-import { FRANCHISES } from "../utils/franchises.js";
+import { FRANCHISES, resolveFranchiseId } from "../utils/franchises.js";
+import { getMentorForFranchise, mentorPublicView } from "../utils/teamMentor.js";
+import { squadRoleMapForRegistrations, resolveSquadRoleForReg } from "../utils/teamLineup.js";
+import { sortPlayersBySquadRole } from "../utils/squadDisplay.js";
 
 const router = Router();
 
@@ -61,24 +64,37 @@ router.get("/", async (_req, res) => {
 /** Public: sold players for one franchise (profile pic, name, role). */
 router.get("/:franchiseId/players", async (req, res) => {
   try {
-    const franchiseId = String(req.params.franchiseId || "").trim();
+    const franchiseId = resolveFranchiseId(String(req.params.franchiseId || "").trim());
     const team = FRANCHISES.find((f) => f.id === franchiseId);
     if (!team) {
       return res.status(404).json({ error: "Team not found." });
     }
 
-    const players = await PlayerRegistration.find({
-      status: "verified",
-      auctionStatus: "sold",
-      franchiseId,
-    })
-      .select("fullName role company photo profileImage soldPrice franchiseName")
-      .sort({ fullName: 1 })
-      .lean();
+    const [rawPlayers, mentor] = await Promise.all([
+      PlayerRegistration.find({
+        status: "verified",
+        auctionStatus: "sold",
+        franchiseId,
+      })
+        .select("fullName role company photo profileImage soldPrice franchiseName interest")
+        .lean(),
+      getMentorForFranchise(franchiseId),
+    ]);
+
+    const squadRoles = await squadRoleMapForRegistrations(rawPlayers);
+    const players = sortPlayersBySquadRole(
+      rawPlayers.map((p) =>
+        withProfileImageUrl({
+          ...p,
+          squadRole: resolveSquadRoleForReg(p, squadRoles),
+        })
+      )
+    );
 
     return res.json({
       team,
-      players: players.map(withProfileImageUrl),
+      mentor: mentorPublicView(mentor),
+      players,
     });
   } catch (error) {
     console.error("public team players error", error);

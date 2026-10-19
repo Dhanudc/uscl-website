@@ -4,6 +4,7 @@ import { resolveFranchiseId, getFranchiseName } from "./franchises.js";
 import { isValidPlayerRole } from "../constants/playerRoles.js";
 import { withProfileImageUrl } from "../middleware/upload.js";
 import { formatTeamCaptainPublic } from "./teamCaptain.js";
+import { findMentorByUserId, getMentorForFranchise, mentorPublicView } from "./teamMentor.js";
 
 const SQUAD_SELECT =
   "fullName playerCode phone email company role interest franchiseId franchiseName auctionStatus status photo profileImage soldPrice userId";
@@ -173,36 +174,66 @@ function mergeLineupWithSquad(lineupDoc, squad) {
   });
 }
 
-export async function buildLineupPayloadForUser(userId) {
-  const me = await getUserRegistrationForLineup(userId);
-  if (!me) {
-    return { error: "NO_SQUAD", status: 403, message: "You are not on a sold franchise squad yet." };
-  }
-
-  const fid = resolveFranchiseId(me.franchiseId);
+async function buildLineupPayloadForFranchise(fid, { permissions, myRegistrationId = null }) {
   const squad = await fetchSoldSquadRegistrations(fid);
   const lineupDoc = await ensureLineupDocument(fid);
   const rows = mergeLineupWithSquad(lineupDoc, squad);
-
-  const myId = String(me._id);
-  const myEntry = rows.find((r) => r.registrationId === myId);
-  const mySquadRole = myEntry?.squadRole || "player";
-  const canView = ["captain", "vice_captain", "player"].includes(mySquadRole);
-  const canEdit = mySquadRole === "captain";
-
-  if (!canView) {
-    return { error: "FORBIDDEN", status: 403, message: "Unable to view team lineup." };
-  }
-
+  const teamMentor = mentorPublicView(await getMentorForFranchise(fid));
   return {
     team: {
       id: fid,
-      name: getFranchiseName(fid) || me.franchiseName,
+      name: getFranchiseName(fid),
     },
     lineup: rows,
-    permissions: { canEdit, canView, mySquadRole },
-    myRegistrationId: myId,
+    teamMentor,
+    permissions,
+    myRegistrationId,
   };
+}
+
+export async function buildLineupPayloadForUser(userId) {
+  const me = await getUserRegistrationForLineup(userId);
+  if (me) {
+    const fid = resolveFranchiseId(me.franchiseId);
+    const squad = await fetchSoldSquadRegistrations(fid);
+    const lineupDoc = await ensureLineupDocument(fid);
+    const rows = mergeLineupWithSquad(lineupDoc, squad);
+
+    const myId = String(me._id);
+    const myEntry = rows.find((r) => r.registrationId === myId);
+    const mySquadRole = myEntry?.squadRole || defaultSquadRoleForReg(me);
+    const isCaptain =
+      mySquadRole === "captain" || String(me.interest || "").toLowerCase() === "captain";
+    const canView = ["captain", "vice_captain", "player"].includes(mySquadRole) || isCaptain;
+    const canEdit = isCaptain;
+
+    if (!canView) {
+      return { error: "FORBIDDEN", status: 403, message: "Unable to view team lineup." };
+    }
+
+    const teamMentor = mentorPublicView(await getMentorForFranchise(fid));
+    return {
+      team: {
+        id: fid,
+        name: getFranchiseName(fid) || me.franchiseName,
+      },
+      lineup: rows,
+      teamMentor,
+      permissions: { canEdit, canView, mySquadRole: isCaptain ? "captain" : mySquadRole },
+      myRegistrationId: myId,
+    };
+  }
+
+  const mentor = await findMentorByUserId(userId);
+  if (!mentor) {
+    return { error: "NO_SQUAD", status: 403, message: "You are not on a sold franchise squad yet." };
+  }
+
+  const fid = resolveFranchiseId(mentor.franchiseId);
+  return buildLineupPayloadForFranchise(fid, {
+    permissions: { canEdit: true, canView: true, mySquadRole: "mentor" },
+    myRegistrationId: null,
+  });
 }
 
 function normalizeIncomingEntries(raw, squadIds) {
@@ -228,24 +259,21 @@ function normalizeIncomingEntries(raw, squadIds) {
 }
 
 export async function saveLineupForCaptain(userId, body) {
-  const me = await getUserRegistrationForLineup(userId);
-  if (!me) {
-    return { error: "NO_SQUAD", status: 403, message: "You are not on a sold franchise squad yet." };
+  const access = await buildLineupPayloadForUser(userId);
+  if (access.error) {
+    return { error: access.error, status: access.status, message: access.message };
+  }
+  if (!access.permissions?.canEdit) {
+    return { error: "FORBIDDEN", status: 403, message: "Only the team captain or mentor can edit the lineup." };
   }
 
-  const fid = resolveFranchiseId(me.franchiseId);
+  const fid = access.team.id;
   const squad = await fetchSoldSquadRegistrations(fid);
   const squadIds = squad.map((r) => r._id);
 
   await ensureLineupDocument(fid);
   const lineupDoc = await TeamLineup.findOne({ franchiseId: fid });
-  const myId = String(me._id);
-
-  const currentRows = mergeLineupWithSquad(lineupDoc, squad);
-  const myRole = currentRows.find((r) => r.registrationId === myId)?.squadRole;
-  if (myRole !== "captain") {
-    return { error: "FORBIDDEN", status: 403, message: "Only the team captain can edit the lineup." };
-  }
+  const me = await getUserRegistrationForLineup(userId);
 
   let entries = normalizeIncomingEntries(body.entries, squadIds);
   if (!entries.length) {
@@ -268,7 +296,7 @@ export async function saveLineupForCaptain(userId, body) {
     squadRole: e.squadRole,
     playingRole: e.playingRole,
   }));
-  lineupDoc.updatedByRegistrationId = me._id;
+  lineupDoc.updatedByRegistrationId = me?._id || null;
   await lineupDoc.save();
 
   for (const entry of entries) {

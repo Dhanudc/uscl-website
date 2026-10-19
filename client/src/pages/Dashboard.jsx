@@ -7,6 +7,8 @@ import ZoomableImage from "../components/ZoomableImage";
 import PaymentQrModal from "../components/PaymentQrModal";
 import PlayerDocumentsModal from "../components/PlayerDocumentsModal";
 import PlayerTeamCardModal from "../components/PlayerTeamCardModal";
+import TeamMentorModal from "../components/TeamMentorModal";
+import MentorBadge from "../components/MentorBadge";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
 import { playerRoleLabel } from "../data/playerRoles";
@@ -70,9 +72,19 @@ function isSoldOnFranchise(reg) {
   );
 }
 
+function isTeamCaptain(reg) {
+  if (String(reg?.squadRole || "").toLowerCase() === "captain") return true;
+  return String(reg?.interest || "").toLowerCase() === "captain";
+}
+
+function hasTeamMentor(mentor) {
+  return Boolean(mentor && (mentor._id || mentor.email || mentor.fullName));
+}
+
 export default function Dashboard() {
   const { user, loading, logout } = useAuth();
-  const { referralProgramEnabled, playerPayNowEnabled, playerTeamCardEnabled } = useSiteSettings();
+  const { referralProgramEnabled, playerPayNowEnabled, playerTeamCardEnabled, captainAddMentorEnabled } =
+    useSiteSettings();
 
   function canPayNow(reg) {
     return (
@@ -103,10 +115,17 @@ export default function Dashboard() {
 
   const [documentsModalReg, setDocumentsModalReg] = useState(null);
   const [teamCardReg, setTeamCardReg] = useState(null);
+  const [mentorModalOpen, setMentorModalOpen] = useState(false);
+  const [mentorInitial, setMentorInitial] = useState(null);
+  const [mentorTeamName, setMentorTeamName] = useState("");
   const [refsOpen, setRefsOpen] = useState(false);
   const [refsLoading, setRefsLoading] = useState(false);
   const [refsError, setRefsError] = useState("");
   const [referrals, setReferrals] = useState({ playerCodes: [], referred: [], count: 0 });
+  const [mentorProfile, setMentorProfile] = useState(null);
+  const [mentorSaveMessage, setMentorSaveMessage] = useState("");
+  const [franchiseTeamMentor, setFranchiseTeamMentor] = useState(null);
+  const [mentorSelfModalOpen, setMentorSelfModalOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate("/register");
@@ -123,7 +142,29 @@ export default function Dashboard() {
     setRegsError("");
     try {
       const data = await api("/api/registrations");
-      setRegs(data.registrations || []);
+      const list = data.registrations || [];
+      setRegs(list);
+      let mp = data.mentorProfile || null;
+      if (!mp) {
+        try {
+          const extra = await api("/api/registrations/mentor-profile");
+          mp = extra.mentorProfile || null;
+        } catch {
+          mp = null;
+        }
+      }
+      setMentorProfile(mp);
+      const captainReg = list.find((r) => isTeamCaptain(r));
+      if (captainReg) {
+        try {
+          const tm = await api("/api/registrations/team-mentor");
+          setFranchiseTeamMentor(tm.mentor || null);
+        } catch {
+          setFranchiseTeamMentor(captainReg.teamMentor || null);
+        }
+      } else {
+        setFranchiseTeamMentor(null);
+      }
     } catch (err) {
       setRegs([]);
       setRegsError(err.message || "Unable to load your registrations.");
@@ -385,11 +426,13 @@ export default function Dashboard() {
                 References{referrals.count ? ` (${referrals.count})` : ""}
               </button>
             ) : null}
-            <RegisterCta
-              className="btn-ghost !py-2 !text-xs w-full justify-center sm:w-auto"
-              openLabel="Registration"
-              closedLabel="Registration"
-            />
+            {!mentorProfile ? (
+              <RegisterCta
+                className="btn-ghost !py-2 !text-xs w-full justify-center sm:w-auto"
+                openLabel="Registration"
+                closedLabel="Registration"
+              />
+            ) : null}
             <button
               type="button"
               className="btn-ghost !py-2 !text-xs w-full justify-center sm:w-auto"
@@ -403,6 +446,12 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {mentorSaveMessage ? (
+          <p className="mt-6 rounded-lg border border-emerald-400/35 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+            {mentorSaveMessage}
+          </p>
+        ) : null}
+
         <div className="mt-8 space-y-3">
           {regsLoading ? (
             <PageLoader message="Loading your registrations…" />
@@ -413,13 +462,64 @@ export default function Dashboard() {
                 Try again
               </button>
             </div>
-          ) : regs.length === 0 ? (
+          ) : regs.length === 0 && !mentorProfile ? (
             <div className="panel rounded-2xl p-5 text-sm text-[color:var(--text-muted)]">
               No registrations yet. Complete player registration to see your status, payment, and auction details here.{" "}
               <RegisterCta className="text-accent" openLabel="Register now" closedLabel="Registration" />
             </div>
           ) : (
-            regs.map((reg) => {
+            <>
+            {mentorProfile ? (
+              <div className="panel rounded-2xl p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    {profileImageUrl(mentorProfile) ? (
+                      <ZoomableImage
+                        src={profileImageUrl(mentorProfile)}
+                        alt={mentorProfile.fullName}
+                        className="h-14 w-14 rounded-lg border border-[color:var(--border)] object-cover"
+                      />
+                    ) : (
+                      <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-accent/40 bg-ink-soft text-[10px] font-semibold uppercase leading-tight text-accent-soft">
+                        Photo
+                      </span>
+                    )}
+                    <div className="min-w-0">
+                      <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-[color:var(--title)]">
+                        <span>{mentorProfile.fullName}</span>
+                        <MentorBadge compact />
+                      </p>
+                      <p className="text-sm text-[color:var(--text-muted)]">
+                        {mentorProfile.franchiseName || "Franchise team"}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <StatusPill tone="success">Team mentor</StatusPill>
+                        {mentorProfile.franchiseName ? (
+                          <StatusPill tone="muted">{mentorProfile.franchiseName}</StatusPill>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2 border-t border-[color:var(--border)] pt-4">
+                  <button
+                    type="button"
+                    className="btn-ghost !py-2 !text-xs"
+                    onClick={() => setMentorSelfModalOpen(true)}
+                  >
+                    Edit my details
+                  </button>
+                  <Link to="/dashboard/team" className="btn-primary !py-2 !text-xs">
+                    Manage team
+                  </Link>
+                </div>
+                <p className="mt-3 rounded-lg border border-[color:var(--border)] bg-ink-soft/40 px-3 py-2 text-sm text-[color:var(--text-muted)]">
+                  You have the same team tools as the captain: view and edit the playing squad, roles, and order. No
+                  player registration is required.
+                </p>
+              </div>
+            ) : null}
+            {regs.map((reg) => {
               const imgUrl = profileImageUrl(reg);
               const needsPhoto = missingProfileImage(reg, brokenProfileIds);
               return (
@@ -477,6 +577,14 @@ export default function Dashboard() {
                           </StatusPill>
                           <StatusPill tone="muted">{reg.status}</StatusPill>
                         </div>
+                        {isTeamCaptain(reg) && hasTeamMentor(reg.teamMentor || franchiseTeamMentor) ? (
+                          <p className="mt-2 text-xs text-[color:var(--text-muted)]">
+                            Team mentor:{" "}
+                            <span className="font-semibold text-[color:var(--title)]">
+                              {(reg.teamMentor || franchiseTeamMentor).fullName}
+                            </span>
+                          </p>
+                        ) : null}
                         {(reg.utrNumber || paymentScreenshotUrl(reg)) && (
                           <p className="mt-3 text-sm text-[color:var(--text-muted)]">
                             {reg.utrNumber ? `UTR: ${reg.utrNumber}` : "UTR: —"}
@@ -602,6 +710,31 @@ export default function Dashboard() {
                             Team card
                           </button>
                         ) : null}
+                        {captainAddMentorEnabled !== false && isTeamCaptain(reg) ? (
+                          <button
+                            type="button"
+                            className="btn-ghost !py-2 !text-xs"
+                            onClick={async () => {
+                              setMentorSaveMessage("");
+                              setMentorTeamName(reg.franchiseName || "");
+                              const current = reg.teamMentor || franchiseTeamMentor;
+                              setMentorInitial(current || null);
+                              setMentorModalOpen(true);
+                              try {
+                                const data = await api("/api/registrations/team-mentor");
+                                setMentorInitial(data.mentor || current || null);
+                                setFranchiseTeamMentor(data.mentor || current || null);
+                                setMentorTeamName(data.team?.name || reg.franchiseName || "");
+                              } catch {
+                                // captain-only; keep empty form
+                              }
+                            }}
+                          >
+                            {hasTeamMentor(reg.teamMentor || franchiseTeamMentor)
+                              ? "Manage mentor"
+                              : "Add mentor"}
+                          </button>
+                        ) : null}
                         <Link to="/dashboard/team" className="btn-ghost !py-2 !text-xs">
                           {reg.interest === "captain" ? "Manage team" : "My team"}
                         </Link>
@@ -630,7 +763,8 @@ export default function Dashboard() {
                   ) : null}
                 </div>
               );
-            })
+            })}
+            </>
           )}
         </div>
       </div>
@@ -788,6 +922,38 @@ export default function Dashboard() {
       {teamCardReg ? (
         <PlayerTeamCardModal registration={teamCardReg} onClose={() => setTeamCardReg(null)} />
       ) : null}
+
+      <TeamMentorModal
+        open={mentorModalOpen}
+        onClose={() => setMentorModalOpen(false)}
+        initial={mentorInitial}
+        teamName={mentorTeamName}
+        title="Team mentor"
+        onSubmit={async (fd) => {
+          const hadMentor = hasTeamMentor(mentorInitial);
+          const data = await api("/api/registrations/team-mentor", { method: "POST", body: fd });
+          if (data.mentor) setFranchiseTeamMentor(data.mentor);
+          await loadRegistrations();
+          setMentorSaveMessage(
+            hadMentor
+              ? "Mentor details updated. Share their email and password with them so they can sign in."
+              : "Mentor added. Share their email and password with them so they can sign in."
+          );
+        }}
+      />
+
+      <TeamMentorModal
+        open={mentorSelfModalOpen}
+        onClose={() => setMentorSelfModalOpen(false)}
+        initial={mentorProfile}
+        teamName={mentorProfile?.franchiseName}
+        title="My mentor profile"
+        selfMode
+        onSubmit={async (fd) => {
+          const data = await api("/api/registrations/mentor-profile", { method: "POST", body: fd });
+          setMentorProfile(data.mentorProfile || mentorProfile);
+        }}
+      />
 
       <PaymentQrModal
         open={Boolean(paymentModalReg)}

@@ -4,9 +4,12 @@ import { api } from "../api";
 import ZoomableImage from "./ZoomableImage";
 import { playerRoleLabel } from "../data/playerRoles";
 import { profileImageUrl } from "../utils/media";
+import SquadRoleBadge from "./SquadRoleBadge";
+import MentorBadge from "./MentorBadge";
 
 export default function FranchiseDetailsModal({ team, onClose, showSquad = true }) {
   const [players, setPlayers] = useState([]);
+  const [mentor, setMentor] = useState(null);
   const [loadingPlayers, setLoadingPlayers] = useState(false);
   const [playersError, setPlayersError] = useState("");
 
@@ -20,6 +23,7 @@ export default function FranchiseDetailsModal({ team, onClose, showSquad = true 
       .then((data) => {
         if (cancelled) return;
         setPlayers(data.players || []);
+        setMentor(data.mentor || null);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -128,14 +132,42 @@ export default function FranchiseDetailsModal({ team, onClose, showSquad = true 
                 <p className="text-sm text-[color:var(--text-muted)]">Loading players...</p>
               ) : playersError ? (
                 <p className="text-sm text-accent">{playersError}</p>
-              ) : players.length === 0 ? (
+              ) : players.length === 0 && !mentor ? (
                 <p className="text-sm text-[color:var(--text-muted)]">
                   No players assigned to this team yet.
                 </p>
               ) : (
                 <div className="space-y-2">
+                  {mentor ? (
+                    <article
+                      className="flex items-center gap-3 rounded-md border border-[color:var(--border)] bg-ink-soft/40 px-3 py-2.5"
+                    >
+                      {profileImageUrl(mentor) ? (
+                        <ZoomableImage
+                          src={profileImageUrl(mentor)}
+                          alt={mentor.fullName}
+                          buttonClassName="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] bg-ink-soft"
+                          className="h-11 w-11 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent">
+                          {(mentor.fullName || "?").slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="flex flex-wrap items-center gap-2 font-semibold text-[color:var(--title)]">
+                          <span>{mentor.fullName}</span>
+                          <MentorBadge accent={team.accent} compact />
+                        </p>
+                        <p className="truncate text-xs text-[color:var(--text-muted)]">Team mentor</p>
+                      </div>
+                    </article>
+                  ) : null}
                   {players.map((p) => {
                     const photo = profileImageUrl(p);
+                    const squadRole =
+                      p.squadRole ||
+                      (String(p.interest || "").toLowerCase() === "captain" ? "captain" : "player");
                     return (
                       <article
                         key={p._id}
@@ -154,7 +186,10 @@ export default function FranchiseDetailsModal({ team, onClose, showSquad = true 
                           </span>
                         )}
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-[color:var(--title)]">{p.fullName}</p>
+                          <p className="flex flex-wrap items-center gap-2 font-semibold text-[color:var(--title)]">
+                            <span>{p.fullName}</span>
+                            <SquadRoleBadge role={squadRole} accent={team.accent} compact />
+                          </p>
                           <p className="truncate text-xs text-[color:var(--text-muted)]">
                             {playerRoleLabel(p.role) || "Player"}
                             {p.company ? ` · ${p.company}` : ""}

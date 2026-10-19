@@ -1,4 +1,5 @@
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
+import { franchises } from "./franchises";
 
 export const REPORT_STATUS_OPTIONS = [
   { id: "accepted", label: "Accepted / confirmed" },
@@ -30,6 +31,11 @@ export const REPORT_DOC_STATUS_OPTIONS = [
   { id: "in_progress", label: "In progress" },
   { id: "verified", label: "Documents verified" },
   { id: "rejected", label: "Documents rejected" },
+];
+
+export const REPORT_TEAM_OPTIONS = [
+  { id: "none", label: "No team assigned" },
+  ...franchises.map((f) => ({ id: f.id, label: f.name })),
 ];
 
 export function documentsVerificationReportLabel(reg) {
@@ -139,6 +145,7 @@ export function initialReportFilterState() {
     paymentStatus: all(REPORT_PAYMENT_OPTIONS),
     auctionStatus: all(REPORT_AUCTION_OPTIONS),
     docStatus: all(REPORT_DOC_STATUS_OPTIONS),
+    team: all(REPORT_TEAM_OPTIONS),
   };
 }
 
@@ -160,6 +167,7 @@ export function validateReportFilters(filterMaps, columnMap) {
     ["Payment", filterMaps.paymentStatus, REPORT_PAYMENT_OPTIONS],
     ["Auction", filterMaps.auctionStatus, REPORT_AUCTION_OPTIONS],
     ["Documents", filterMaps.docStatus, REPORT_DOC_STATUS_OPTIONS],
+    ["Team", filterMaps.team, REPORT_TEAM_OPTIONS],
   ];
   for (const [label, map, options] of groups) {
     if (!options.some((o) => map[o.id])) {
@@ -184,6 +192,8 @@ export function buildReportQueryParams(filterMaps, columnMap) {
   if (auction?.length) qs.set("auctionStatus", auction.join(","));
   const docStatus = selectedIds(filterMaps.docStatus, REPORT_DOC_STATUS_OPTIONS);
   if (docStatus?.length) qs.set("docStatus", docStatus.join(","));
+  const team = selectedIds(filterMaps.team, REPORT_TEAM_OPTIONS);
+  if (team?.length) qs.set("team", team.join(","));
   const fields = REGISTRATION_REPORT_COLUMNS.filter((c) => columnMap[c.id]).map((c) => c.id);
   if (fields.length) qs.set("fields", fields.join(","));
   return qs;

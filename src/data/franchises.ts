@@ -26,8 +26,8 @@ export const franchises: Franchise[] = [
   },
   {
     id: "chicago-crushers",
-    name: "Chicago Crushers",
-    shortName: "Crushers",
+    name: "Chicago Centurions",
+    shortName: "Centurions",
     city: "Chicago",
     image: "/franchises/chicago-crushers.jpg",
     accent: "#4aa3d9",

@@ -7,7 +7,7 @@ import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isReferralProgramEnabled, isPlayerDocumentsUploadEnabled, isPlayerPayNowEnabled, isPlayerTeamCardEnabled, normalizeModuleVisibility, normalizeSocials, normalizeUpcomingEvents, normalizeMembersIntro, publicBoardMembers, normalizeBoardMembers, publicKeyDates, normalizeKeyDates, normalizeNavLabels } from "../models/SiteSettings.js";
+import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isReferralProgramEnabled, isPlayerDocumentsUploadEnabled, isPlayerPayNowEnabled, isPlayerTeamCardEnabled, isCaptainAddMentorEnabled, normalizeModuleVisibility, normalizeSocials, normalizeUpcomingEvents, normalizeMembersIntro, publicBoardMembers, normalizeBoardMembers, publicKeyDates, normalizeKeyDates, normalizeNavLabels } from "../models/SiteSettings.js";
 import { getGatewayStatus } from "../utils/paymentGateway.js";
 import {
   applyPlayerDocumentSubmission,
@@ -34,7 +34,13 @@ import {
   sendRegistrationRejectedEmail,
 } from "../utils/mail.js";
 import { recordPlayerActivity } from "../utils/activity.js";
-import { FRANCHISES, getFranchiseName, resolveFranchiseId } from "../utils/franchises.js";
+import {
+  FRANCHISES,
+  REPORT_TEAM_FILTER_IDS,
+  expandFranchiseIdsForQuery,
+  getFranchiseName,
+  resolveFranchiseId,
+} from "../utils/franchises.js";
 import {
   buildAuctionSpendingReport,
   getAuctionTeamBudgetInr,
@@ -60,6 +66,8 @@ import {
 } from "../utils/exportProfileImagesZip.js";
 import { buildRegistrationsCsv, parseReportColumnIds } from "../utils/reportColumns.js";
 import { mapReferredPlayer, resolveReferralCode } from "../utils/referrals.js";
+import { getMentorsByFranchiseIds, upsertTeamMentor, isValidFranchiseId } from "../utils/teamMentor.js";
+import { sortPlayersBySquadRole } from "../utils/squadDisplay.js";
 import {
   isValidImageSectionId,
   isValidVideoSectionId,
@@ -564,6 +572,26 @@ function buildReportFilter(query = {}) {
   const docOr = buildDocumentsVerificationFilterOr(docList || []);
   if (docOr.length) {
     filter.$and = [...(filter.$and || []), { $or: docOr }];
+  }
+
+  const teamList = parseAdminListParam(query.team, REPORT_TEAM_FILTER_IDS);
+  if (teamList) {
+    const includeNone = teamList.includes("none");
+    const franchiseIds = expandFranchiseIdsForQuery(teamList.filter((t) => t !== "none"));
+    const teamOr = [];
+    if (franchiseIds.length) {
+      teamOr.push({
+        franchiseId: franchiseIds.length === 1 ? franchiseIds[0] : { $in: franchiseIds },
+      });
+    }
+    if (includeNone) {
+      teamOr.push({ franchiseId: { $in: ["", null] } });
+    }
+    if (teamOr.length === 1) {
+      Object.assign(filter, teamOr[0]);
+    } else if (teamOr.length > 1) {
+      filter.$and = [...(filter.$and || []), { $or: teamOr }];
+    }
   }
 
   return filter;
@@ -1126,7 +1154,15 @@ router.get("/teams", adminRequired, async (_req, res) => {
     byTeam[teamKey].push(withProfileImageUrl({ ...player, squadRole }));
   }
 
-  const captainsByTeam = await findTeamCaptainsByFranchiseIds(FRANCHISES.map((f) => f.id));
+  const franchiseIds = FRANCHISES.map((f) => f.id);
+  const [captainsByTeam, mentorsByTeam] = await Promise.all([
+    findTeamCaptainsByFranchiseIds(franchiseIds),
+    getMentorsByFranchiseIds(franchiseIds),
+  ]);
+
+  for (const fid of franchiseIds) {
+    if (byTeam[fid]) byTeam[fid] = sortPlayersBySquadRole(byTeam[fid]);
+  }
 
   return res.json({
     teams: FRANCHISES.map((f) => ({
@@ -1134,7 +1170,50 @@ router.get("/teams", adminRequired, async (_req, res) => {
       playerCount: byTeam[f.id]?.length || 0,
       players: byTeam[f.id] || [],
       captain: captainsByTeam[f.id] || null,
+      mentor: mentorsByTeam[f.id] || null,
     })),
+  });
+});
+
+router.put("/teams/:franchiseId/mentor", adminRequired, (req, res) => {
+  playerRegistrationUpload(req, res, async (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({
+          error: "Image upload failed due to size. Please try again or use a smaller file.",
+        });
+      }
+      return res.status(400).json({ error: err.message || "Upload failed." });
+    }
+    try {
+      const franchiseId = resolveFranchiseId(String(req.params.franchiseId || "").trim());
+      if (!isValidFranchiseId(franchiseId)) {
+        return res.status(400).json({ error: "Invalid franchise team." });
+      }
+      const photoFile = req.files?.photo?.[0];
+      const result = await upsertTeamMentor({
+        franchiseId,
+        fullName: req.body.fullName,
+        email: req.body.email,
+        phone: req.body.phone,
+        password: req.body.password,
+        photoFile,
+      });
+      if (result.error) {
+        return res.status(result.status || 400).json({ error: result.message });
+      }
+      await writeAudit(req, {
+        action: "team.mentor.upsert",
+        targetType: "franchise",
+        targetId: franchiseId,
+        targetLabel: getFranchiseName(franchiseId),
+        details: { summary: `Mentor ${result.mentor.fullName}`, email: result.mentor.email },
+      });
+      return res.json({ mentor: result.mentor });
+    } catch (error) {
+      console.error("admin team mentor error", error);
+      return res.status(500).json({ error: "Unable to save team mentor." });
+    }
   });
 });
 
@@ -2071,6 +2150,7 @@ router.get("/settings", adminRequired, async (_req, res) => {
         playerDocumentsUploadEnabled: isPlayerDocumentsUploadEnabled(settings),
         playerPayNowEnabled: isPlayerPayNowEnabled(settings),
         playerTeamCardEnabled: isPlayerTeamCardEnabled(settings),
+        captainAddMentorEnabled: isCaptainAddMentorEnabled(settings),
         auctionTeamBudgetInr: getAuctionTeamBudgetInr(settings),
         referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
@@ -2155,6 +2235,11 @@ router.put("/settings", adminRequired, async (req, res) => {
     if (typeof req.body.playerTeamCardEnabled === "boolean") {
       settings.playerTeamCardEnabled = req.body.playerTeamCardEnabled;
       auditBits.push(req.body.playerTeamCardEnabled ? "player team card on" : "player team card off");
+    }
+
+    if (typeof req.body.captainAddMentorEnabled === "boolean") {
+      settings.captainAddMentorEnabled = req.body.captainAddMentorEnabled;
+      auditBits.push(req.body.captainAddMentorEnabled ? "captain add mentor on" : "captain add mentor off");
     }
 
     if (req.body.auctionTeamBudgetInr !== undefined && req.body.auctionTeamBudgetInr !== null) {
@@ -2256,6 +2341,7 @@ router.put("/settings", adminRequired, async (req, res) => {
         playerDocumentsUploadEnabled: isPlayerDocumentsUploadEnabled(settings),
         playerPayNowEnabled: isPlayerPayNowEnabled(settings),
         playerTeamCardEnabled: isPlayerTeamCardEnabled(settings),
+        captainAddMentorEnabled: isCaptainAddMentorEnabled(settings),
         auctionTeamBudgetInr: getAuctionTeamBudgetInr(settings),
         referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),

@@ -148,6 +148,8 @@ const siteSettingsSchema = new mongoose.Schema(
     playerPayNowEnabled: { type: Boolean, default: true },
     /** When false, Team card button is hidden for sold players/captains on the dashboard. */
     playerTeamCardEnabled: { type: Boolean, default: true },
+    /** When false, captains cannot see Add mentor on the player dashboard. */
+    captainAddMentorEnabled: { type: Boolean, default: true },
     /** Max auction spend per franchise team (INR). */
     auctionTeamBudgetInr: { type: Number, default: 250000 },
     /** When false, referral field is hidden and new referral codes are ignored. */
@@ -286,6 +288,7 @@ export const DEFAULT_SITE_SETTINGS = {
   playerDocumentsUploadEnabled: true,
   playerPayNowEnabled: true,
   playerTeamCardEnabled: true,
+  captainAddMentorEnabled: true,
   auctionTeamBudgetInr: 250000,
   referralProgramEnabled: true,
   moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
@@ -573,6 +576,10 @@ export function isPlayerPayNowEnabled(settings) {
 
 export function isPlayerTeamCardEnabled(settings) {
   return settings?.playerTeamCardEnabled !== false;
+}
+
+export function isCaptainAddMentorEnabled(settings) {
+  return settings?.captainAddMentorEnabled !== false;
 }
 
 export function isReferralProgramEnabled(settings) {
