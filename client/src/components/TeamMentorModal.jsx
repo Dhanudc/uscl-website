@@ -125,12 +125,12 @@ export default function TeamMentorModal({
                 Photo
               </span>
             )}
-            <label className="text-sm">
+            <label className="min-w-0 flex-1 text-sm">
               <span className="font-medium text-[color:var(--title)]">Profile photo</span>
               <input
                 type="file"
                 accept="image/*"
-                className="mt-1 block w-full text-xs text-[color:var(--text-muted)]"
+                className="input-dark mt-1.5 w-full cursor-pointer text-sm file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:brightness-110"
                 onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
               />
             </label>
@@ -138,30 +138,33 @@ export default function TeamMentorModal({
           <label className="block text-sm">
             <span className="font-medium text-[color:var(--title)]">Full name</span>
             <input
-              className="input mt-1 w-full"
+              className="input-dark mt-1.5 w-full"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
+              autoComplete="name"
             />
           </label>
           <label className="block text-sm">
             <span className="font-medium text-[color:var(--title)]">Email</span>
             <input
               type="email"
-              className="input mt-1 w-full"
+              className="input-dark mt-1.5 w-full"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoComplete="email"
             />
           </label>
           <label className="block text-sm">
             <span className="font-medium text-[color:var(--title)]">Mobile</span>
             <input
               type="tel"
-              className="input mt-1 w-full"
+              className="input-dark mt-1.5 w-full"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               required
+              autoComplete="tel"
             />
           </label>
           <label className="block text-sm">
@@ -169,7 +172,7 @@ export default function TeamMentorModal({
               Password{hasMentor ? " (leave blank to keep)" : ""}
             </span>
             <PasswordInput
-              className="input mt-1 w-full"
+              className="input-dark mt-1.5 w-full"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required={!hasMentor}

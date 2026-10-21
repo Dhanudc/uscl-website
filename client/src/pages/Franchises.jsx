@@ -41,8 +41,8 @@ export default function Franchises() {
               <ZoomableImage
                 src={team.image}
                 alt={team.name}
-                buttonClassName="absolute inset-0 box-border h-full w-full min-h-0 p-6"
-                className="h-auto max-h-full w-auto max-w-full object-contain"
+                buttonClassName="absolute inset-0 box-border flex h-full w-full min-h-0 items-center justify-center p-8"
+                className="mx-auto block h-full w-full max-h-full max-w-full object-contain object-center"
               />
             </div>
             <div className="px-3 py-3 text-center" style={{ boxShadow: `inset 3px 0 0 ${team.accent}` }}>

@@ -252,7 +252,28 @@ video {
   outline: none;
 }
 
-.input-dark:focus { border-color: var(--accent); }
+.input-dark:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* Legacy alias — prefer .input-dark in components */
+.input {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.375rem;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
 
 .arena {
   position: relative;
@@ -2418,6 +2439,193 @@ video {
   .reg-soon__badge,
   .reg-soon__inner,
   .reg-soon__step {
+    animation: none;
+  }
+}
+
+/* Registration season closed (roster locked) */
+.reg-closed {
+  position: relative;
+  min-height: min(92vh, 920px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.25rem 4rem;
+  overflow: hidden;
+  background: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(232, 93, 4, 0.12), transparent 55%),
+    radial-gradient(ellipse 80% 60% at 100% 100%, rgba(30, 79, 214, 0.15), transparent 50%),
+    var(--ink, #0a0a12);
+}
+
+.reg-closed__stadium {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 48px,
+      rgba(255, 255, 255, 0.02) 48px,
+      rgba(255, 255, 255, 0.02) 49px
+    ),
+    linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.45) 100%);
+  pointer-events: none;
+}
+
+.reg-closed__beam {
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  width: 140%;
+  height: 55%;
+  transform: translateX(-50%) rotate(-8deg);
+  background: linear-gradient(180deg, rgba(232, 93, 4, 0.25), transparent 70%);
+  filter: blur(40px);
+  animation: reg-closed-beam 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.reg-closed__confetti {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 20% 30%, rgba(232, 93, 4, 0.35) 0 2px, transparent 3px),
+    radial-gradient(circle at 75% 22%, rgba(30, 79, 214, 0.4) 0 2px, transparent 3px),
+    radial-gradient(circle at 60% 70%, rgba(255, 255, 255, 0.2) 0 1px, transparent 2px);
+  background-size: 100% 100%;
+  opacity: 0.5;
+  animation: reg-soon-pulse 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.reg-closed__inner {
+  position: relative;
+  z-index: 1;
+  max-width: 36rem;
+  text-align: center;
+  animation: reg-soon-rise 0.75s ease both;
+}
+
+.reg-closed__brand {
+  font-size: 0.72rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text-muted, #9ca3af);
+  margin-bottom: 1rem;
+}
+
+.reg-closed__flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 1rem 0.45rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(135deg, rgba(232, 93, 4, 0.95), rgba(180, 60, 0, 0.9));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(232, 93, 4, 0.35);
+  margin-bottom: 1.25rem;
+}
+
+.reg-closed__flag-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.reg-closed__title {
+  font-family: var(--font-display, inherit);
+  font-size: clamp(1.65rem, 5vw, 2.35rem);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--title, #f9fafb);
+  margin: 0 0 1rem;
+}
+
+.reg-closed__lead {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--text-muted, #d1d5db);
+  margin: 0 auto 1.75rem;
+  max-width: 32rem;
+}
+
+.reg-closed__chips {
+  list-style: none;
+  margin: 0 0 2rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+.reg-closed__chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--title, #f3f4f6);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  animation: reg-soon-rise 0.6s ease both;
+}
+
+.reg-closed__chip-icon {
+  font-size: 1.1rem;
+}
+
+.reg-closed__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.reg-closed__social {
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.reg-closed__social p {
+  font-size: 0.8rem;
+  color: var(--text-muted, #9ca3af);
+  margin-bottom: 0.75rem;
+}
+
+.reg-closed__social-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem 1rem;
+}
+
+.reg-closed__social-links a {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent, #e85d04);
+  text-decoration: none;
+}
+
+.reg-closed__social-links a:hover {
+  text-decoration: underline;
+}
+
+@keyframes reg-closed-beam {
+  0%, 100% { opacity: 0.55; transform: translateX(-50%) rotate(-8deg) scale(1); }
+  50% { opacity: 0.85; transform: translateX(-50%) rotate(-6deg) scale(1.05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reg-closed__beam,
+  .reg-closed__confetti,
+  .reg-closed__inner,
+  .reg-closed__chips li {
     animation: none;
   }
 }

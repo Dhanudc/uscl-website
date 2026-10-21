@@ -6,6 +6,8 @@ export default function ZoomableImage({
   alt = "",
   className = "",
   buttonClassName = "",
+  buttonStyle,
+  imgStyle,
   sizeClass = "max-h-[92vh] max-w-[94vw]",
   onError,
 }) {
@@ -20,10 +22,11 @@ export default function ZoomableImage({
           event.stopPropagation();
           setOpen(true);
         }}
+        style={buttonStyle}
         className={`inline-flex cursor-zoom-in items-center justify-center p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${buttonClassName}`}
         title="View larger"
       >
-        <img src={src} alt={alt} className={className} onError={onError} />
+        <img src={src} alt={alt} className={className} style={imgStyle} onError={onError} />
       </button>
       {open ? (
         <div

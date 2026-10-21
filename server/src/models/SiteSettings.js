@@ -142,6 +142,10 @@ const siteSettingsSchema = new mongoose.Schema(
     },
     /** When false, public Register CTAs are hidden and new registrations are blocked. */
     registrationEnabled: { type: Boolean, default: true },
+    /** When true, block new registrations and show the season-closed experience. */
+    registrationSeasonClosed: { type: Boolean, default: false },
+    registrationSeasonClosedTitle: { type: String, default: "" },
+    registrationSeasonClosedMessage: { type: String, default: "" },
     /** When false, players cannot see or use the Add documents button (admin upload still works). */
     playerDocumentsUploadEnabled: { type: Boolean, default: true },
     /** When false, Pay now is hidden on the player dashboard even if enabled per registration. */
@@ -285,6 +289,9 @@ export const DEFAULT_SITE_SETTINGS = {
     videos: [],
   },
   registrationEnabled: true,
+  registrationSeasonClosed: false,
+  registrationSeasonClosedTitle: "",
+  registrationSeasonClosedMessage: "",
   playerDocumentsUploadEnabled: true,
   playerPayNowEnabled: true,
   playerTeamCardEnabled: true,
@@ -564,6 +571,20 @@ export async function getSiteSettings() {
 
 export function isRegistrationEnabled(settings) {
   return settings?.registrationEnabled !== false;
+}
+
+export function isRegistrationSeasonClosed(settings) {
+  return settings?.registrationSeasonClosed === true;
+}
+
+export function getRegistrationSeasonClosedCopy(settings) {
+  const title =
+    String(settings?.registrationSeasonClosedTitle || "").trim() ||
+    "Registrations are closed for this season";
+  const message =
+    String(settings?.registrationSeasonClosedMessage || "").trim() ||
+    "Get ready for next season — stay tuned for USCL T20 updates and see you at the auction.";
+  return { title, message };
 }
 
 export function isPlayerDocumentsUploadEnabled(settings) {

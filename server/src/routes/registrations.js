@@ -49,6 +49,7 @@ import { sendRegistrationReceivedEmail } from "../utils/mail.js";
 import {
   getSiteSettings,
   isRegistrationEnabled,
+  isRegistrationSeasonClosed,
   isPlayerPayNowEnabled,
   isCaptainAddMentorEnabled,
 } from "../models/SiteSettings.js";
@@ -87,7 +88,7 @@ async function resolvePaymentCustomer(req) {
 
 async function assertRegistrationOpen(res) {
   const settings = await getSiteSettings();
-  if (!isRegistrationEnabled(settings)) {
+  if (!isRegistrationEnabled(settings) || isRegistrationSeasonClosed(settings)) {
     res.status(403).json({ error: "Registration is currently closed." });
     return false;
   }

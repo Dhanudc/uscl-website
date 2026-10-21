@@ -4,7 +4,14 @@ export const franchises = [
   { id: "chicago-crushers", name: "Chicago Centurions", shortName: "Centurions", city: "Chicago", image: "/franchises/chicago-crushers.jpg", accent: "#4aa3d9" },
   { id: "florida-falcons", name: "Florida Falcons", shortName: "Falcons", city: "Florida", image: "/franchises/florida-falcons.png", accent: "#e85d04" },
   { id: "new-jersey-jaguars", name: "New Jersey Jaguars", shortName: "Jaguars", city: "New Jersey", image: "/franchises/new-jersey-jaguars.png", accent: "#1f6b3a" },
-  { id: "new-york-knights", name: "New York Knights", shortName: "Knights", city: "New York", image: "/franchises/new-york-knights.png", accent: "#f08a24" },
+  {
+    id: "new-york-knights",
+    name: "Ceipal New York Knights",
+    shortName: "Knights",
+    city: "New York",
+    image: "/franchises/new-york-knights.png",
+    accent: "#e85d04",
+  },
   { id: "texas-thunder", name: "Texas Thunders", shortName: "Thunders", city: "Texas", image: "/franchises/texas-thunder.png", accent: "#1e4fd6" },
   { id: "virginia-vikings", name: "Virginia Vikings", shortName: "Vikings", city: "Virginia", image: "/franchises/virginia-vikings.png", accent: "#16325c" },
 ];

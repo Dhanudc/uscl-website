@@ -84,7 +84,7 @@ const AWARDS = [
 ];
 
 export default function PlayerJourney() {
-  const { registrationEnabled } = useSiteSettings();
+  const { registrationEnabled, registrationSeasonClosed } = useSiteSettings();
 
   return (
     <PageShell
@@ -184,12 +184,18 @@ export default function PlayerJourney() {
       <div className="mt-10 rounded-xl border border-accent/40 bg-accent/10 p-5 sm:flex sm:items-center sm:justify-between sm:gap-4">
         <div>
           <p className="font-display text-xl text-[color:var(--title)]">
-            {registrationEnabled ? "Ready for step 1?" : "Registration opens shortly"}
+            {registrationSeasonClosed
+              ? "This season’s roster is locked"
+              : registrationEnabled
+                ? "Ready for step 1?"
+                : "Registration opens shortly"}
           </p>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-            {registrationEnabled
-              ? "Register now and begin your USCL player journey."
-              : "The form is paused for now — tap below to see when registration returns."}
+            {registrationSeasonClosed
+              ? "New registrations are closed — get ready for next season."
+              : registrationEnabled
+                ? "Register now and begin your USCL player journey."
+                : "The form is paused for now — tap below to see when registration returns."}
           </p>
         </div>
         <RegisterCta

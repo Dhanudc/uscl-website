@@ -3947,6 +3947,9 @@ function AuditPage() {
 function SiteSettingsPage() {
   const { refresh } = useSiteSettings();
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
+  const [registrationSeasonClosed, setRegistrationSeasonClosed] = useState(false);
+  const [registrationSeasonClosedTitle, setRegistrationSeasonClosedTitle] = useState("");
+  const [registrationSeasonClosedMessage, setRegistrationSeasonClosedMessage] = useState("");
   const [moduleVisibility, setModuleVisibility] = useState({ ...DEFAULT_MODULE_VISIBILITY });
   const [navLabels, setNavLabels] = useState(() => normalizeNavLabels({}));
   const [loading, setLoading] = useState(true);
@@ -3977,6 +3980,11 @@ function SiteSettingsPage() {
     api("/api/admin/settings")
       .then((data) => {
         setRegistrationEnabled(data.settings?.registrationEnabled !== false);
+        setRegistrationSeasonClosed(data.settings?.registrationSeasonClosed === true);
+        setRegistrationSeasonClosedTitle(String(data.settings?.registrationSeasonClosedTitle || ""));
+        setRegistrationSeasonClosedMessage(
+          String(data.settings?.registrationSeasonClosedMessage || "")
+        );
         setModuleVisibility(normalizeModuleVisibility(data.settings?.moduleVisibility));
         setNavLabels(normalizeNavLabels(data.settings?.navLabels));
       })
@@ -3996,9 +4004,21 @@ function SiteSettingsPage() {
     try {
       const data = await api("/api/admin/settings", {
         method: "PUT",
-        body: JSON.stringify({ registrationEnabled, moduleVisibility, navLabels }),
+        body: JSON.stringify({
+          registrationEnabled,
+          registrationSeasonClosed,
+          registrationSeasonClosedTitle,
+          registrationSeasonClosedMessage,
+          moduleVisibility,
+          navLabels,
+        }),
       });
       setRegistrationEnabled(data.settings?.registrationEnabled !== false);
+      setRegistrationSeasonClosed(data.settings?.registrationSeasonClosed === true);
+      setRegistrationSeasonClosedTitle(String(data.settings?.registrationSeasonClosedTitle || ""));
+      setRegistrationSeasonClosedMessage(
+        String(data.settings?.registrationSeasonClosedMessage || "")
+      );
       setModuleVisibility(normalizeModuleVisibility(data.settings?.moduleVisibility));
       setNavLabels(normalizeNavLabels(data.settings?.navLabels));
       await refresh();
@@ -4063,6 +4083,49 @@ function SiteSettingsPage() {
                   </span>
                 </span>
               </label>
+            </div>
+            <div className="border-t border-[color:var(--border)] px-5 py-4">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[color:var(--border)] px-4 py-3 hover:border-accent/40">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={registrationSeasonClosed}
+                  onChange={(e) => setRegistrationSeasonClosed(e.target.checked)}
+                />
+                <span>
+                  <span className="block font-medium text-[color:var(--title)]">
+                    Season closed (roster locked)
+                  </span>
+                  <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                    Blocks new sign-ups and shows the season-closed page with your message below.
+                    Existing players can still sign in and finish payment if needed.
+                  </span>
+                </span>
+              </label>
+              <div className="mt-4 space-y-3">
+                <label className="block text-xs font-medium text-[color:var(--title)]">
+                  Public headline
+                  <input
+                    type="text"
+                    className="mt-1 w-full rounded-lg border border-[color:var(--border)] bg-ink px-3 py-2 text-sm"
+                    placeholder="Registrations are closed for this season"
+                    value={registrationSeasonClosedTitle}
+                    onChange={(e) => setRegistrationSeasonClosedTitle(e.target.value)}
+                    maxLength={200}
+                  />
+                </label>
+                <label className="block text-xs font-medium text-[color:var(--title)]">
+                  Public message
+                  <textarea
+                    className="mt-1 w-full rounded-lg border border-[color:var(--border)] bg-ink px-3 py-2 text-sm"
+                    rows={3}
+                    placeholder="Get ready for next season — stay tuned for USCL T20 updates and see you at the auction."
+                    value={registrationSeasonClosedMessage}
+                    onChange={(e) => setRegistrationSeasonClosedMessage(e.target.value)}
+                    maxLength={500}
+                  />
+                </label>
+              </div>
             </div>
           </section>
 

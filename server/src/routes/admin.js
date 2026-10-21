@@ -7,7 +7,7 @@ import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
-import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isReferralProgramEnabled, isPlayerDocumentsUploadEnabled, isPlayerPayNowEnabled, isPlayerTeamCardEnabled, isCaptainAddMentorEnabled, normalizeModuleVisibility, normalizeSocials, normalizeUpcomingEvents, normalizeMembersIntro, publicBoardMembers, normalizeBoardMembers, publicKeyDates, normalizeKeyDates, normalizeNavLabels } from "../models/SiteSettings.js";
+import { getSiteSettings, getPaymentGateway, getModuleVisibility, resolveReferralChallenge, normalizeReferralChallenge, assertReferralPlayerCodes, isRegistrationEnabled, isRegistrationSeasonClosed, getRegistrationSeasonClosedCopy, isReferralProgramEnabled, isPlayerDocumentsUploadEnabled, isPlayerPayNowEnabled, isPlayerTeamCardEnabled, isCaptainAddMentorEnabled, normalizeModuleVisibility, normalizeSocials, normalizeUpcomingEvents, normalizeMembersIntro, publicBoardMembers, normalizeBoardMembers, publicKeyDates, normalizeKeyDates, normalizeNavLabels } from "../models/SiteSettings.js";
 import { getGatewayStatus } from "../utils/paymentGateway.js";
 import {
   applyPlayerDocumentSubmission,
@@ -2147,6 +2147,10 @@ router.get("/settings", adminRequired, async (_req, res) => {
         registrationFees: normalizeRegistrationFees(settings.registrationFees),
         sponsorPackages: await getSponsorPackageConfig(),
         registrationEnabled: isRegistrationEnabled(settings),
+        registrationSeasonClosed: isRegistrationSeasonClosed(settings),
+        registrationSeasonClosedTitle: String(settings.registrationSeasonClosedTitle || ""),
+        registrationSeasonClosedMessage: String(settings.registrationSeasonClosedMessage || ""),
+        registrationSeasonClosedCopy: getRegistrationSeasonClosedCopy(settings),
         playerDocumentsUploadEnabled: isPlayerDocumentsUploadEnabled(settings),
         playerPayNowEnabled: isPlayerPayNowEnabled(settings),
         playerTeamCardEnabled: isPlayerTeamCardEnabled(settings),
@@ -2218,6 +2222,21 @@ router.put("/settings", adminRequired, async (req, res) => {
       auditBits.push(
         req.body.registrationEnabled ? "registration shown" : "registration hidden"
       );
+    }
+
+    if (typeof req.body.registrationSeasonClosed === "boolean") {
+      settings.registrationSeasonClosed = req.body.registrationSeasonClosed;
+      auditBits.push(
+        req.body.registrationSeasonClosed ? "registration season closed" : "registration season open"
+      );
+    }
+    if (typeof req.body.registrationSeasonClosedTitle === "string") {
+      settings.registrationSeasonClosedTitle = req.body.registrationSeasonClosedTitle.trim().slice(0, 200);
+      auditBits.push("season closed title");
+    }
+    if (typeof req.body.registrationSeasonClosedMessage === "string") {
+      settings.registrationSeasonClosedMessage = req.body.registrationSeasonClosedMessage.trim().slice(0, 500);
+      auditBits.push("season closed message");
     }
 
     if (typeof req.body.playerDocumentsUploadEnabled === "boolean") {
@@ -2338,6 +2357,10 @@ router.put("/settings", adminRequired, async (req, res) => {
         registrationFees: normalizeRegistrationFees(settings.registrationFees),
         sponsorPackages: await getSponsorPackageConfig(),
         registrationEnabled: isRegistrationEnabled(settings),
+        registrationSeasonClosed: isRegistrationSeasonClosed(settings),
+        registrationSeasonClosedTitle: String(settings.registrationSeasonClosedTitle || ""),
+        registrationSeasonClosedMessage: String(settings.registrationSeasonClosedMessage || ""),
+        registrationSeasonClosedCopy: getRegistrationSeasonClosedCopy(settings),
         playerDocumentsUploadEnabled: isPlayerDocumentsUploadEnabled(settings),
         playerPayNowEnabled: isPlayerPayNowEnabled(settings),
         playerTeamCardEnabled: isPlayerTeamCardEnabled(settings),

@@ -5,6 +5,11 @@ import { profileImageUrl } from "../utils/media";
 const USCL_WORDMARK = "/brand/uscl-wordmark.png";
 export const CARD_WIDTH = 1080;
 export const CARD_HEIGHT = 1350;
+/** Matches decorative frame `inset`. */
+const CARD_FRAME_INSET = 24;
+/** Breathing room inside the frame for corner logos (both sides). */
+const CARD_LOGO_GAP = 14;
+const CARD_LOGO_INSET = CARD_FRAME_INSET + CARD_LOGO_GAP;
 
 /** PDF/franchise art on white — multiply hides the white on the dark card. */
 const logoOnDarkStyle = {
@@ -54,7 +59,7 @@ function CardArt({ registration, franchise, owner, accent, photo, ownerPhoto, sq
       <div
         style={{
           position: "absolute",
-          inset: 24,
+          inset: CARD_FRAME_INSET,
           border: `3px solid ${accent}`,
           boxShadow: `0 0 40px ${accent}88, inset 0 0 30px ${accent}33`,
           clipPath:
@@ -63,46 +68,45 @@ function CardArt({ registration, franchise, owner, accent, photo, ownerPhoto, sq
         }}
       />
 
+      <img
+        src={absoluteUrl(USCL_WORDMARK)}
+        alt="USCL"
+        crossOrigin="anonymous"
+        style={{
+          ...logoOnDarkStyle,
+          position: "absolute",
+          top: CARD_LOGO_INSET,
+          left: CARD_LOGO_INSET,
+          zIndex: 2,
+          height: 148,
+          width: "auto",
+          maxWidth: "46%",
+        }}
+      />
+      <img
+        src={absoluteUrl(franchise?.image)}
+        alt=""
+        crossOrigin="anonymous"
+        style={{
+          ...logoOnDarkStyle,
+          position: "absolute",
+          top: CARD_LOGO_INSET,
+          right: CARD_LOGO_INSET,
+          zIndex: 2,
+          height: 228,
+          width: "auto",
+          maxWidth: "50%",
+        }}
+      />
+
       <div
         style={{
           position: "relative",
           zIndex: 2,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "40px 36px 0",
-          gap: 16,
-          minHeight: 300,
+          height: 280,
         }}
-      >
-        <img
-          src={absoluteUrl(USCL_WORDMARK)}
-          alt="USCL"
-          crossOrigin="anonymous"
-          style={{
-            ...logoOnDarkStyle,
-            flex: "1 1 0",
-            minWidth: 0,
-            height: 228,
-            width: "auto",
-            maxWidth: "48%",
-            alignSelf: "center",
-          }}
-        />
-        <img
-          src={absoluteUrl(franchise?.image)}
-          alt=""
-          crossOrigin="anonymous"
-          style={{
-            ...logoOnDarkStyle,
-            flexShrink: 0,
-            height: 300,
-            width: "auto",
-            maxWidth: "42%",
-            alignSelf: "center",
-          }}
-        />
-      </div>
+        aria-hidden="true"
+      />
 
       <div
         style={{
@@ -197,23 +201,23 @@ function CardArt({ registration, franchise, owner, accent, photo, ownerPhoto, sq
           left: 0,
           right: 0,
           zIndex: 2,
-          padding: "36px 56px 48px",
+          padding: "44px 56px 56px",
           background: "linear-gradient(0deg, rgba(0,0,0,0.9), transparent)",
         }}
       >
-        <p style={{ fontSize: 32, fontWeight: 700, color: accent, lineHeight: 1.2 }}>
+        <p style={{ fontSize: 52, fontWeight: 700, color: accent, lineHeight: 1.15 }}>
           {franchise?.name}
         </p>
         {owner?.fullName ? (
-          <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ marginTop: 20, display: "flex", alignItems: "center", gap: 20 }}>
             {ownerPhoto ? (
               <img
                 src={ownerPhoto}
                 alt=""
                 crossOrigin="anonymous"
                 style={{
-                  width: 52,
-                  height: 52,
+                  width: 68,
+                  height: 68,
                   borderRadius: "50%",
                   objectFit: "cover",
                   border: `2px solid ${accent}`,
@@ -221,12 +225,12 @@ function CardArt({ registration, franchise, owner, accent, photo, ownerPhoto, sq
                 }}
               />
             ) : null}
-            <p style={{ fontSize: 24, opacity: 0.88, lineHeight: 1.35 }}>
+            <p style={{ fontSize: 38, opacity: 0.9, lineHeight: 1.35 }}>
               Franchise owner · <strong>{owner.fullName}</strong>
             </p>
           </div>
         ) : null}
-        <p style={{ marginTop: 12, fontSize: 21, opacity: 0.6 }}>USCL T20 · Season 2026</p>
+        <p style={{ marginTop: 16, fontSize: 32, opacity: 0.68 }}>USCL T20 · Season 2026</p>
       </div>
     </>
   );

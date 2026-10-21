@@ -12,11 +12,15 @@ export default function RegisterCta({
   closedLabel = "Registration",
   children,
 }) {
-  const { registrationEnabled, isModuleVisible } = useSiteSettings();
+  const { registrationEnabled, registrationSeasonClosed, isModuleVisible } = useSiteSettings();
 
   if (!isModuleVisible("register")) return null;
 
-  const label = children || (registrationEnabled ? openLabel : closedLabel);
+  const closed = registrationSeasonClosed || !registrationEnabled;
+  const seasonClosedLabel = "Registration closed";
+  const label =
+    children ||
+    (registrationSeasonClosed ? seasonClosedLabel : registrationEnabled ? openLabel : closedLabel);
 
   return (
     <Link
@@ -24,15 +28,17 @@ export default function RegisterCta({
       onClick={() => window.scrollTo(0, 0)}
       className={className}
       title={
-        registrationEnabled
-          ? "Open registration"
-          : "Registration opens shortly — tap to see details"
+        registrationSeasonClosed
+          ? "Registrations are closed for this season"
+          : registrationEnabled
+            ? "Open registration"
+            : "Registration opens shortly — tap to see details"
       }
     >
-      {!registrationEnabled && !children ? (
+      {closed && !children ? (
         <span className="inline-flex items-center gap-1.5">
           <span className="reg-cta-dot" aria-hidden="true" />
-          {closedLabel}
+          {label}
         </span>
       ) : (
         label

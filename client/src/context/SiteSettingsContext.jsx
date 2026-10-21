@@ -52,6 +52,12 @@ const DEFAULTS = {
     { label: "WhatsApp", href: DEFAULT_WHATSAPP_HREF, iconUrl: "" },
   ],
   registrationEnabled: true,
+  registrationSeasonClosed: false,
+  registrationSeasonClosedCopy: {
+    title: "Registrations are closed for this season",
+    message:
+      "Get ready for next season — stay tuned for USCL T20 updates and see you at the auction.",
+  },
   playerPayNowEnabled: true,
   playerTeamCardEnabled: true,
   captainAddMentorEnabled: true,
@@ -72,6 +78,12 @@ const SiteSettingsContext = createContext({
   contact: DEFAULTS.contact,
   socials: DEFAULTS.socials,
   registrationEnabled: true,
+  registrationSeasonClosed: false,
+  registrationSeasonClosedCopy: {
+    title: "Registrations are closed for this season",
+    message:
+      "Get ready for next season — stay tuned for USCL T20 updates and see you at the auction.",
+  },
   playerPayNowEnabled: true,
   playerTeamCardEnabled: true,
   captainAddMentorEnabled: true,
@@ -93,6 +105,10 @@ export function SiteSettingsProvider({ children }) {
   const [contact, setContact] = useState(DEFAULTS.contact);
   const [socials, setSocials] = useState(DEFAULTS.socials);
   const [registrationEnabled, setRegistrationEnabled] = useState(true);
+  const [registrationSeasonClosed, setRegistrationSeasonClosed] = useState(false);
+  const [registrationSeasonClosedCopy, setRegistrationSeasonClosedCopy] = useState(
+    DEFAULTS.registrationSeasonClosedCopy
+  );
   const [playerPayNowEnabled, setPlayerPayNowEnabled] = useState(true);
   const [playerTeamCardEnabled, setPlayerTeamCardEnabled] = useState(true);
   const [captainAddMentorEnabled, setCaptainAddMentorEnabled] = useState(true);
@@ -114,6 +130,10 @@ export function SiteSettingsProvider({ children }) {
         setSocials(normalizeSocials(data.settings.socials, data.settings.contact));
       }
       setRegistrationEnabled(data.settings?.registrationEnabled !== false);
+      setRegistrationSeasonClosed(data.settings?.registrationSeasonClosed === true);
+      if (data.settings?.registrationSeasonClosedCopy) {
+        setRegistrationSeasonClosedCopy(data.settings.registrationSeasonClosedCopy);
+      }
       setPlayerPayNowEnabled(data.settings?.playerPayNowEnabled !== false);
       setPlayerTeamCardEnabled(data.settings?.playerTeamCardEnabled !== false);
       setCaptainAddMentorEnabled(data.settings?.captainAddMentorEnabled !== false);
@@ -158,6 +178,8 @@ export function SiteSettingsProvider({ children }) {
       contact,
       socials,
       registrationEnabled,
+      registrationSeasonClosed,
+      registrationSeasonClosedCopy,
       playerPayNowEnabled,
       playerTeamCardEnabled,
       captainAddMentorEnabled,
@@ -174,7 +196,7 @@ export function SiteSettingsProvider({ children }) {
       loading,
       refresh,
     }),
-    [contact, socials, registrationEnabled, playerPayNowEnabled, playerTeamCardEnabled, captainAddMentorEnabled, referralProgramEnabled, moduleVisibility, navLabels, navLabel, whatsappGroupUrl, upcomingEvents, membersIntro, boardMembers, keyDates, isModuleVisible, loading, refresh]
+    [contact, socials, registrationEnabled, registrationSeasonClosed, registrationSeasonClosedCopy, playerPayNowEnabled, playerTeamCardEnabled, captainAddMentorEnabled, referralProgramEnabled, moduleVisibility, navLabels, navLabel, whatsappGroupUrl, upcomingEvents, membersIntro, boardMembers, keyDates, isModuleVisible, loading, refresh]
   );
 
   return <SiteSettingsContext.Provider value={value}>{children}</SiteSettingsContext.Provider>;

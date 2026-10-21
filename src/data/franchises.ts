@@ -50,11 +50,11 @@ export const franchises: Franchise[] = [
   },
   {
     id: "new-york-knights",
-    name: "New York Knights",
+    name: "Ceipal New York Knights",
     shortName: "Knights",
     city: "New York",
     image: "/franchises/new-york-knights.png",
-    accent: "#f08a24",
+    accent: "#e85d04",
   },
   {
     id: "texas-thunder",

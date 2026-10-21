@@ -5,6 +5,7 @@ import PasswordInput from "../components/PasswordInput";
 import PlayerDataConsentForm from "../components/PlayerDataConsentForm";
 import { AlertBanner, EmptyState, PageLoader } from "../components/ui";
 import RegistrationComingSoon from "../components/RegistrationComingSoon";
+import RegistrationSeasonClosed from "../components/RegistrationSeasonClosed";
 import PaymentQrModal from "../components/PaymentQrModal";
 import ZoomableImage from "../components/ZoomableImage";
 import { useAuth } from "../context/AuthContext";
@@ -28,7 +29,12 @@ const REGISTER_TYPES = [
 
 export default function Register() {
   const { user, loading, refresh } = useAuth();
-  const { registrationEnabled, referralProgramEnabled, loading: settingsLoading } = useSiteSettings();
+  const {
+    registrationEnabled,
+    registrationSeasonClosed,
+    referralProgramEnabled,
+    loading: settingsLoading,
+  } = useSiteSettings();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState("");
   const [existing, setExisting] = useState(null);
@@ -440,6 +446,10 @@ export default function Register() {
         <PageLoader message="Loading registration…" />
       </section>
     );
+  }
+
+  if (registrationSeasonClosed && !existing && !paymentStepReg) {
+    return <RegistrationSeasonClosed />;
   }
 
   if (!registrationEnabled && !existing && !paymentStepReg) {
