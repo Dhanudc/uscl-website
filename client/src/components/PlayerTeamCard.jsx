@@ -11,12 +11,37 @@ const CARD_FRAME_INSET = 24;
 const CARD_LOGO_GAP = 14;
 const CARD_LOGO_INSET = CARD_FRAME_INSET + CARD_LOGO_GAP;
 
-/** PDF/franchise art on white — multiply hides the white on the dark card. */
-const logoOnDarkStyle = {
-  display: "block",
-  objectFit: "contain",
-  mixBlendMode: "multiply",
-};
+function CardCornerLogoPlate({ src, alt, side, height, maxWidth }) {
+  const isLeft = side === "left";
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: CARD_LOGO_INSET,
+        ...(isLeft ? { left: CARD_LOGO_INSET } : { right: CARD_LOGO_INSET }),
+        zIndex: 2,
+        padding: "10px 12px",
+        borderRadius: 10,
+        background: "#ffffff",
+        boxShadow: "0 6px 22px rgba(0,0,0,0.45)",
+        lineHeight: 0,
+      }}
+    >
+      <img
+        src={src}
+        alt={alt}
+        crossOrigin="anonymous"
+        style={{
+          display: "block",
+          height,
+          width: "auto",
+          maxWidth,
+          objectFit: "contain",
+        }}
+      />
+    </div>
+  );
+}
 
 function absoluteUrl(path) {
   if (!path) return "";
@@ -68,35 +93,19 @@ function CardArt({ registration, franchise, owner, accent, photo, ownerPhoto, sq
         }}
       />
 
-      <img
+      <CardCornerLogoPlate
         src={absoluteUrl(USCL_WORDMARK)}
         alt="USCL"
-        crossOrigin="anonymous"
-        style={{
-          ...logoOnDarkStyle,
-          position: "absolute",
-          top: CARD_LOGO_INSET,
-          left: CARD_LOGO_INSET,
-          zIndex: 2,
-          height: 148,
-          width: "auto",
-          maxWidth: "46%",
-        }}
+        side="left"
+        height={148}
+        maxWidth={420}
       />
-      <img
+      <CardCornerLogoPlate
         src={absoluteUrl(franchise?.image)}
         alt=""
-        crossOrigin="anonymous"
-        style={{
-          ...logoOnDarkStyle,
-          position: "absolute",
-          top: CARD_LOGO_INSET,
-          right: CARD_LOGO_INSET,
-          zIndex: 2,
-          height: 228,
-          width: "auto",
-          maxWidth: "50%",
-        }}
+        side="right"
+        height={200}
+        maxWidth={440}
       />
 
       <div
