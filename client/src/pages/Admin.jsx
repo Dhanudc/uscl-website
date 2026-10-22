@@ -690,9 +690,13 @@ function PlayersPage() {
     setSavingEdit(true);
     setEditError("");
     try {
+      const payload =
+        editReg.interest === "franchise"
+          ? (({ phone: _p, ...rest }) => rest)(editForm)
+          : editForm;
       const data = await api(`/api/admin/registrations/${editReg._id}/details`, {
         method: "PATCH",
-        body: JSON.stringify(editForm),
+        body: JSON.stringify(payload),
       });
       setRegs((prev) =>
         prev.map((r) => (String(r._id) === String(data.registration._id) ? data.registration : r))
@@ -1127,7 +1131,7 @@ function PlayersPage() {
                     {reg.sponsorPackageTitle ? ` · ${reg.sponsorPackageTitle}` : ""} · {reg.email}
                   </p>
                   <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                    {reg.phone}
+                    {reg.interest !== "franchise" && reg.phone ? `${reg.phone} · ` : ""}
                     {reg.interest === "player" || reg.interest === "captain"
                       ? reg.role
                         ? ` · ${playerRoleLabel(reg.role)}`
@@ -1659,7 +1663,9 @@ function PlayersPage() {
               </p>
             ) : null}
             <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-              Updates registration and the linked login email / phone.
+              {editReg.interest === "franchise"
+                ? "Updates registration and the linked login email. Owner mobile is not shown in the portal."
+                : "Updates registration and the linked login email / phone."}
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <label className="block text-sm sm:col-span-2">
@@ -1681,15 +1687,17 @@ function PlayersPage() {
                   required
                 />
               </label>
-              <label className="block text-sm">
-                <span className="text-[color:var(--text-muted)]">Phone / mobile</span>
-                <input
-                  className="input-dark mt-1.5"
-                  value={editForm.phone}
-                  onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
-                  required
-                />
-              </label>
+              {editReg.interest !== "franchise" ? (
+                <label className="block text-sm">
+                  <span className="text-[color:var(--text-muted)]">Phone / mobile</span>
+                  <input
+                    className="input-dark mt-1.5"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                    required
+                  />
+                </label>
+              ) : null}
               <label className="block text-sm">
                 <span className="text-[color:var(--text-muted)]">Company</span>
                 <input

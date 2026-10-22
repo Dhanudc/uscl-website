@@ -844,15 +844,22 @@ router.patch("/registrations/:id/details", adminRequired, async (req, res) => {
 
     const fullName = String(req.body.fullName ?? registration.fullName).trim();
     const email = String(req.body.email ?? registration.email).trim().toLowerCase();
-    const phone = String(req.body.phone ?? registration.phone).trim();
+    const isFranchiseOwner = String(registration.interest || "").toLowerCase() === "franchise";
+    const phone = isFranchiseOwner
+      ? String(registration.phone || "").trim()
+      : String(req.body.phone ?? registration.phone).trim();
     const company = String(req.body.company ?? registration.company).trim();
     const designation = String(req.body.designation ?? registration.designation ?? "").trim();
     const needsPlayingRole =
       registration.interest === "player" || registration.interest === "captain";
     let role = String(req.body.role ?? registration.role).trim();
 
-    if (!fullName || !email || !phone || !company) {
-      return res.status(400).json({ error: "Name, email, phone, and company are required." });
+    if (!fullName || !email || !company || (!isFranchiseOwner && !phone)) {
+      return res.status(400).json({
+        error: isFranchiseOwner
+          ? "Name, email, and company are required."
+          : "Name, email, phone, and company are required.",
+      });
     }
     if (needsPlayingRole) {
       if (!isValidPlayerRole(role)) {
@@ -918,7 +925,7 @@ router.patch("/registrations/:id/details", adminRequired, async (req, res) => {
       details: { from: prev, to: { fullName, email, phone, company, designation, role } },
     });
 
-    return res.json({ registration: withProfileImageUrl(registration) });
+    return res.json({ registration: await enrichRegistrationAsync(registration) });
   } catch (error) {
     console.error("admin registration details update error", error);
     return res.status(500).json({ error: "Unable to update registration details." });

@@ -5,6 +5,7 @@ import { FRANCHISES, resolveFranchiseId } from "../utils/franchises.js";
 import { getMentorForFranchise, mentorPublicView } from "../utils/teamMentor.js";
 import { squadRoleMapForRegistrations, resolveSquadRoleForReg } from "../utils/teamLineup.js";
 import { sortPlayersBySquadRole } from "../utils/squadDisplay.js";
+import { publicFranchiseOwnerView } from "../utils/franchiseOwner.js";
 
 const router = Router();
 
@@ -24,7 +25,7 @@ router.get("/", async (_req, res) => {
         status: { $in: ["pending", "verified"] },
         franchiseId: { $ne: "" },
       })
-        .select("fullName company phone photo profileImage franchiseId franchiseName status")
+        .select("fullName company photo profileImage franchiseId franchiseName status")
         .lean(),
     ]);
 
@@ -42,16 +43,7 @@ router.get("/", async (_req, res) => {
       teams: FRANCHISES.map((f) => ({
         ...f,
         playerCount: counts[f.id] || 0,
-        owner: ownerByTeam[f.id]
-          ? {
-              fullName: ownerByTeam[f.id].fullName,
-              company: ownerByTeam[f.id].company,
-              phone: ownerByTeam[f.id].phone || "",
-              profileImageUrl: ownerByTeam[f.id].profileImageUrl || "",
-              photo: ownerByTeam[f.id].photo || null,
-              status: ownerByTeam[f.id].status,
-            }
-          : null,
+        owner: publicFranchiseOwnerView(ownerByTeam[f.id]),
         available: !ownerByTeam[f.id],
       })),
     });

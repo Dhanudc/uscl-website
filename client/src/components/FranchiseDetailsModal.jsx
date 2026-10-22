@@ -107,9 +107,6 @@ export default function FranchiseDetailsModal({ team, onClose, showSquad = true 
                 {owner.company ? (
                   <p className="text-sm text-[color:var(--text-muted)]">{owner.company}</p>
                 ) : null}
-                {owner.phone ? (
-                  <p className="text-sm text-[color:var(--text-muted)]">{owner.phone}</p>
-                ) : null}
               </div>
             </div>
           ) : (

@@ -7,6 +7,7 @@ import { resolveFranchiseId } from "./franchises.js";
 import { findTeamCaptainsByFranchiseIds, playerShouldSeeTeamCaptain } from "./teamCaptain.js";
 import { getMentorForFranchise, getMentorsByFranchiseIds } from "./teamMentor.js";
 import { resolveSquadRoleForReg, squadRoleMapForRegistrations } from "./teamLineup.js";
+import { hideFranchiseOwnerPhone } from "./franchiseOwner.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const PLAYER_DOCUMENTS_DIR = path.join(__dirname, "../../private/player-documents");
@@ -220,7 +221,7 @@ export function removePlayerDocumentFile(filename) {
 }
 
 export function enrichRegistration(reg, { playerDocumentsUploadEnabled = true } = {}) {
-  const plain = withProfileImageUrl(reg);
+  const plain = hideFranchiseOwnerPhone(withProfileImageUrl(reg));
   plain.showAddDocumentsButton = shouldShowAddDocuments(plain, { playerDocumentsUploadEnabled });
   plain.documentsComplete = arePlayerDocumentsComplete(plain);
   plain.documentsVerificationStatus = normalizeDocumentsVerificationStatus(plain.documentsVerificationStatus);

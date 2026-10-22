@@ -88,7 +88,7 @@ export function registrationReportCell(reg, columnId) {
     case "email":
       return reg.email || "";
     case "phone":
-      return reg.phone || "";
+      return String(reg.interest || "").toLowerCase() === "franchise" ? "" : reg.phone || "";
     case "role":
       return reg.role || "";
     case "paymentAmount":
