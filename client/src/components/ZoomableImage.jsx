@@ -10,6 +10,8 @@ export default function ZoomableImage({
   buttonStyle,
   imgStyle,
   sizeClass = "max-h-[92vh] max-w-[94vw]",
+  /** Top-weighted crop for portrait / full-body photos in small thumbnails */
+  portraitCrop = false,
   onError,
 }) {
   const [open, setOpen] = useState(false);
@@ -42,7 +44,13 @@ export default function ZoomableImage({
         className={`inline-flex cursor-zoom-in items-center justify-center p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${buttonClassName}`}
         title="View larger"
       >
-        <img src={src} alt={alt} className={className} style={imgStyle} onError={onError} />
+        <img
+          src={src}
+          alt={alt}
+          className={[className, portraitCrop && "avatar-portrait"].filter(Boolean).join(" ")}
+          style={imgStyle}
+          onError={onError}
+        />
       </button>
       {open && typeof document !== "undefined"
         ? createPortal(

@@ -215,7 +215,7 @@ export default function TeamLineup() {
                     <img
                       src={profileImageUrl(teamMentor)}
                       alt=""
-                      className="h-10 w-10 rounded-full object-cover"
+                      className="h-10 w-10 rounded-full object-cover avatar-portrait"
                     />
                   ) : (
                     <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink-soft text-sm font-semibold text-accent">
@@ -254,7 +254,7 @@ export default function TeamLineup() {
                       {index + 1}
                     </span>
                     {photo ? (
-                      <img src={photo} alt="" className="h-10 w-10 rounded-full object-cover" />
+                      <img src={photo} alt="" className="h-10 w-10 rounded-full object-cover avatar-portrait" />
                     ) : (
                       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink-soft text-sm font-semibold text-accent">
                         {(p.fullName || "?").slice(0, 1)}

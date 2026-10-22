@@ -71,7 +71,7 @@ export default function FranchiseSquad() {
                     <img
                       src={photo}
                       alt={p.fullName}
-                      className="h-14 w-14 shrink-0 rounded-full border border-[color:var(--border)] object-cover"
+                      className="h-14 w-14 shrink-0 rounded-full border border-[color:var(--border)] object-cover avatar-portrait"
                     />
                   ) : (
                     <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent/15 font-semibold text-accent">

@@ -492,7 +492,8 @@ export default function Register() {
                   <ZoomableImage
                     src={profileImageUrl(existing)}
                     alt={existing.fullName}
-                    className="h-24 w-24 rounded-lg border border-[color:var(--border)] object-cover"
+                    className="h-24 w-24 rounded-lg border border-[color:var(--border)] object-cover avatar-portrait"
+                    portraitCrop
                   />
                 ) : (
                   <span className="inline-flex h-24 w-24 items-center justify-center rounded-lg border border-dashed border-[color:var(--border)] bg-ink-soft text-xs text-[color:var(--text-muted)]">

@@ -136,7 +136,7 @@ function CardArt({ registration, franchise, owner, accent, photo, ownerPhoto, sq
               width: 480,
               height: 480,
               objectFit: "cover",
-              objectPosition: "center center",
+              objectPosition: "top center",
               clipPath:
                 "polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)",
               boxShadow: `0 0 48px ${accent}99`,
@@ -229,6 +229,7 @@ function CardArt({ registration, franchise, owner, accent, photo, ownerPhoto, sq
                   height: 68,
                   borderRadius: "50%",
                   objectFit: "cover",
+                  objectPosition: "top center",
                   border: `2px solid ${accent}`,
                   flexShrink: 0,
                 }}

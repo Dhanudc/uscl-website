@@ -59,7 +59,8 @@ export default function Franchises() {
                     <ZoomableImage
                       src={profileImageUrl(owner)}
                       alt={owner.fullName}
-                      className="h-12 w-12 rounded-full border border-[color:var(--border)] object-cover"
+                      portraitCrop
+                      className="h-12 w-12 rounded-full border border-[color:var(--border)] object-cover avatar-portrait"
                     />
                   ) : null}
                   <p className="text-sm font-semibold text-[color:var(--title)]">{owner.fullName}</p>

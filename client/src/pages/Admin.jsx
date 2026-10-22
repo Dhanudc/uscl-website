@@ -495,7 +495,8 @@ function AdminRegAvatar({ reg, className = "h-10 w-10" }) {
       src={url}
       alt={reg?.fullName || "Player"}
       buttonClassName="shrink-0 rounded-lg border border-[color:var(--border)] overflow-hidden"
-      className={`object-cover ${className}`}
+      className={`object-cover avatar-portrait ${className}`}
+      portraitCrop
     />
   );
 }
@@ -3644,7 +3645,7 @@ function TeamsPage() {
                       <ZoomableImage
                         src={profileImageUrl(popupTeam.mentor)}
                         alt={popupTeam.mentor.fullName}
-                        className="h-10 w-10 rounded-full border border-[color:var(--border)] object-cover"
+                        className="h-10 w-10 rounded-full border border-[color:var(--border)] object-cover avatar-portrait"
                       />
                     ) : null}
                     <div className="min-w-0">
@@ -3689,7 +3690,7 @@ function TeamsPage() {
                         <ZoomableImage
                           src={profileImageUrl(popupTeam.mentor)}
                           alt={popupTeam.mentor.fullName}
-                          className="h-9 w-9 shrink-0 rounded-full border border-[color:var(--border)] object-cover bg-ink-soft"
+                          className="h-9 w-9 shrink-0 rounded-full border border-[color:var(--border)] object-cover avatar-portrait bg-ink-soft"
                         />
                       ) : (
                         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
@@ -3726,7 +3727,7 @@ function TeamsPage() {
                             <ZoomableImage
                               src={profileImageUrl(p)}
                               alt={p.fullName}
-                              className="h-9 w-9 shrink-0 rounded-full border border-[color:var(--border)] object-cover bg-ink-soft"
+                              className="h-9 w-9 shrink-0 rounded-full border border-[color:var(--border)] object-cover avatar-portrait bg-ink-soft"
                             />
                           ) : (
                             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
