@@ -39,7 +39,6 @@ function PlayerAvatar({ player, accent, featured }) {
       <ZoomableImage
         src={src}
         alt={player.fullName || "Player photo"}
-        portraitCrop
         className={`auction-top-sold__avatar ${featured ? "auction-top-sold__avatar--featured-img" : ""}`}
         buttonClassName="auction-top-sold__avatar-btn"
         imgStyle={{ boxShadow: `0 0 0 2px ${accent}55` }}

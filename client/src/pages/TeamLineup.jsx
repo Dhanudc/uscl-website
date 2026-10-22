@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { franchises } from "../data/franchises";
 import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
 import SquadRoleBadge from "../components/SquadRoleBadge";
+import ZoomableImage from "../components/ZoomableImage";
 import { profileImageUrl } from "../utils/media";
 
 export default function TeamLineup() {
@@ -212,10 +213,11 @@ export default function TeamLineup() {
                     M
                   </span>
                   {profileImageUrl(teamMentor) ? (
-                    <img
+                    <ZoomableImage
                       src={profileImageUrl(teamMentor)}
-                      alt=""
-                      className="h-10 w-10 rounded-full object-cover avatar-portrait"
+                      alt={teamMentor.fullName || "Mentor"}
+                      buttonClassName="h-10 w-10 shrink-0 overflow-hidden rounded-full"
+                      className="h-10 w-10 object-cover"
                     />
                   ) : (
                     <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink-soft text-sm font-semibold text-accent">
@@ -254,7 +256,12 @@ export default function TeamLineup() {
                       {index + 1}
                     </span>
                     {photo ? (
-                      <img src={photo} alt="" className="h-10 w-10 rounded-full object-cover avatar-portrait" />
+                      <ZoomableImage
+                        src={photo}
+                        alt={p.fullName || "Player"}
+                        buttonClassName="h-10 w-10 shrink-0 overflow-hidden rounded-full"
+                        className="h-10 w-10 object-cover"
+                      />
                     ) : (
                       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-ink-soft text-sm font-semibold text-accent">
                         {(p.fullName || "?").slice(0, 1)}

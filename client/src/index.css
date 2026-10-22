@@ -1139,8 +1139,12 @@ video {
   background: linear-gradient(135deg, #4a2f1f, #261810);
 }
 
-/* Full-body player uploads: anchor crop at top so faces stay in round/small thumbs */
-.avatar-portrait {
+/*
+ * Cover thumbnails: anchor at top (faces / main subject). ZoomableImage lightbox uses object-contain.
+ */
+.avatar-portrait,
+img.object-cover,
+video.object-cover {
   object-position: top center;
 }
 
@@ -1669,6 +1673,7 @@ video {
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
+  object-position: top center;
   background: #000;
 }
 
@@ -1867,6 +1872,7 @@ video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: top center;
 }
 
 .portal-media-dropzone__filename {
@@ -2248,6 +2254,7 @@ video {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
+  object-position: top center;
   transition: transform 0.25s ease;
 }
 
@@ -2591,6 +2598,10 @@ video {
   font-size: 1.35rem;
   letter-spacing: 0.02em;
   color: var(--accent-soft);
+}
+
+.event-post-card__img {
+  object-position: top center;
 }
 
 /* About page featured artwork — keep slide images sharp and uncropped */

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
 import { playerRoleLabel } from "../data/playerRoles";
+import ZoomableImage from "../components/ZoomableImage";
 import { profileImageUrl } from "../utils/media";
 
 export default function FranchiseSquad() {
@@ -68,10 +69,11 @@ export default function FranchiseSquad() {
                   className="panel flex items-center gap-3 rounded-2xl p-4 transition hover:border-accent"
                 >
                   {photo ? (
-                    <img
+                    <ZoomableImage
                       src={photo}
                       alt={p.fullName}
-                      className="h-14 w-14 shrink-0 rounded-full border border-[color:var(--border)] object-cover avatar-portrait"
+                      buttonClassName="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)]"
+                      className="h-14 w-14 object-cover"
                     />
                   ) : (
                     <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-accent/15 font-semibold text-accent">

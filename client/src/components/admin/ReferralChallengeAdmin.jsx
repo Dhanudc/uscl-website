@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api";
+import ZoomableImage from "../ZoomableImage";
 import { CropUploadButton } from "../ImageCropper";
 import { AlertBanner, PageLoader } from "../ui";
 
@@ -314,10 +315,11 @@ export default function ReferralChallengeAdmin({ AdminShell }) {
                     <span className="text-sm text-[color:var(--text-muted)]">Reward photo</span>
                     <div className="mt-2 flex flex-wrap items-center gap-3">
                       {row.awardImage ? (
-                        <img
+                        <ZoomableImage
                           src={row.awardImage}
-                          alt=""
-                          className="h-20 w-20 rounded-lg border border-[color:var(--border)] object-cover"
+                          alt={row.gift || "Reward photo"}
+                          buttonClassName="h-20 w-20 overflow-hidden rounded-lg border border-[color:var(--border)]"
+                          className="h-20 w-20 object-cover"
                         />
                       ) : (
                         <span className="inline-flex h-20 w-20 items-center justify-center rounded-lg border border-dashed border-[color:var(--border)] text-[10px] text-[color:var(--text-muted)]">
@@ -336,10 +338,11 @@ export default function ReferralChallengeAdmin({ AdminShell }) {
                     {row.name ? (
                       <div className="flex min-w-0 items-center gap-3">
                         {row.image ? (
-                          <img
+                          <ZoomableImage
                             src={row.image}
-                            alt=""
-                            className="h-12 w-12 rounded-full border border-[color:var(--border)] object-cover"
+                            alt={row.name || "Winner"}
+                            buttonClassName="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)]"
+                            className="h-12 w-12 object-cover"
                           />
                         ) : (
                           <span className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-[color:var(--border)] text-[10px] text-[color:var(--text-muted)]">

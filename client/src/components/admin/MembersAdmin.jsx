@@ -180,7 +180,7 @@ export default function MembersAdmin({ AdminShell }) {
                             src={member.image}
                             alt={member.name}
                             buttonClassName="h-12 w-12 overflow-hidden rounded-full"
-                            className="h-12 w-12 rounded-full object-cover"
+                            className="h-full w-full object-cover"
                           />
                         ) : (
                           <span className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-[color:var(--border)] text-[10px] text-[color:var(--text-muted)]">
@@ -257,7 +257,7 @@ export default function MembersAdmin({ AdminShell }) {
                     src={draft.image}
                     alt=""
                     buttonClassName="h-20 w-20 overflow-hidden rounded-full"
-                    className="h-20 w-20 rounded-full object-cover"
+                    className="h-full w-full object-cover"
                   />
                 ) : (
                   <span className="inline-flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-[color:var(--border)] text-xs text-[color:var(--text-muted)]">

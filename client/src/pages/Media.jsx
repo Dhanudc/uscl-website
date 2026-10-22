@@ -48,7 +48,7 @@ function GallerySection({ section }) {
             <ZoomableImage
               src={portalMediaImageUrl(image)}
               alt={image.title || section.title}
-              className="media-photo-card__img"
+              className="media-photo-card__img object-cover"
             />
             {(image.title || image.caption) && (
               <figcaption className="media-photo-card__caption">

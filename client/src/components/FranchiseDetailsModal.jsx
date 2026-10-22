@@ -94,8 +94,8 @@ export default function FranchiseDetailsModal({ team, onClose, showSquad = true 
                 <ZoomableImage
                   src={profileImageUrl(owner)}
                   alt={owner.fullName}
-                  portraitCrop
-                  className="h-16 w-16 rounded-full border border-[color:var(--border)] object-cover avatar-portrait"
+                  buttonClassName="h-16 w-16 overflow-hidden rounded-full border border-[color:var(--border)]"
+                  className="h-full w-full object-cover"
                 />
               ) : (
                 <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-accent/15 text-accent">
@@ -144,9 +144,8 @@ export default function FranchiseDetailsModal({ team, onClose, showSquad = true 
                         <ZoomableImage
                           src={profileImageUrl(mentor)}
                           alt={mentor.fullName}
-                          portraitCrop
                           buttonClassName="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] bg-ink-soft"
-                          className="h-11 w-11 rounded-full object-cover avatar-portrait"
+                          className="h-full w-full object-cover"
                         />
                       ) : (
                         <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent">
@@ -176,9 +175,8 @@ export default function FranchiseDetailsModal({ team, onClose, showSquad = true 
                           <ZoomableImage
                             src={photo}
                             alt={p.fullName}
-                            portraitCrop
                             buttonClassName="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] bg-ink-soft"
-                            className="h-11 w-11 rounded-full object-cover avatar-portrait"
+                            className="h-full w-full object-cover"
                           />
                         ) : (
                           <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent">

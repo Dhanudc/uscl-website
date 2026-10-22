@@ -118,7 +118,8 @@ export default function TeamMentorModal({
               <ZoomableImage
                 src={photoPreview}
                 alt="Mentor"
-                className="h-16 w-16 rounded-full border border-[color:var(--border)] object-cover"
+                buttonClassName="h-16 w-16 overflow-hidden rounded-full border border-[color:var(--border)]"
+                className="h-full w-full object-cover"
               />
             ) : (
               <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-accent/15 text-sm text-accent">

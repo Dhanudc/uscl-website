@@ -42,7 +42,7 @@ function WinnerCard({ winner, featured = false }) {
           src={winner.image}
           alt={winner.name || "Winner"}
           buttonClassName="mt-4 h-28 w-28 overflow-hidden rounded-full border-2 border-accent/50"
-          className="h-28 w-28 rounded-full object-cover"
+          className="h-full w-full object-cover"
         />
       ) : !winner.awardImage ? (
         <span className="mt-4 inline-flex h-28 w-28 items-center justify-center rounded-full border border-dashed border-[color:var(--border)] text-xs text-[color:var(--text-muted)]">

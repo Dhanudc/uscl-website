@@ -477,8 +477,8 @@ export default function Dashboard() {
                       <ZoomableImage
                         src={profileImageUrl(mentorProfile)}
                         alt={mentorProfile.fullName}
-                        className="h-14 w-14 rounded-lg border border-[color:var(--border)] object-cover avatar-portrait"
-                        portraitCrop
+                        buttonClassName="h-14 w-14 overflow-hidden rounded-lg border border-[color:var(--border)]"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
                       <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-dashed border-accent/40 bg-ink-soft text-[10px] font-semibold uppercase leading-tight text-accent-soft">
@@ -537,8 +537,8 @@ export default function Dashboard() {
                           <ZoomableImage
                             src={imgUrl}
                             alt={reg.fullName}
-                            className="h-14 w-14 rounded-lg object-cover avatar-portrait"
-                            portraitCrop
+                            buttonClassName="h-14 w-14 overflow-hidden rounded-lg"
+                            className="h-full w-full object-cover"
                             onError={() => {
                               setBrokenProfileIds((prev) => new Set(prev).add(String(reg._id)));
                             }}

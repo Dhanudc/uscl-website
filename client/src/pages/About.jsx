@@ -129,7 +129,7 @@ export default function About() {
                         src={member.image}
                         alt={member.name}
                         buttonClassName="mx-auto h-28 w-28 overflow-hidden rounded-full border border-[color:var(--border)] sm:mx-0"
-                        className="h-28 w-28 rounded-full object-cover"
+                        className="h-28 w-28 object-cover"
                       />
                       <h3 className="mt-4 font-display text-lg text-[color:var(--title)]">{member.name}</h3>
                       <p className="mt-0.5 text-sm italic text-[color:var(--text-muted)]">{member.role}</p>
@@ -175,7 +175,8 @@ export default function About() {
               <ZoomableImage
                 src={openMember.image}
                 alt={openMember.name}
-                className="h-36 w-36 shrink-0 rounded-full border border-[color:var(--border)] object-cover sm:h-40 sm:w-40"
+                buttonClassName="h-36 w-36 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] sm:h-40 sm:w-40"
+                className="h-full w-full object-cover sm:h-40 sm:w-40"
               />
               <div className="min-w-0 text-center sm:text-left">
                 <h3 id="member-modal-title" className="font-display text-2xl text-[color:var(--title)]">

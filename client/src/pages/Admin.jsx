@@ -495,8 +495,7 @@ function AdminRegAvatar({ reg, className = "h-10 w-10" }) {
       src={url}
       alt={reg?.fullName || "Player"}
       buttonClassName="shrink-0 rounded-lg border border-[color:var(--border)] overflow-hidden"
-      className={`object-cover avatar-portrait ${className}`}
-      portraitCrop
+      className={`object-cover ${className}`}
     />
   );
 }
@@ -1080,7 +1079,8 @@ function PlayersPage() {
                     <ZoomableImage
                       src={profileImageUrl(reg)}
                       alt={reg.fullName}
-                      className="h-14 w-14 rounded-lg border border-[color:var(--border)] object-cover bg-ink-soft"
+                      buttonClassName="h-14 w-14 overflow-hidden rounded-lg border border-[color:var(--border)] bg-ink-soft"
+                      className="h-full w-full object-cover"
                     />
                   ) : (
                     <span className="inline-flex h-14 w-14 items-center justify-center rounded-lg bg-accent/15 text-accent">
@@ -2970,7 +2970,8 @@ function AuctionPage() {
                     <ZoomableImage
                       src={profileImageUrl(reg)}
                       alt={reg.fullName}
-                      className="h-12 w-12 shrink-0 rounded-lg border border-[color:var(--border)] object-cover bg-ink-soft"
+                      buttonClassName="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-ink-soft"
+                      className="h-full w-full object-cover"
                     />
                   ) : null}
                   <div className="min-w-0">
@@ -3645,7 +3646,8 @@ function TeamsPage() {
                       <ZoomableImage
                         src={profileImageUrl(popupTeam.mentor)}
                         alt={popupTeam.mentor.fullName}
-                        className="h-10 w-10 rounded-full border border-[color:var(--border)] object-cover avatar-portrait"
+                        buttonClassName="h-10 w-10 overflow-hidden rounded-full border border-[color:var(--border)]"
+                        className="h-full w-full object-cover"
                       />
                     ) : null}
                     <div className="min-w-0">
@@ -3690,7 +3692,8 @@ function TeamsPage() {
                         <ZoomableImage
                           src={profileImageUrl(popupTeam.mentor)}
                           alt={popupTeam.mentor.fullName}
-                          className="h-9 w-9 shrink-0 rounded-full border border-[color:var(--border)] object-cover avatar-portrait bg-ink-soft"
+                          buttonClassName="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] bg-ink-soft"
+                          className="h-full w-full object-cover"
                         />
                       ) : (
                         <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
@@ -3727,7 +3730,8 @@ function TeamsPage() {
                             <ZoomableImage
                               src={profileImageUrl(p)}
                               alt={p.fullName}
-                              className="h-9 w-9 shrink-0 rounded-full border border-[color:var(--border)] object-cover avatar-portrait bg-ink-soft"
+                              buttonClassName="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-[color:var(--border)] bg-ink-soft"
+                              className="h-full w-full object-cover"
                             />
                           ) : (
                             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">

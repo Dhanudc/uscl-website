@@ -10,11 +10,13 @@ export default function ZoomableImage({
   buttonStyle,
   imgStyle,
   sizeClass = "max-h-[92vh] max-w-[94vw]",
-  /** Top-weighted crop for portrait / full-body photos in small thumbnails */
-  portraitCrop = false,
+  /** Top-weighted crop in thumbnails; default on unless className uses object-contain */
+  portraitCrop,
   onError,
 }) {
   const [open, setOpen] = useState(false);
+  const useTopCrop =
+    portraitCrop !== undefined ? portraitCrop : !/\bobject-contain\b/.test(className);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -47,7 +49,7 @@ export default function ZoomableImage({
         <img
           src={src}
           alt={alt}
-          className={[className, portraitCrop && "avatar-portrait"].filter(Boolean).join(" ")}
+          className={[className, useTopCrop && "avatar-portrait"].filter(Boolean).join(" ")}
           style={imgStyle}
           onError={onError}
         />
