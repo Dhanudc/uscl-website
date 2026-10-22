@@ -12,6 +12,7 @@ import adminRoutes from "./routes/admin.js";
 import settingsRoutes from "./routes/settings.js";
 import liveRoutes from "./routes/live.js";
 import teamsRoutes from "./routes/teams.js";
+import auctionRoutes from "./routes/auction.js";
 import sponsorRoutes from "./routes/sponsors.js";
 import { backfillProfileImageColumn } from "./utils/backfillProfileImage.js";
 import { backfillPaymentStatusColumn } from "./utils/backfillPaymentStatus.js";
@@ -102,6 +103,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/live", liveRoutes);
 app.use("/api/teams", teamsRoutes);
+app.use("/api/auction", auctionRoutes);
 app.use("/api/sponsors", sponsorRoutes);
 
 app.use((err, _req, res, _next) => {

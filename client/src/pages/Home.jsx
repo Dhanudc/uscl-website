@@ -1,18 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import HeroFranchiseBanners from "../components/HeroFranchiseBanners";
 import LeagueTagline from "../components/LeagueTagline";
 import RegisterCta from "../components/RegisterCta";
+import AuctionTopSoldStrip from "../components/AuctionTopSoldStrip";
 import TeamsRibbon from "../components/TeamsRibbon";
 import { UpcomingEventsStrip } from "../components/UpcomingEvents";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
-import {
-  AUCTION_DATE_LABEL,
-  AUCTION_TARGET,
-  AUCTION_TIME_LABEL,
-  siteStats,
-} from "../data/siteContent";
+import { siteStats } from "../data/siteContent";
 
 const HERO_SLIDES = [
   {
@@ -32,25 +28,8 @@ const HERO_SLIDES = [
   },
 ];
 
-function useCountdown(target) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  return useMemo(() => {
-    const diff = Math.max(0, target.getTime() - now);
-    const days = Math.floor(diff / 86400000);
-    const hours = Math.floor((diff % 86400000) / 3600000);
-    const minutes = Math.floor((diff % 3600000) / 60000);
-    const seconds = Math.floor((diff % 60000) / 1000);
-    return { days, hours, minutes, seconds };
-  }, [now, target]);
-}
-
 export default function Home() {
   const [slide, setSlide] = useState(0);
-  const countdown = useCountdown(AUCTION_TARGET);
   const { socials, isModuleVisible, upcomingEvents, navLabel } = useSiteSettings();
   const { user } = useAuth();
 
@@ -157,30 +136,7 @@ export default function Home() {
           <h2 className="font-display text-[clamp(2.15rem,6.5vw,3.5rem)] leading-none tracking-tight text-[color:var(--title)]">
             AUCTION
           </h2>
-          <p className="mt-4 inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-full border border-accent/35 bg-accent/10 px-4 py-1.5 text-sm font-semibold text-accent-soft">
-            <span>{AUCTION_DATE_LABEL}</span>
-            <span aria-hidden="true" className="text-[color:var(--text-muted)]">
-              ·
-            </span>
-            <span>{AUCTION_TIME_LABEL}</span>
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 md:gap-5">
-            {[
-              [countdown.days, "days"],
-              [countdown.hours, "hours"],
-              [countdown.minutes, "minutes"],
-              [countdown.seconds, "seconds"],
-            ].map(([value, label]) => (
-              <div key={label} className="home-count min-w-[5.5rem] px-3 py-4 md:min-w-[7rem]">
-                <p className="font-display text-4xl text-[color:var(--title)] md:text-5xl">
-                  {String(value).padStart(2, "0")}
-                </p>
-                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
-                  {label}
-                </p>
-              </div>
-            ))}
-          </div>
+          <AuctionTopSoldStrip />
         </div>
       </section>
 

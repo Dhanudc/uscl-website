@@ -998,6 +998,281 @@ video {
   animation: home-pulse 2.4s ease-in-out infinite;
 }
 
+/* Home — top auction sales */
+.auction-top-sold {
+  width: 100%;
+  text-align: left;
+}
+
+.auction-top-sold__layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auction-top-sold__featured-wrap {
+  width: 100%;
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
+.auction-top-sold__featured-wrap--multi {
+  max-width: none;
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: 1fr;
+}
+
+.auction-top-sold__layout--many-top .auction-top-sold__featured-wrap--multi {
+  flex: 1 1 100%;
+}
+
+.auction-top-sold__rank-tie {
+  margin-left: 0.2rem;
+  font-size: 0.55rem;
+  opacity: 0.85;
+  vertical-align: super;
+}
+
+.auction-top-sold__grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: 1fr;
+}
+
+.auction-top-sold__grid--loading {
+  margin-top: 1.5rem;
+}
+
+.auction-top-sold__skeleton {
+  min-height: 7.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--ink-card) 70%, transparent);
+  animation: home-pulse 2s ease-in-out infinite;
+}
+
+.auction-top-sold__card {
+  position: relative;
+  border-radius: 0.85rem;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--ink-card) 92%, transparent);
+  overflow: hidden;
+  animation: home-rise 0.65s ease both;
+}
+
+.auction-top-sold__card--featured {
+  border-color: color-mix(in srgb, var(--sold-accent, var(--accent)) 55%, var(--border));
+  box-shadow: 0 12px 40px color-mix(in srgb, var(--sold-accent, var(--accent)) 22%, transparent);
+}
+
+.auction-top-sold__card-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80% 60% at 100% 0%,
+    color-mix(in srgb, var(--sold-accent, var(--accent)) 28%, transparent),
+    transparent 65%
+  );
+  pointer-events: none;
+}
+
+.auction-top-sold__card-inner {
+  position: relative;
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-left: 4px solid var(--sold-accent, var(--accent));
+}
+
+.auction-top-sold__card--featured .auction-top-sold__card-inner {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1.25rem 1.35rem 1.35rem;
+}
+
+.auction-top-sold__card-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
+.auction-top-sold__card--featured .auction-top-sold__card-head {
+  flex-direction: row;
+  gap: 1rem;
+}
+
+.auction-top-sold__rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--title);
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--ink-soft) 80%, transparent);
+}
+
+.auction-top-sold__rank--gold {
+  border-color: #d4a017;
+  color: #f5e6a8;
+  background: linear-gradient(135deg, #5c4a12, #2a2210);
+}
+
+.auction-top-sold__rank--silver {
+  border-color: #9ca3af;
+  color: #e5e7eb;
+  background: linear-gradient(135deg, #3d4249, #1f2328);
+}
+
+.auction-top-sold__rank--bronze {
+  border-color: #c97b4a;
+  color: #fcd9c4;
+  background: linear-gradient(135deg, #4a2f1f, #261810);
+}
+
+.auction-top-sold__avatar {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.auction-top-sold__card--featured .auction-top-sold__avatar {
+  width: 4.5rem;
+  height: 4.5rem;
+}
+
+.auction-top-sold__avatar--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  font-weight: 800;
+  border: 2px solid;
+  background: var(--ink-soft);
+}
+
+.auction-top-sold__card-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.auction-top-sold__name {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--title);
+}
+
+.auction-top-sold__card--featured .auction-top-sold__name {
+  font-size: clamp(1.25rem, 4vw, 1.55rem);
+}
+
+.auction-top-sold__meta {
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.auction-top-sold__price {
+  margin-top: 0.45rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
+
+.auction-top-sold__card--featured .auction-top-sold__price {
+  font-size: clamp(1.5rem, 5vw, 2rem);
+}
+
+.auction-top-sold__team {
+  margin-top: 0.65rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auction-top-sold__card--featured .auction-top-sold__team {
+  justify-content: center;
+}
+
+.auction-top-sold__team-logo-wrap {
+  display: inline-flex;
+  padding: 0.2rem 0.35rem;
+  border-radius: 0.35rem;
+  background: #fff;
+  line-height: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.auction-top-sold__team-logo {
+  height: 1.65rem;
+  width: auto;
+  max-width: 3.5rem;
+  object-fit: contain;
+}
+
+.auction-top-sold__team-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--sold-accent, var(--title));
+}
+
+@media (min-width: 640px) {
+  .auction-top-sold__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .auction-top-sold__featured-wrap--multi {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .auction-top-sold__layout {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 1.25rem;
+  }
+
+  .auction-top-sold__featured-wrap {
+    flex: 0 0 38%;
+    max-width: none;
+    margin: 0;
+  }
+
+  .auction-top-sold__grid {
+    flex: 1;
+    grid-template-columns: repeat(2, 1fr);
+    align-content: start;
+  }
+
+  .auction-top-sold__card-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .auction-top-sold__card-head {
+    flex-direction: row;
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
 @keyframes home-fade {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
