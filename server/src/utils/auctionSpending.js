@@ -2,6 +2,8 @@ import { PlayerRegistration } from "../models/PlayerRegistration.js";
 import { FRANCHISES, resolveFranchiseId } from "./franchises.js";
 
 const DEFAULT_TEAM_BUDGET_INR = 250000;
+const DEFAULT_TOP_SOLD_PRICE_TIERS = 5;
+const MAX_TOP_SOLD_PRICE_TIERS = 20;
 
 export function normalizeAuctionTeamBudgetInr(value) {
   const n = Math.round(Number(value));
@@ -11,6 +13,17 @@ export function normalizeAuctionTeamBudgetInr(value) {
 
 export function getAuctionTeamBudgetInr(settings) {
   return normalizeAuctionTeamBudgetInr(settings?.auctionTeamBudgetInr);
+}
+
+/** How many distinct hammer prices to show on the home page (ties included per price). */
+export function normalizeAuctionTopSoldPriceTiers(value) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n) || n < 1) return DEFAULT_TOP_SOLD_PRICE_TIERS;
+  return Math.min(MAX_TOP_SOLD_PRICE_TIERS, n);
+}
+
+export function getAuctionTopSoldPriceTiers(settings) {
+  return normalizeAuctionTopSoldPriceTiers(settings?.auctionTopSoldPriceTiers);
 }
 
 export async function buildAuctionSpendingReport(budgetInr) {

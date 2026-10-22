@@ -1147,7 +1147,21 @@ video {
   flex-shrink: 0;
 }
 
-.auction-top-sold__card--featured .auction-top-sold__avatar {
+.auction-top-sold__avatar-btn {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  line-height: 0;
+  cursor: zoom-in;
+}
+
+.auction-top-sold__avatar-btn .auction-top-sold__avatar {
+  display: block;
+}
+
+.auction-top-sold__card--featured .auction-top-sold__avatar,
+.auction-top-sold__card--featured .auction-top-sold__avatar-btn .auction-top-sold__avatar {
   width: 4.5rem;
   height: 4.5rem;
 }
@@ -1231,6 +1245,93 @@ video {
   color: var(--sold-accent, var(--title));
 }
 
+.auction-top-sold__avatar-btn {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 999px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.auction-top-sold__avatar-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.auction-top-sold__card--featured .auction-top-sold__avatar-btn {
+  width: 4.5rem;
+  height: 4.5rem;
+}
+
+/* Ranks 2+ — denser cards */
+.auction-top-sold__card--compact .auction-top-sold__card-inner {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.65rem;
+  border-left-width: 3px;
+}
+
+.auction-top-sold__card--compact .auction-top-sold__card-head {
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: center;
+  min-width: 3.25rem;
+}
+
+.auction-top-sold__card--compact .auction-top-sold__rank {
+  min-width: 2rem;
+  padding: 0.12rem 0.35rem;
+  font-size: 0.58rem;
+}
+
+.auction-top-sold__card--compact .auction-top-sold__avatar,
+.auction-top-sold__card--compact .auction-top-sold__avatar-btn {
+  width: 2.35rem;
+  height: 2.35rem;
+}
+
+.auction-top-sold__card--compact .auction-top-sold__avatar--fallback {
+  font-size: 0.95rem;
+}
+
+.auction-top-sold__card--compact .auction-top-sold__name {
+  font-size: 0.8rem;
+  line-height: 1.15;
+}
+
+.auction-top-sold__card--compact .auction-top-sold__meta {
+  margin-top: 0.1rem;
+  font-size: 0.6rem;
+  line-height: 1.25;
+}
+
+.auction-top-sold__card--compact .auction-top-sold__price {
+  margin-top: 0.15rem;
+  font-size: 0.92rem;
+}
+
+.auction-top-sold__card--compact .auction-top-sold__team {
+  margin-top: 0.25rem;
+  gap: 0.35rem;
+}
+
+.auction-top-sold__card--compact .auction-top-sold__team-logo-wrap {
+  padding: 0.12rem 0.25rem;
+}
+
+.auction-top-sold__card--compact .auction-top-sold__team-logo {
+  height: 1rem;
+  max-width: 2.25rem;
+}
+
+.auction-top-sold__card--compact .auction-top-sold__team-name {
+  font-size: 0.62rem;
+  line-height: 1.2;
+}
+
 @media (min-width: 640px) {
   .auction-top-sold__grid {
     grid-template-columns: repeat(2, 1fr);
@@ -1258,18 +1359,25 @@ video {
     flex: 1;
     grid-template-columns: repeat(2, 1fr);
     align-content: start;
+    gap: 0.5rem;
   }
 
-  .auction-top-sold__card-inner {
+  .auction-top-sold__card--featured .auction-top-sold__card-inner {
     flex-direction: column;
-    align-items: flex-start;
-    text-align: left;
+    align-items: center;
+    text-align: center;
   }
 
-  .auction-top-sold__card-head {
+  .auction-top-sold__card--featured .auction-top-sold__card-head {
     flex-direction: row;
     width: 100%;
     justify-content: space-between;
+  }
+}
+
+@media (min-width: 1280px) {
+  .auction-top-sold__grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 

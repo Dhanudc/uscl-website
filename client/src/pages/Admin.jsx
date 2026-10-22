@@ -3111,10 +3111,13 @@ function formatAuctionInr(amount) {
 }
 
 function AuctionSpendingPage() {
+  const { refresh: refreshSiteSettings } = useSiteSettings();
   const [budgetDraft, setBudgetDraft] = useState(250000);
+  const [topSoldTiersDraft, setTopSoldTiersDraft] = useState(5);
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingTopSold, setSavingTopSold] = useState(false);
   const [error, setError] = useState("");
   const [ok, setOk] = useState("");
 
@@ -3128,6 +3131,7 @@ function AuctionSpendingPage() {
     Promise.all([api("/api/admin/settings"), api("/api/admin/auction/spending")])
       .then(([settingsRes, spendingRes]) => {
         setBudgetDraft(settingsRes.settings?.auctionTeamBudgetInr ?? 250000);
+        setTopSoldTiersDraft(settingsRes.settings?.auctionTopSoldPriceTiers ?? 5);
         setReport(spendingRes);
       })
       .catch((err) => setError(err.message))
@@ -3154,6 +3158,35 @@ function AuctionSpendingPage() {
       setError(err.message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveTopSoldTiers(e) {
+    e.preventDefault();
+    setSavingTopSold(true);
+    setError("");
+    setOk("");
+    try {
+      const tiers = Math.round(Number(topSoldTiersDraft));
+      if (!Number.isFinite(tiers) || tiers < 1 || tiers > 20) {
+        throw new Error("Enter a number from 1 to 20 for home top sold prices.");
+      }
+      const data = await api("/api/admin/settings", {
+        method: "PUT",
+        body: JSON.stringify({ auctionTopSoldPriceTiers: tiers }),
+      });
+      const saved = Number(data.settings?.auctionTopSoldPriceTiers);
+      if (Number.isFinite(saved)) {
+        setTopSoldTiersDraft(Math.min(20, Math.max(1, Math.round(saved))));
+      }
+      await refreshSiteSettings();
+      setOk(
+        `Home page will show top ${Math.min(20, Math.max(1, Math.round(tiers)))} bid price tier(s) (all players at each price).`
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingTopSold(false);
     }
   }
 
@@ -3191,6 +3224,34 @@ function AuctionSpendingPage() {
               </label>
               <button type="submit" className="btn-primary shrink-0 !py-2.5" disabled={saving}>
                 {saving ? "Saving…" : "Save purse"}
+              </button>
+            </form>
+          </section>
+
+          <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
+            <div className="border-b border-[color:var(--border)] px-5 py-4">
+              <p className="eyebrow text-accent">Home page</p>
+              <h2 className="font-display mt-1 text-xl text-[color:var(--title)]">Top sold prices</h2>
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                How many distinct hammer prices to highlight under Auction on the home page. Every player sold at
+                those prices is shown (ties included). Default is 5; max 20.
+              </p>
+            </div>
+            <form onSubmit={saveTopSoldTiers} className="flex flex-col gap-3 p-5 sm:flex-row sm:items-end">
+              <label className="block min-w-0 flex-1 text-sm">
+                <span className="font-medium text-[color:var(--title)]">Number of price tiers</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  step="1"
+                  className="input-dark mt-1.5"
+                  value={topSoldTiersDraft}
+                  onChange={(e) => setTopSoldTiersDraft(e.target.value)}
+                />
+              </label>
+              <button type="submit" className="btn-primary shrink-0 !py-2.5" disabled={savingTopSold}>
+                {savingTopSold ? "Saving…" : "Save home display"}
               </button>
             </form>
           </section>

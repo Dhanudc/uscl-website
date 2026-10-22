@@ -44,7 +44,9 @@ import {
 import {
   buildAuctionSpendingReport,
   getAuctionTeamBudgetInr,
+  getAuctionTopSoldPriceTiers,
   normalizeAuctionTeamBudgetInr,
+  normalizeAuctionTopSoldPriceTiers,
 } from "../utils/auctionSpending.js";
 import { TeamLineup } from "../models/TeamLineup.js";
 import { findTeamCaptainByFranchiseId, findTeamCaptainsByFranchiseIds } from "../utils/teamCaptain.js";
@@ -2163,6 +2165,7 @@ router.get("/settings", adminRequired, async (_req, res) => {
         playerTeamCardEnabled: isPlayerTeamCardEnabled(settings),
         captainAddMentorEnabled: isCaptainAddMentorEnabled(settings),
         auctionTeamBudgetInr: getAuctionTeamBudgetInr(settings),
+        auctionTopSoldPriceTiers: getAuctionTopSoldPriceTiers(settings),
         referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
         navLabels: normalizeNavLabels(settings.navLabels),
@@ -2273,6 +2276,16 @@ router.put("/settings", adminRequired, async (req, res) => {
       auditBits.push(`auction purse ₹${settings.auctionTeamBudgetInr.toLocaleString("en-IN")} per team`);
     }
 
+    if (
+      req.body.auctionTopSoldPriceTiers !== undefined &&
+      req.body.auctionTopSoldPriceTiers !== null
+    ) {
+      settings.auctionTopSoldPriceTiers = normalizeAuctionTopSoldPriceTiers(
+        req.body.auctionTopSoldPriceTiers
+      );
+      auditBits.push(`home top ${settings.auctionTopSoldPriceTiers} sold prices`);
+    }
+
     if (typeof req.body.referralProgramEnabled === "boolean") {
       settings.referralProgramEnabled = req.body.referralProgramEnabled;
       auditBits.push(
@@ -2373,6 +2386,7 @@ router.put("/settings", adminRequired, async (req, res) => {
         playerTeamCardEnabled: isPlayerTeamCardEnabled(settings),
         captainAddMentorEnabled: isCaptainAddMentorEnabled(settings),
         auctionTeamBudgetInr: getAuctionTeamBudgetInr(settings),
+        auctionTopSoldPriceTiers: getAuctionTopSoldPriceTiers(settings),
         referralProgramEnabled: isReferralProgramEnabled(settings),
         moduleVisibility: getModuleVisibility(settings),
         navLabels: normalizeNavLabels(settings.navLabels),

@@ -156,6 +156,8 @@ const siteSettingsSchema = new mongoose.Schema(
     captainAddMentorEnabled: { type: Boolean, default: true },
     /** Max auction spend per franchise team (INR). */
     auctionTeamBudgetInr: { type: Number, default: 250000 },
+    /** Home page: how many top distinct sold prices to list (all players at each price). */
+    auctionTopSoldPriceTiers: { type: Number, default: 5 },
     /** When false, referral field is hidden and new referral codes are ignored. */
     referralProgramEnabled: { type: Boolean, default: true },
     /** Show/hide public module links (Media, Live, Wesley, etc.). */
@@ -297,6 +299,7 @@ export const DEFAULT_SITE_SETTINGS = {
   playerTeamCardEnabled: true,
   captainAddMentorEnabled: true,
   auctionTeamBudgetInr: 250000,
+  auctionTopSoldPriceTiers: 5,
   referralProgramEnabled: true,
   moduleVisibility: { ...DEFAULT_MODULE_VISIBILITY },
   navLabels: normalizeNavLabels({}),

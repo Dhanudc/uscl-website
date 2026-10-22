@@ -16,6 +16,7 @@ import {
   isPlayerTeamCardEnabled,
   isCaptainAddMentorEnabled,
 } from "../models/SiteSettings.js";
+import { getAuctionTopSoldPriceTiers } from "../utils/auctionSpending.js";
 import { buildPortalMediaResponse } from "../utils/portalMedia.js";
 
 const router = Router();
@@ -42,6 +43,7 @@ router.get("/", async (_req, res) => {
         keyDates: publicKeyDates(settings.keyDates),
         membersIntro: normalizeMembersIntro(settings.membersIntro),
         boardMembers: publicBoardMembers(settings.boardMembers),
+        auctionTopSoldPriceTiers: getAuctionTopSoldPriceTiers(settings),
       },
     });
   } catch (error) {

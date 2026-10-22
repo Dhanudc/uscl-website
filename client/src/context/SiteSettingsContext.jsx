@@ -72,6 +72,7 @@ const DEFAULTS = {
   },
   boardMembers: defaultBoardMembers,
   keyDates: [],
+  auctionTopSoldPriceTiers: 5,
 };
 
 const SiteSettingsContext = createContext({
@@ -95,6 +96,7 @@ const SiteSettingsContext = createContext({
   membersIntro: DEFAULTS.membersIntro,
   boardMembers: DEFAULTS.boardMembers,
   keyDates: [],
+  auctionTopSoldPriceTiers: 5,
   navLabel: () => "",
   isModuleVisible: () => true,
   loading: true,
@@ -120,6 +122,9 @@ export function SiteSettingsProvider({ children }) {
   const [membersIntro, setMembersIntro] = useState(DEFAULTS.membersIntro);
   const [boardMembers, setBoardMembers] = useState(DEFAULTS.boardMembers);
   const [keyDates, setKeyDates] = useState([]);
+  const [auctionTopSoldPriceTiers, setAuctionTopSoldPriceTiers] = useState(
+    DEFAULTS.auctionTopSoldPriceTiers
+  );
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -148,6 +153,10 @@ export function SiteSettingsProvider({ children }) {
       }
       if (Array.isArray(data.settings?.keyDates) && data.settings.keyDates.length) {
         setKeyDates(data.settings.keyDates);
+      }
+      const tiers = Number(data.settings?.auctionTopSoldPriceTiers);
+      if (Number.isFinite(tiers) && tiers >= 1) {
+        setAuctionTopSoldPriceTiers(Math.min(20, Math.round(tiers)));
       }
     } catch {
       // keep defaults
@@ -192,11 +201,12 @@ export function SiteSettingsProvider({ children }) {
       membersIntro,
       boardMembers,
       keyDates,
+      auctionTopSoldPriceTiers,
       isModuleVisible,
       loading,
       refresh,
     }),
-    [contact, socials, registrationEnabled, registrationSeasonClosed, registrationSeasonClosedCopy, playerPayNowEnabled, playerTeamCardEnabled, captainAddMentorEnabled, referralProgramEnabled, moduleVisibility, navLabels, navLabel, whatsappGroupUrl, upcomingEvents, membersIntro, boardMembers, keyDates, isModuleVisible, loading, refresh]
+    [contact, socials, registrationEnabled, registrationSeasonClosed, registrationSeasonClosedCopy, playerPayNowEnabled, playerTeamCardEnabled, captainAddMentorEnabled, referralProgramEnabled, moduleVisibility, navLabels, navLabel, whatsappGroupUrl, upcomingEvents, membersIntro, boardMembers, keyDates, auctionTopSoldPriceTiers, isModuleVisible, loading, refresh]
   );
 
   return <SiteSettingsContext.Provider value={value}>{children}</SiteSettingsContext.Provider>;

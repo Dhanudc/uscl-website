@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import { useSiteSettings } from "../context/SiteSettingsContext";
 import { franchises } from "../data/franchises";
 import { playerRoleLabel } from "../data/playerRoles";
+import ZoomableImage from "./ZoomableImage";
 
 function franchiseMeta(franchiseId) {
   return franchises.find((f) => f.id === franchiseId) || null;
@@ -30,16 +32,16 @@ function RankBadge({ rank, tied }) {
   );
 }
 
-function PlayerAvatar({ player, accent }) {
+function PlayerAvatar({ player, accent, featured }) {
   const src = player.profileImageUrl;
   if (src) {
     return (
-      <img
+      <ZoomableImage
         src={src}
-        alt=""
-        className="auction-top-sold__avatar"
-        style={{ boxShadow: `0 0 0 2px ${accent}55` }}
-        loading="lazy"
+        alt={player.fullName || "Player photo"}
+        className={`auction-top-sold__avatar ${featured ? "auction-top-sold__avatar--featured-img" : ""}`}
+        buttonClassName="auction-top-sold__avatar-btn"
+        imgStyle={{ boxShadow: `0 0 0 2px ${accent}55` }}
       />
     );
   }
@@ -57,17 +59,18 @@ function SoldCard({ player, rank, tied = false, featured = false }) {
   const team = franchiseMeta(player.franchiseId);
   const accent = team?.accent || "var(--accent)";
   const role = playerRoleLabel(player.role);
+  const isCompact = !featured && rank > 1;
 
   return (
     <article
-      className={`auction-top-sold__card ${featured ? "auction-top-sold__card--featured" : ""}`}
+      className={`auction-top-sold__card ${featured ? "auction-top-sold__card--featured" : ""} ${isCompact ? "auction-top-sold__card--compact" : ""}`}
       style={{ "--sold-accent": accent }}
     >
       <div className="auction-top-sold__card-glow" aria-hidden="true" />
       <div className="auction-top-sold__card-inner">
         <div className="auction-top-sold__card-head">
           <RankBadge rank={rank} tied={tied} />
-          <PlayerAvatar player={player} accent={accent} />
+          <PlayerAvatar player={player} accent={accent} featured={featured} />
         </div>
         <div className="auction-top-sold__card-body">
           <h3 className="auction-top-sold__name">{player.fullName}</h3>
@@ -96,6 +99,8 @@ function SoldCard({ player, rank, tied = false, featured = false }) {
 }
 
 export default function AuctionTopSoldStrip() {
+  const { auctionTopSoldPriceTiers } = useSiteSettings();
+  const tierCount = Math.min(20, Math.max(1, Number(auctionTopSoldPriceTiers) || 5));
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -104,7 +109,7 @@ export default function AuctionTopSoldStrip() {
     let cancelled = false;
     setLoading(true);
     setError("");
-    api("/api/auction/top-sold?limit=5")
+    api(`/api/auction/top-sold?limit=${tierCount}`)
       .then((data) => {
         if (cancelled) return;
         setPlayers(Array.isArray(data.players) ? data.players : []);
@@ -120,14 +125,14 @@ export default function AuctionTopSoldStrip() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [tierCount]);
 
   if (loading) {
     return (
       <div className="auction-top-sold mt-12">
         <p className="eyebrow text-accent">Top hammer prices</p>
         <div className="auction-top-sold__grid auction-top-sold__grid--loading">
-          {[1, 2, 3, 4, 5].map((i) => (
+          {Array.from({ length: Math.min(5, tierCount) }, (_, i) => i + 1).map((i) => (
             <div key={i} className="auction-top-sold__skeleton" />
           ))}
         </div>
@@ -161,7 +166,7 @@ export default function AuctionTopSoldStrip() {
         <div className="text-center sm:text-left">
           <p className="eyebrow text-accent">Top hammer prices</p>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-            Top 5 bid amounts — all players at each price shown
+            Top {tierCount} bid amounts — all players at each price shown
           </p>
         </div>
         <Link to="/franchises" className="btn-ghost !py-2 !text-xs">

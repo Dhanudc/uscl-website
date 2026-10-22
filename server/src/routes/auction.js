@@ -2,6 +2,11 @@ import { Router } from "express";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
 import { withProfileImageUrl } from "../middleware/upload.js";
 import { resolveFranchiseId, getFranchiseName } from "../utils/franchises.js";
+import { getSiteSettings } from "../models/SiteSettings.js";
+import {
+  getAuctionTopSoldPriceTiers,
+  normalizeAuctionTopSoldPriceTiers,
+} from "../utils/auctionSpending.js";
 
 const router = Router();
 
@@ -33,7 +38,11 @@ function toPublicSoldPlayer(row, priceRank) {
  */
 router.get("/top-sold", async (req, res) => {
   try {
-    const priceLimit = Math.min(20, Math.max(1, Number(req.query.limit) || 5));
+    const settings = await getSiteSettings();
+    const priceLimit =
+      req.query.limit !== undefined && req.query.limit !== null && String(req.query.limit).trim() !== ""
+        ? normalizeAuctionTopSoldPriceTiers(req.query.limit)
+        : getAuctionTopSoldPriceTiers(settings);
     const maxPlayers = Math.min(120, Math.max(priceLimit, Number(req.query.maxPlayers) || 60));
 
     const priceDocs = await PlayerRegistration.aggregate([

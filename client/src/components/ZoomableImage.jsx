@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 /** Thumbnail that opens a larger preview on click. */
 export default function ZoomableImage({
@@ -12,6 +12,16 @@ export default function ZoomableImage({
   onError,
 }) {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function onKey(event) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   if (!src) return null;
 
   return (
@@ -30,9 +40,19 @@ export default function ZoomableImage({
       </button>
       {open ? (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Enlarged photo"
           onClick={() => setOpen(false)}
         >
+          <button
+            type="button"
+            className="absolute right-4 top-4 rounded-full border border-white/25 bg-black/50 px-3 py-1.5 text-sm font-semibold text-white hover:bg-black/70"
+            onClick={() => setOpen(false)}
+          >
+            Close
+          </button>
           <img
             src={src}
             alt={alt}
