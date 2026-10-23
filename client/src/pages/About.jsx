@@ -153,7 +153,7 @@ export default function About() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2">
-        <RegisterCta openLabel="Register as Player" closedLabel="Registration" />
+        <RegisterCta openLabel="Register as Player" />
         <Link to="/franchise" className="btn-ghost">
           Own a Franchise
         </Link>

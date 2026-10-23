@@ -4,13 +4,13 @@ import { useSiteSettings } from "../context/SiteSettingsContext";
 /**
  * Public Register CTA.
  * Hidden entirely when the Register module is disabled in admin settings.
- * When registration is closed (but module visible), label is "Registration".
+ * When registration is closed (but module visible), label is "Registrations closed".
  */
 export default function RegisterCta({
   className = "btn-primary",
   openLabel = "Register",
-  closedLabel = "Registration",
-  seasonClosedLabel = "Registration closed",
+  closedLabel = "Registrations closed",
+  seasonClosedLabel = "Registrations closed",
   children,
 }) {
   const { registrationEnabled, registrationSeasonClosed, isModuleVisible } = useSiteSettings();
@@ -32,7 +32,7 @@ export default function RegisterCta({
           ? "Registrations are closed for this season"
           : registrationEnabled
             ? "Open registration"
-            : "Registration opens shortly — tap to see details"
+            : "Registrations open shortly — tap to see details"
       }
     >
       {closed && !children ? (

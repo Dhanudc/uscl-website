@@ -64,11 +64,7 @@ export default function Home() {
               <p className="mt-3 max-w-md text-base text-[color:var(--text)]">{current.text}</p>
             )}
             <div className="mt-7 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-              <RegisterCta
-                className="btn-primary w-full justify-center sm:w-auto"
-                openLabel="Register"
-                closedLabel="Registration"
-              />
+              <RegisterCta className="btn-primary w-full justify-center sm:w-auto" openLabel="Register" />
               <Link to="/player-journey" className="btn-ghost w-full justify-center sm:w-auto">
                 Player Journey
               </Link>

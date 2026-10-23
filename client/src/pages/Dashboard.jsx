@@ -430,8 +430,7 @@ export default function Dashboard() {
             {!mentorProfile ? (
               <RegisterCta
                 className="btn-ghost !py-2 !text-xs w-full justify-center sm:w-auto"
-                openLabel="Registration"
-                closedLabel="Registration"
+                openLabel="Register"
               />
             ) : null}
             <button
@@ -466,7 +465,7 @@ export default function Dashboard() {
           ) : regs.length === 0 && !mentorProfile ? (
             <div className="panel rounded-2xl p-5 text-sm text-[color:var(--text-muted)]">
               No registrations yet. Complete player registration to see your status, payment, and auction details here.{" "}
-              <RegisterCta className="text-accent" openLabel="Register now" closedLabel="Registration" />
+              <RegisterCta className="text-accent" openLabel="Register now" />
             </div>
           ) : (
             <>

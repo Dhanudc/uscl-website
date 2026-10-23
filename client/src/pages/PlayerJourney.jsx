@@ -93,7 +93,7 @@ export default function PlayerJourney() {
       subtitle="Your full USCL path — register, get verified, enter the auction, play for a franchise, and chase the trophies."
     >
       <div className="flex flex-wrap gap-2">
-        <RegisterCta openLabel="Start Registration" closedLabel="Registration" />
+        <RegisterCta openLabel="Start Registration" />
         <a href="#awards" className="btn-ghost">
           View Awards
         </a>
@@ -198,11 +198,7 @@ export default function PlayerJourney() {
                 : "The form is paused for now — tap below to see when registration returns."}
           </p>
         </div>
-        <RegisterCta
-          className="btn-primary mt-4 inline-flex shrink-0 sm:mt-0"
-          openLabel="Register"
-          closedLabel="Registration"
-        />
+        <RegisterCta className="btn-primary mt-4 inline-flex shrink-0 sm:mt-0" openLabel="Register" />
       </div>
     </PageShell>
   );

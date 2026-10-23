@@ -38,7 +38,7 @@ export default function Franchise() {
             ))}
           </ul>
           <div className="mt-6 flex flex-wrap gap-2">
-            <RegisterCta openLabel="Register to Enquire" closedLabel="Registration" />
+            <RegisterCta openLabel="Register to Enquire" />
             <Link to="/franchises" className="btn-ghost">
               View Teams
             </Link>

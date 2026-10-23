@@ -60,7 +60,7 @@ export default function Login() {
         </form>
         <p className="mt-5 text-sm text-[color:var(--text-muted)]">
           New player?{" "}
-          <RegisterCta className="text-accent-soft" openLabel="Register" closedLabel="Registration" />
+          <RegisterCta className="text-accent-soft" openLabel="Register" />
         </p>
       </div>
     </section>

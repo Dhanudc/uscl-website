@@ -40,8 +40,7 @@ function HeaderNavItem({ link, location, navLabel, variant }) {
         <RegisterCta
           className={desktopLinkClass(location.pathname.startsWith("/register"))}
           openLabel={navLabel("register") || "Register"}
-          closedLabel="Closed"
-          seasonClosedLabel="Closed"
+          seasonClosedLabel="Registrations closed"
         />
       );
     }
@@ -49,7 +48,6 @@ function HeaderNavItem({ link, location, navLabel, variant }) {
       <RegisterCta
         className={navClass(location.pathname.startsWith("/register"))}
         openLabel={navLabel("register") || "Register"}
-        closedLabel="Registration"
       />
     );
   }
