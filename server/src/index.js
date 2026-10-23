@@ -14,6 +14,7 @@ import liveRoutes from "./routes/live.js";
 import teamsRoutes from "./routes/teams.js";
 import auctionRoutes from "./routes/auction.js";
 import sponsorRoutes from "./routes/sponsors.js";
+import storeRoutes from "./routes/store.js";
 import { backfillProfileImageColumn } from "./utils/backfillProfileImage.js";
 import { backfillPaymentStatusColumn } from "./utils/backfillPaymentStatus.js";
 import { backfillMissingPlayerCodes } from "./utils/playerCode.js";
@@ -45,6 +46,7 @@ function getAllowedOrigins() {
     "https://www.usclt20.com",
     "https://usclt20.com",
     "https://uscl-website-opal.vercel.app",
+    "https://store.usclt20.com",
   ];
 
   return new Set([...fromEnv, ...local, ...production]);
@@ -107,6 +109,7 @@ app.use("/api/live", liveRoutes);
 app.use("/api/teams", teamsRoutes);
 app.use("/api/auction", auctionRoutes);
 app.use("/api/sponsors", sponsorRoutes);
+app.use("/api/store", storeRoutes);
 
 app.use((err, _req, res, _next) => {
   if (err?.message?.startsWith("CORS blocked")) {

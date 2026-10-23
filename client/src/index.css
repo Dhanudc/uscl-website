@@ -3215,3 +3215,113 @@ video.object-cover {
   font-size: 0.75rem;
   color: var(--text-muted);
 }
+
+/* —— USCL Store (launching soon) —— */
+.store-soon--fit {
+  height: 100dvh;
+  max-height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.store-soon__title {
+  font-size: clamp(2rem, 8vw, 3.5rem);
+}
+
+.store-soon__eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+}
+
+@media (min-width: 768px) {
+  .store-soon__title {
+    font-size: clamp(2rem, 5vh, 3rem);
+  }
+}
+
+@media (max-width: 767px) {
+  .store-soon--fit {
+    height: auto;
+    min-height: 100dvh;
+    max-height: none;
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 768px) {
+  .store-soon--fit {
+    overflow: hidden;
+  }
+
+  .store-soon__main {
+    overflow: hidden;
+  }
+}
+
+.store-soon__brand {
+  transition: opacity 0.15s ease;
+}
+
+.store-soon__brand:hover {
+  opacity: 0.92;
+}
+
+.store-soon__header {
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.store-soon__scan {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.03) 2px,
+    rgba(255, 255, 255, 0.03) 4px
+  );
+}
+
+.store-soon__shimmer {
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 60%
+  );
+  animation: store-shimmer 4s ease-in-out infinite;
+}
+
+.store-soon__pulse {
+  animation: store-pulse 1.8s ease-in-out infinite;
+}
+
+.store-soon__track {
+  animation: store-marquee 45s linear infinite;
+}
+
+@keyframes store-shimmer {
+  0%, 100% { transform: translateX(-30%); }
+  50% { transform: translateX(30%); }
+}
+
+@keyframes store-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes store-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes store-float {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(2%, -3%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-soon__shimmer,
+  .store-soon__pulse,
+  .store-soon__track,
+  .store-soon__orb {
+    animation: none !important;
+  }
+}

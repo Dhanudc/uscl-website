@@ -53,6 +53,7 @@ const moduleVisibilitySchema = new mongoose.Schema(
     playerJourney: { type: Boolean, default: true },
     referrals: { type: Boolean, default: true },
     events: { type: Boolean, default: true },
+    store: { type: Boolean, default: true },
   },
   { _id: false }
 );

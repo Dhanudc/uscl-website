@@ -11,6 +11,7 @@ export const SITE_MODULES = [
   { key: "playerJourney", label: "Player Journey", path: "/player-journey", hint: "Player journey page and nav link" },
   { key: "referrals", label: "Rewards", path: "/referrals", hint: "Referrals and giveaways winners page" },
   { key: "events", label: "Photos", path: "/events", hint: "Photo posts with captions" },
+  { key: "store", label: "Store", path: "https://store.usclt20.com", hint: "Official store (store.usclt20.com)" },
 ];
 
 export const DEFAULT_MODULE_VISIBILITY = Object.fromEntries(

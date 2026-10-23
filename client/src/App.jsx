@@ -27,6 +27,8 @@ import Admin from "./pages/Admin";
 import AdminLogin from "./pages/AdminLogin";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import Store from "./store_app/Store";
+import { isStoreHostname } from "./store_app/host";
 
 function ApprovedOnly({ children }) {
   const { user, loading } = useAuth();
@@ -77,6 +79,27 @@ function AppRoutes() {
       <Routes>
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/*" element={<Admin />} />
+      </Routes>
+    );
+  }
+
+  const isStorePath =
+    location.pathname === "/store" || location.pathname.startsWith("/store/");
+
+  if (isStoreHostname()) {
+    return (
+      <Routes>
+        <Route path="/" element={<Store />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
+
+  if (isStorePath) {
+    return (
+      <Routes>
+        <Route path="/store" element={<Store />} />
+        <Route path="*" element={<Navigate to="/store" replace />} />
       </Routes>
     );
   }

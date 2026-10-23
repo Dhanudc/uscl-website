@@ -5,6 +5,7 @@ import { useSiteSettings } from "../context/SiteSettingsContext";
 import RegisterCta from "./RegisterCta";
 import SiteLogo from "./SiteLogo";
 import ThemePicker from "./ThemePicker";
+import { storeHomeUrl } from "../store_app/urls";
 
 const NAV_LINKS = [
   { to: "/home", label: "Home", end: true },
@@ -19,7 +20,76 @@ const NAV_LINKS = [
   { to: "/player-journey", label: "Player Journey", module: "playerJourney" },
   { to: "/referrals", label: "Rewards", module: "referrals" },
   { to: "/events", label: "Events", module: "events" },
+  { label: "Store", module: "store", external: true },
 ];
+
+const desktopLinkClass = (isActive) =>
+  `rounded px-2.5 py-1.5 text-[13px] font-medium whitespace-nowrap ${
+    isActive
+      ? "bg-accent text-white"
+      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
+  }`;
+
+function HeaderNavItem({ link, location, navLabel, variant }) {
+  const label = link.module ? navLabel(link.module) || link.label : link.label;
+  const isDesktop = variant === "desktop";
+
+  if (link.isRegister) {
+    if (isDesktop) {
+      return (
+        <RegisterCta
+          className={desktopLinkClass(location.pathname.startsWith("/register"))}
+          openLabel={navLabel("register") || "Register"}
+          closedLabel="Registration"
+        />
+      );
+    }
+    return (
+      <RegisterCta
+        className={navClass(location.pathname.startsWith("/register"))}
+        openLabel={navLabel("register") || "Register"}
+        closedLabel="Registration"
+      />
+    );
+  }
+
+  if (link.external) {
+    const className = isDesktop ? desktopLinkClass(false) : navClass(false);
+    return (
+      <a
+        href={storeHomeUrl()}
+        className={className}
+        onClick={() => window.scrollTo(0, 0)}
+      >
+        {label}
+      </a>
+    );
+  }
+
+  if (isDesktop) {
+    return (
+      <NavLink
+        to={link.to}
+        end={link.end}
+        onClick={() => window.scrollTo(0, 0)}
+        className={({ isActive }) => desktopLinkClass(isActive)}
+      >
+        {label}
+      </NavLink>
+    );
+  }
+
+  return (
+    <NavLink
+      to={link.to}
+      end={link.end}
+      onClick={() => window.scrollTo(0, 0)}
+      className={({ isActive }) => navClass(isActive)}
+    >
+      {label}
+    </NavLink>
+  );
+}
 
 function navClass(isActive) {
   return `block rounded-md px-3 py-2.5 text-sm font-medium transition ${
@@ -81,36 +151,15 @@ export default function Header() {
         </Link>
 
         <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Main navigation">
-          {links.map((link) =>
-            link.isRegister ? (
-              <RegisterCta
-                key={`${link.label}-${link.to}`}
-                className={`rounded px-2.5 py-1.5 text-[13px] font-medium whitespace-nowrap ${
-                  location.pathname.startsWith("/register")
-                    ? "bg-accent text-white"
-                    : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
-                }`}
-                openLabel={navLabel("register") || "Register"}
-                closedLabel="Registration"
-              />
-            ) : (
-              <NavLink
-                key={`${link.label}-${link.to}`}
-                to={link.to}
-                end={link.end}
-                onClick={() => window.scrollTo(0, 0)}
-                className={({ isActive }) =>
-                  `rounded px-2.5 py-1.5 text-[13px] font-medium whitespace-nowrap ${
-                    isActive
-                      ? "bg-accent text-white"
-                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
-                  }`
-                }
-              >
-                {link.label}
-              </NavLink>
-            )
-          )}
+          {links.map((link) => (
+            <HeaderNavItem
+              key={`${link.label}-${link.to || "external"}`}
+              link={link}
+              location={location}
+              navLabel={navLabel}
+              variant="desktop"
+            />
+          ))}
         </nav>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -166,26 +215,15 @@ export default function Header() {
         >
           <nav className="mx-auto max-w-6xl px-4 py-3" aria-label="Mobile navigation">
             <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
-              {links.map((link) =>
-                link.isRegister ? (
-                  <RegisterCta
-                    key={`mobile-${link.label}-${link.to}`}
-                    className={navClass(location.pathname.startsWith("/register"))}
-                    openLabel={navLabel("register") || "Register"}
-                    closedLabel="Registration"
-                  />
-                ) : (
-                  <NavLink
-                    key={`mobile-${link.label}-${link.to}`}
-                    to={link.to}
-                    end={link.end}
-                    onClick={() => window.scrollTo(0, 0)}
-                    className={({ isActive }) => navClass(isActive)}
-                  >
-                    {link.label}
-                  </NavLink>
-                )
-              )}
+              {links.map((link) => (
+                <HeaderNavItem
+                  key={`mobile-${link.label}-${link.to || "external"}`}
+                  link={link}
+                  location={location}
+                  navLabel={navLabel}
+                  variant="mobile"
+                />
+              ))}
             </div>
 
             <div className="mt-4 flex flex-col gap-2 border-t border-[color:var(--border)] pt-4 sm:hidden">
