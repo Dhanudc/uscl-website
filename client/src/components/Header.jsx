@@ -24,7 +24,7 @@ const NAV_LINKS = [
 ];
 
 const desktopLinkClass = (isActive) =>
-  `rounded px-2.5 py-1.5 text-[13px] font-medium whitespace-nowrap ${
+  `inline-flex items-center rounded px-2 py-1.5 text-xs font-medium leading-none whitespace-nowrap 2xl:px-2.5 2xl:text-[13px] ${
     isActive
       ? "bg-accent text-white"
       : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]"
@@ -40,7 +40,8 @@ function HeaderNavItem({ link, location, navLabel, variant }) {
         <RegisterCta
           className={desktopLinkClass(location.pathname.startsWith("/register"))}
           openLabel={navLabel("register") || "Register"}
-          closedLabel="Registration"
+          closedLabel="Closed"
+          seasonClosedLabel="Closed"
         />
       );
     }
@@ -124,11 +125,11 @@ export default function Header() {
   }, [menuOpen]);
 
   return (
-    <header className="site-header sticky top-0 z-50 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
+    <header className="site-header sticky top-0 z-50 overflow-x-clip backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 lg:py-2.5">
         <Link
           to="/home"
-          className="flex min-w-0 shrink-0 items-center gap-2.5"
+          className="flex min-w-0 max-w-[42%] shrink-0 items-center gap-2 sm:max-w-none sm:gap-2.5"
           aria-label="USCL — US Staffing Champions League"
         >
           <span className="inline-flex h-10 w-[4.5rem] shrink-0 items-center justify-center overflow-hidden rounded-md bg-white sm:h-11 sm:w-[5.25rem]">
@@ -150,7 +151,10 @@ export default function Header() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Main navigation">
+        <nav
+          className="site-header__nav hidden min-w-0 flex-1 items-center justify-center gap-0 xl:flex"
+          aria-label="Main navigation"
+        >
           {links.map((link) => (
             <HeaderNavItem
               key={`${link.label}-${link.to || "external"}`}
@@ -162,22 +166,26 @@ export default function Header() {
           ))}
         </nav>
 
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
           <ThemePicker compact />
-          <div className="hidden items-center gap-2 sm:flex">
+          <div className="hidden items-center gap-1.5 sm:flex">
             {!loading && user ? (
               <>
                 {user.role === "admin" && (
-                  <Link to="/admin" className="text-[13px] font-semibold text-accent">
+                  <Link to="/admin" className="text-xs font-semibold text-accent 2xl:text-[13px]">
                     Admin
                   </Link>
                 )}
                 {user.role !== "admin" && (
-                  <Link to="/dashboard" className="text-[13px] font-semibold text-accent-soft">
+                  <Link
+                    to="/dashboard"
+                    className="max-w-[5.5rem] truncate text-xs font-semibold text-accent-soft 2xl:max-w-none 2xl:text-[13px]"
+                    title={user.name}
+                  >
                     {user.name.split(" ")[0]}
                   </Link>
                 )}
-                <button type="button" onClick={logout} className="btn-ghost !py-1.5 !text-xs">
+                <button type="button" onClick={logout} className="btn-ghost !px-2 !py-1.5 !text-xs">
                   Logout
                 </button>
               </>
@@ -197,7 +205,7 @@ export default function Header() {
           </div>
           <button
             type="button"
-            className="mobile-menu-btn inline-flex h-10 w-10 items-center justify-center rounded-md border border-[color:var(--border)] text-[color:var(--text)] lg:hidden"
+            className="mobile-menu-btn inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[color:var(--border)] text-[color:var(--text)] xl:hidden"
             aria-expanded={menuOpen}
             aria-controls="mobile-nav-panel"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -211,7 +219,7 @@ export default function Header() {
       {menuOpen ? (
         <div
           id="mobile-nav-panel"
-          className="mobile-nav-panel border-t border-[color:var(--border)] lg:hidden"
+          className="mobile-nav-panel border-t border-[color:var(--border)] xl:hidden"
         >
           <nav className="mx-auto max-w-6xl px-4 py-3" aria-label="Mobile navigation">
             <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">

@@ -10,6 +10,7 @@ export default function RegisterCta({
   className = "btn-primary",
   openLabel = "Register",
   closedLabel = "Registration",
+  seasonClosedLabel = "Registration closed",
   children,
 }) {
   const { registrationEnabled, registrationSeasonClosed, isModuleVisible } = useSiteSettings();
@@ -17,7 +18,6 @@ export default function RegisterCta({
   if (!isModuleVisible("register")) return null;
 
   const closed = registrationSeasonClosed || !registrationEnabled;
-  const seasonClosedLabel = "Registration closed";
   const label =
     children ||
     (registrationSeasonClosed ? seasonClosedLabel : registrationEnabled ? openLabel : closedLabel);

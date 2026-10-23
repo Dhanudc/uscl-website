@@ -18,6 +18,7 @@ import storeRoutes from "./routes/store.js";
 import { backfillProfileImageColumn } from "./utils/backfillProfileImage.js";
 import { backfillPaymentStatusColumn } from "./utils/backfillPaymentStatus.js";
 import { backfillMissingPlayerCodes } from "./utils/playerCode.js";
+import { backfillNorwinAtlantaLionsTeam } from "./utils/backfillNorwinAtlantaLions.js";
 import { serveMediaFromDb } from "./utils/mediaStore.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -138,6 +139,14 @@ async function start() {
   await backfillPaymentStatusColumn();
   const playerCodesAssigned = await backfillMissingPlayerCodes();
   console.log(`[server] Player IDs: backfilled ${playerCodesAssigned} registration(s)`);
+  try {
+    const lionsRenameRows = await backfillNorwinAtlantaLionsTeam();
+    if (lionsRenameRows > 0) {
+      console.log(`[server] Norwin Atlanta Lions: updated ${lionsRenameRows} record(s)`);
+    }
+  } catch (err) {
+    console.error("[server] Norwin Atlanta Lions backfill failed (server will still start):", err);
+  }
   const razorpayReady = Boolean(
     String(process.env.RAZORPAY_KEY_ID || "").trim() &&
       String(process.env.RAZORPAY_KEY_SECRET || "").trim()

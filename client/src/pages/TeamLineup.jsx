@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
-import { franchises } from "../data/franchises";
+import FranchiseLogoMark from "../components/FranchiseLogoMark";
+import { findFranchise, franchises } from "../data/franchises";
 import { PLAYER_ROLES, playerRoleLabel } from "../data/playerRoles";
 import SquadRoleBadge from "../components/SquadRoleBadge";
 import ZoomableImage from "../components/ZoomableImage";
@@ -125,11 +126,13 @@ export default function TeamLineup() {
           style={{ boxShadow: `inset 4px 0 0 ${accent}` }}
         >
           {franchise?.image ? (
-            <img
-              src={franchise.image}
-              alt=""
-              className="h-11 w-11 shrink-0 object-contain"
-            />
+            <div className="h-11 w-11 shrink-0 overflow-hidden rounded bg-white">
+              <FranchiseLogoMark
+                team={findFranchise(franchise.id) || franchise}
+                variant="thumb"
+                className="h-full w-full"
+              />
+            </div>
           ) : null}
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-wide text-[color:var(--text-muted)]">

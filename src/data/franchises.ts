@@ -5,6 +5,7 @@ export type Franchise = {
   city: string;
   image: string;
   accent: string;
+  accentSecondary?: string;
 };
 
 export const franchises: Franchise[] = [
@@ -41,12 +42,13 @@ export const franchises: Franchise[] = [
     accent: "#e85d04",
   },
   {
-    id: "new-jersey-jaguars",
-    name: "New Jersey Jaguars",
-    shortName: "Jaguars",
-    city: "New Jersey",
-    image: "/franchises/new-jersey-jaguars.png",
-    accent: "#1f6b3a",
+    id: "norwin-atlanta-lions",
+    name: "Norwin Atlanta Lions",
+    shortName: "Lions",
+    city: "Norwin Atlanta",
+    image: "/franchises/norwin-atlanta-lions.png",
+    accent: "#e5b820",
+    accentSecondary: "#1e4fd6",
   },
   {
     id: "new-york-knights",

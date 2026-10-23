@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useSiteSettings } from "../context/SiteSettingsContext";
-import { franchises } from "../data/franchises";
+import FranchiseLogoMark from "./FranchiseLogoMark";
+import { displayFranchiseName, findFranchise } from "../data/franchises";
 import { playerRoleLabel } from "../data/playerRoles";
 import ZoomableImage from "./ZoomableImage";
 
 function franchiseMeta(franchiseId) {
-  return franchises.find((f) => f.id === franchiseId) || null;
+  return findFranchise(franchiseId);
 }
 
 function formatInr(amount) {
@@ -85,11 +86,17 @@ function SoldCard({ player, rank, tied = false, featured = false }) {
           <div className="auction-top-sold__team">
             {team?.image ? (
               <span className="auction-top-sold__team-logo-wrap">
-                <img src={team.image} alt="" className="auction-top-sold__team-logo" loading="lazy" />
+                <FranchiseLogoMark
+                  team={team}
+                  variant="thumb"
+                  className="auction-top-sold__team-logo"
+                  imgClassName="auction-top-sold__team-logo"
+                  loading="lazy"
+                />
               </span>
             ) : null}
             <span className="auction-top-sold__team-name">
-              {player.franchiseName || team?.name || "Franchise"}
+              {displayFranchiseName(player) || team?.name || "Franchise"}
             </span>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { squadRoleLabel } from "./SquadRoleBadge";
 import { playerRoleLabel } from "../data/playerRoles";
+import { franchiseLogoDisplay } from "../utils/franchiseLogoDisplay";
 import { profileImageUrl } from "../utils/media";
 
 const USCL_WORDMARK = "/brand/uscl-wordmark.png";
@@ -11,8 +12,19 @@ const CARD_FRAME_INSET = 24;
 const CARD_LOGO_GAP = 14;
 const CARD_LOGO_INSET = CARD_FRAME_INSET + CARD_LOGO_GAP;
 
-function CardCornerLogoPlate({ src, alt, side, height, maxWidth }) {
+function CardCornerLogoPlate({
+  src,
+  alt,
+  side,
+  height,
+  maxWidth,
+  logoZoom = 1,
+  plateBackground = "#ffffff",
+  plateBorder,
+}) {
   const isLeft = side === "left";
+  const zoom = logoZoom > 1 ? logoZoom : 1;
+  const onDarkPlate = plateBackground === "#000000" || plateBackground === "#0a0a0a";
   return (
     <div
       style={{
@@ -22,9 +34,11 @@ function CardCornerLogoPlate({ src, alt, side, height, maxWidth }) {
         zIndex: 2,
         padding: "10px 12px",
         borderRadius: 10,
-        background: "#ffffff",
+        background: plateBackground,
+        border: plateBorder || (onDarkPlate ? "2px solid #ffffff" : undefined),
         boxShadow: "0 6px 22px rgba(0,0,0,0.45)",
         lineHeight: 0,
+        overflow: "hidden",
       }}
     >
       <img
@@ -37,6 +51,8 @@ function CardCornerLogoPlate({ src, alt, side, height, maxWidth }) {
           width: "auto",
           maxWidth,
           objectFit: "contain",
+          transform: zoom > 1 ? `scale(${zoom})` : undefined,
+          transformOrigin: "center center",
         }}
       />
     </div>
@@ -78,15 +94,26 @@ function CardSquadRoleBadge({ role, accent }) {
   );
 }
 
-function CardArt({ registration, franchise, owner, accent, photo, ownerPhoto, squadRole }) {
+function CardArt({
+  registration,
+  franchise,
+  owner,
+  accent,
+  frameAccent,
+  photo,
+  ownerPhoto,
+  squadRole,
+}) {
+  const logoDisplay = franchiseLogoDisplay(franchise?.id);
+  const frame = frameAccent || accent;
   return (
     <>
       <div
         style={{
           position: "absolute",
           inset: CARD_FRAME_INSET,
-          border: `3px solid ${accent}`,
-          boxShadow: `0 0 40px ${accent}88, inset 0 0 30px ${accent}33`,
+          border: `3px solid ${frame}`,
+          boxShadow: `0 0 40px ${frame}88, inset 0 0 30px ${accent}44`,
           clipPath:
             "polygon(8% 0%, 92% 0%, 100% 8%, 100% 92%, 92% 100%, 8% 100%, 0% 92%, 0% 8%)",
           pointerEvents: "none",
@@ -104,8 +131,11 @@ function CardArt({ registration, franchise, owner, accent, photo, ownerPhoto, sq
         src={absoluteUrl(franchise?.image)}
         alt=""
         side="right"
-        height={200}
+        height={logoDisplay.teamCardLogoHeight}
         maxWidth={440}
+        logoZoom={logoDisplay.teamCardLogoZoom}
+        plateBackground={logoDisplay.teamCardPlateBackground}
+        plateBorder={logoDisplay.teamCardPlateBorder}
       />
 
       <div
@@ -246,13 +276,14 @@ function CardArt({ registration, franchise, owner, accent, photo, ownerPhoto, sq
   );
 }
 
-function cardRootStyle(accent) {
+function cardRootStyle(accent, accentSecondary) {
+  const secondary = accentSecondary || accent;
   return {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     fontFamily: "system-ui, sans-serif",
     position: "relative",
-    background: `linear-gradient(160deg, #050508 0%, ${accent}40 38%, #0c0c14 72%, #050508 100%)`,
+    background: `linear-gradient(160deg, #050508 0%, ${accent}52 30%, ${secondary}36 52%, #0c0c14 74%, #050508 100%)`,
     color: "#fff",
     overflow: "hidden",
     boxSizing: "border-box",
@@ -271,13 +302,23 @@ export default function PlayerTeamCard({
   variant = "preview",
 }) {
   const accent = franchise?.accent || "#c9a227";
+  const frameAccent = franchise?.accentSecondary || accent;
   const photo = profileImageUrl(registration);
   const ownerPhoto = owner?.profileImageUrl ? absoluteUrl(owner.profileImageUrl) : "";
   const squadRole =
     registration?.squadRole ||
     (String(registration?.interest || "").toLowerCase() === "captain" ? "captain" : "player");
 
-  const artProps = { registration, franchise, owner, accent, photo, ownerPhoto, squadRole };
+  const artProps = {
+    registration,
+    franchise,
+    owner,
+    accent,
+    frameAccent,
+    photo,
+    ownerPhoto,
+    squadRole,
+  };
 
   if (variant === "export") {
     return (
@@ -297,7 +338,7 @@ export default function PlayerTeamCard({
         <div
           ref={exportRef}
           style={{
-            ...cardRootStyle(accent),
+            ...cardRootStyle(accent, frameAccent),
             width: CARD_WIDTH,
             height: CARD_HEIGHT,
           }}
@@ -320,7 +361,7 @@ export default function PlayerTeamCard({
     >
       <div
         style={{
-          ...cardRootStyle(accent),
+          ...cardRootStyle(accent, frameAccent),
           transform: `scale(${scale})`,
           transformOrigin: "top left",
         }}

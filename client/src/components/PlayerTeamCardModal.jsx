@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { api } from "../api";
-import { franchises } from "../data/franchises";
+import { findFranchise, resolveFranchiseId } from "../data/franchises";
 import PlayerTeamCard, { CARD_HEIGHT } from "./PlayerTeamCard";
 
 function computePreviewScale() {
@@ -23,8 +23,8 @@ export default function PlayerTeamCardModal({ registration, onClose }) {
   const [error, setError] = useState("");
   const [previewScale, setPreviewScale] = useState(computePreviewScale);
 
-  const franchiseId = String(registration?.franchiseId || "").trim();
-  const franchise = franchises.find((f) => f.id === franchiseId) || null;
+  const franchiseId = resolveFranchiseId(registration?.franchiseId);
+  const franchise = findFranchise(franchiseId);
 
   useLayoutEffect(() => {
     function onResize() {
@@ -127,7 +127,26 @@ export default function PlayerTeamCardModal({ registration, onClose }) {
   }
 
   if (!franchise) {
-    return null;
+    return (
+      <div
+        className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-4"
+        onClick={onClose}
+        role="presentation"
+      >
+        <div
+          role="alertdialog"
+          className="max-w-md rounded-xl border border-[color:var(--border)] bg-ink-card p-5 text-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p className="text-sm text-[color:var(--text-muted)]">
+            Team card is not available — no franchise team is linked to this registration yet.
+          </p>
+          <button type="button" className="btn-primary mt-4 w-full !py-2" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

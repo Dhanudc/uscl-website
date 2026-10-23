@@ -11,6 +11,7 @@ import TeamMentorModal from "../components/TeamMentorModal";
 import MentorBadge from "../components/MentorBadge";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
+import { displayFranchiseName } from "../data/franchises";
 import { playerRoleLabel } from "../data/playerRoles";
 import { compressImageForUpload, paymentScreenshotUrl, profileImageUrl } from "../utils/media";
 import { getPaymentStatus, paymentStatusLabel } from "../utils/paymentStatus";
@@ -575,7 +576,10 @@ export default function Dashboard() {
                           </StatusPill>
                           <StatusPill tone={auctionPillTone(reg.auctionStatus)}>
                             Auction: {auctionLabel(reg.auctionStatus)}
-                            {reg.franchiseName ? ` · ${reg.franchiseName}` : ""}
+                            {(() => {
+                              const teamLabel = displayFranchiseName(reg);
+                              return teamLabel ? ` · ${teamLabel}` : "";
+                            })()}
                           </StatusPill>
                           <StatusPill tone="muted">{reg.status}</StatusPill>
                         </div>

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { PlayerRegistration } from "../models/PlayerRegistration.js";
 import { withProfileImageUrl } from "../middleware/upload.js";
-import { resolveFranchiseId, getFranchiseName } from "../utils/franchises.js";
+import { normalizeFranchiseFields } from "../utils/franchises.js";
 import { getSiteSettings } from "../models/SiteSettings.js";
 import {
   getAuctionTopSoldPriceTiers,
@@ -20,7 +20,7 @@ const TOP_SOLD_MATCH = {
 
 function toPublicSoldPlayer(row, priceRank) {
   const enriched = withProfileImageUrl(row);
-  const franchiseId = resolveFranchiseId(enriched.franchiseId);
+  const { franchiseId, franchiseName } = normalizeFranchiseFields(enriched);
   return {
     fullName: enriched.fullName || "",
     playerCode: enriched.playerCode || "",
@@ -28,7 +28,7 @@ function toPublicSoldPlayer(row, priceRank) {
     soldPrice: Number(enriched.soldPrice) || 0,
     priceRank,
     franchiseId,
-    franchiseName: enriched.franchiseName || getFranchiseName(franchiseId) || "",
+    franchiseName,
     profileImageUrl: enriched.profileImageUrl || "",
   };
 }

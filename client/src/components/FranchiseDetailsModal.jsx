@@ -50,7 +50,6 @@ export default function FranchiseDetailsModal({ team, onClose, showSquad = true 
   if (!team) return null;
 
   const owner = team.owner;
-
   return (
     <div
       className="fixed inset-0 z-[80] flex items-end justify-center bg-black/75 p-0 sm:items-center sm:p-4"
@@ -69,8 +68,10 @@ export default function FranchiseDetailsModal({ team, onClose, showSquad = true 
             <ZoomableImage
               src={team.image}
               alt={team.name}
-              buttonClassName="h-14 w-14 shrink-0 overflow-hidden rounded-full bg-white p-1 ring-2 ring-[color:var(--border)]"
-              className="h-full w-full object-contain"
+              team={team}
+              logoVariant="modal"
+              buttonClassName="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-white p-0 ring-2 ring-[color:var(--border)]"
+              className="h-full w-full object-contain object-center"
             />
             <div className="min-w-0">
               <p className="eyebrow text-accent">Franchise details</p>

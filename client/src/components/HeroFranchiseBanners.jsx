@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { franchises } from "../data/franchises";
+import { franchiseLogoDisplay } from "../utils/franchiseLogoDisplay";
 import FranchiseDetailsModal from "./FranchiseDetailsModal";
 
 /** Display order matching the hanging-banner artwork */
 const BANNER_ORDER = [
-  "new-jersey-jaguars",
+  "norwin-atlanta-lions",
   "florida-falcons",
   "chicago-crushers",
   "virginia-vikings",
@@ -46,6 +47,7 @@ export default function HeroFranchiseBanners() {
                 {row.map((team, colIndex) => {
                   const index = rowIndex * 4 + colIndex;
                   const owner = ownersByTeam[team.id];
+                  const logoDisplay = franchiseLogoDisplay(team.id);
                   return (
                     <button
                       key={team.id}
@@ -74,7 +76,8 @@ export default function HeroFranchiseBanners() {
                           <img
                             src={team.image}
                             alt=""
-                            className="h-[90%] w-[90%] object-contain"
+                            className="h-[90%] w-[90%] object-contain object-center"
+                            style={{ transform: `scale(${logoDisplay.pennantScale})` }}
                             loading="lazy"
                           />
                         </span>

@@ -3,7 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { withProfileImageUrl } from "../middleware/upload.js";
 import { docKeyBaseFamily, familyVersionNumber, hasDocFamily } from "./playerDocumentVersions.js";
-import { resolveFranchiseId } from "./franchises.js";
+import { resolveFranchiseId, withNormalizedFranchise } from "./franchises.js";
 import { findTeamCaptainsByFranchiseIds, playerShouldSeeTeamCaptain } from "./teamCaptain.js";
 import { getMentorForFranchise, getMentorsByFranchiseIds } from "./teamMentor.js";
 import { resolveSquadRoleForReg, squadRoleMapForRegistrations } from "./teamLineup.js";
@@ -238,7 +238,7 @@ export function enrichRegistration(reg, { playerDocumentsUploadEnabled = true } 
   }));
   plain.documentsRequestedFromPlayer = normalizeRequestedDocKeys(plain.documentsRequestedFromPlayer);
   plain.hasPendingDocumentRequests = hasPendingDocumentRequests(plain);
-  return plain;
+  return withNormalizedFranchise(plain);
 }
 
 export function mapEnrichedRegistrations(list, options = {}) {

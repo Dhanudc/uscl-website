@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { PageHero } from "@/components/PageHero";
+import { FranchiseLogoMark } from "@/components/FranchiseLogoMark";
 import { franchises } from "@/data/franchises";
 
 export const metadata: Metadata = { title: "Own a Franchise" };
@@ -40,14 +40,8 @@ export default function FranchisePage() {
                 className="overflow-hidden rounded-xl border border-white/10 bg-white"
                 title={team.name}
               >
-                <div className="relative aspect-square">
-                  <Image
-                    src={team.image}
-                    alt={team.name}
-                    fill
-                    className="object-contain p-1.5"
-                    sizes="120px"
-                  />
+                <div className="relative aspect-square p-2">
+                  <FranchiseLogoMark team={team} variant="grid" className="absolute inset-2" alt={team.name} />
                 </div>
               </div>
             ))}

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import FranchiseLogoMark from "./FranchiseLogoMark";
+import { franchiseLogoPlateConfig } from "../utils/franchiseLogoDisplay";
 
 /** Thumbnail that opens a larger preview on click. */
 export default function ZoomableImage({
@@ -13,6 +15,9 @@ export default function ZoomableImage({
   /** Top-weighted crop in thumbnails; default on unless className uses object-contain */
   portraitCrop,
   onError,
+  /** When set, thumb uses inner-plate styling (e.g. Lions crest on black matte). */
+  team,
+  logoVariant = "grid",
 }) {
   const [open, setOpen] = useState(false);
   const useTopCrop =
@@ -34,6 +39,8 @@ export default function ZoomableImage({
 
   if (!src) return null;
 
+  const plateThumb = team && franchiseLogoPlateConfig(team, logoVariant);
+
   return (
     <>
       <button
@@ -46,13 +53,24 @@ export default function ZoomableImage({
         className={`inline-flex cursor-zoom-in items-center justify-center p-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${buttonClassName}`}
         title="View larger"
       >
-        <img
-          src={src}
-          alt={alt}
-          className={[className, useTopCrop && "avatar-portrait"].filter(Boolean).join(" ")}
-          style={imgStyle}
-          onError={onError}
-        />
+        {plateThumb ? (
+          <FranchiseLogoMark
+            team={team}
+            variant={logoVariant}
+            className="h-full w-full"
+            imgClassName={[className, useTopCrop && "avatar-portrait"].filter(Boolean).join(" ")}
+            imgStyle={imgStyle}
+            alt={alt}
+          />
+        ) : (
+          <img
+            src={src}
+            alt={alt}
+            className={[className, useTopCrop && "avatar-portrait"].filter(Boolean).join(" ")}
+            style={imgStyle}
+            onError={onError}
+          />
+        )}
       </button>
       {open && typeof document !== "undefined"
         ? createPortal(

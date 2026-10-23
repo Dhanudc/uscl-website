@@ -310,6 +310,21 @@ video {
   padding-top: env(safe-area-inset-top);
 }
 
+.site-header__nav {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.site-header__nav::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 1280px) and (max-width: 1535px) {
+  .site-header__nav .reg-cta-dot {
+    display: none;
+  }
+}
+
 .mobile-menu-btn {
   touch-action: manipulation;
 }
@@ -947,7 +962,8 @@ video {
   box-shadow: inset 0 1px 3px color-mix(in srgb, #000 22%, transparent);
 }
 
-.teams-ribbon__logo img {
+.teams-ribbon__logo img,
+.teams-ribbon__logo-img {
   width: 82%;
   height: 82%;
   object-fit: contain;

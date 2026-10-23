@@ -1,6 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
 import { franchises } from "@/data/franchises";
+import { FranchiseLogoMark } from "@/components/FranchiseLogoMark";
 
 export function FranchiseGrid({
   limit,
@@ -36,14 +36,8 @@ export function FranchiseGrid({
               key={team.id}
               className="group overflow-hidden rounded-2xl border border-white/10 bg-ink transition hover:border-accent/60"
             >
-              <div className="relative aspect-square bg-white p-3">
-                <Image
-                  src={team.image}
-                  alt={`${team.name} logo`}
-                  fill
-                  className="object-contain p-2 transition duration-300 group-hover:scale-[1.03]"
-                  sizes="(max-width: 768px) 50vw, 25vw"
-                />
+              <div className="relative aspect-square bg-white p-7">
+                <FranchiseLogoMark team={team} variant="grid" className="absolute inset-0" />
               </div>
               <div
                 className="border-t border-white/10 px-4 py-3"

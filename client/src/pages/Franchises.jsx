@@ -41,7 +41,9 @@ export default function Franchises() {
               <ZoomableImage
                 src={team.image}
                 alt={team.name}
-                buttonClassName="absolute inset-0 box-border flex h-full w-full min-h-0 items-center justify-center p-8"
+                team={team}
+                logoVariant="grid"
+                buttonClassName="absolute inset-0 box-border flex h-full w-full min-h-0 items-center justify-center p-7 sm:p-8"
                 className="mx-auto block h-full w-full max-h-full max-w-full object-contain object-center"
               />
             </div>

@@ -11,6 +11,9 @@ const knightsAsset =
 const texasAsset =
   "C:\\Users\\admin\\.cursor\\projects\\c-Users-admin-projects-uscl-website\\assets\\c__Users_admin_AppData_Roaming_Cursor_User_workspaceStorage_f271bde0d2543c35e3999c9829d9dc89_images_image-bc75d807-c137-4b19-9422-4f4ac744e118.jpg";
 
+const lionsAsset =
+  "C:\\Users\\admin\\.cursor\\projects\\c-Users-admin-projects-uscl-website\\assets\\c__Users_admin_AppData_Roaming_Cursor_User_workspaceStorage_f271bde0d2543c35e3999c9829d9dc89_images_image-5eef05d5-ba5c-4a4e-b21f-3edf7484b426.png";
+
 function isWhitePixel(r, g, b, a = 255) {
   if (a < 12) return true;
   return r >= 242 && g >= 242 && b >= 242;
@@ -173,6 +176,91 @@ async function normalizeTexasOnWhite(inputPath, outputPath, fill) {
   console.log(path.basename(outputPath), `${m.width}x${m.height}`, `fill=${fill}`, "(texas)");
 }
 
+/** Crest on #000 matte — keep white banner + all non-matte pixels in bounds. */
+function isPureBlackMatte(r, g, b, a = 255) {
+  if (a < 12) return true;
+  return r <= 10 && g <= 10 && b <= 10;
+}
+
+async function compositeOnTransparentCanvas(croppedPng, outputPath, fill) {
+  const meta = await sharp(croppedPng).metadata();
+  const maxSide = Math.max(meta.width, meta.height);
+  const targetSide = Math.round(CANVAS * fill);
+  const scale = targetSide / maxSide;
+  const newW = Math.round(meta.width * scale);
+  const newH = Math.round(meta.height * scale);
+  const resized = await sharp(croppedPng).resize(newW, newH, { fit: "inside" }).png().toBuffer();
+
+  const left = Math.round((CANVAS - newW) / 2);
+  const top = Math.round((CANVAS - newH) / 2);
+  const tmp = `${outputPath}.work`;
+
+  await sharp({
+    create: {
+      width: CANVAS,
+      height: CANVAS,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([{ input: resized, left, top }])
+    .png({ compressionLevel: 9 })
+    .toFile(tmp);
+  fs.renameSync(tmp, outputPath);
+}
+
+async function knockOutPureBlackMatte(pngBuffer) {
+  const { data, info } = await sharp(pngBuffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  for (let i = 0; i < data.length; i += info.channels) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    if (isPureBlackMatte(r, g, b, data[i + 3])) {
+      data[i + 3] = 0;
+    }
+  }
+  return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer();
+}
+
+async function normalizeBlackMatteOnTransparent(inputPath, outputPath, fill) {
+  const isBg = (r, g, b, a) => isPureBlackMatte(r, g, b, a);
+  const { data, info } = await sharp(inputPath)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const bounds = contentBoundsFromFn(data, info.width, info.height, info.channels, (r, g, b, a) =>
+    !isBg(r, g, b, a)
+  );
+  if (!bounds) throw new Error(`No logo content in ${inputPath}`);
+  let cropped = await sharp(inputPath).extract(bounds).png().toBuffer();
+  cropped = await tightenCrop(cropped, (r, g, b, a) => !isBg(r, g, b, a));
+  cropped = await knockOutPureBlackMatte(cropped);
+  await compositeOnTransparentCanvas(cropped, outputPath, fill);
+  const m = await sharp(outputPath).metadata();
+  console.log(path.basename(outputPath), `${m.width}x${m.height}`, `fill=${fill}`, "(transparent)");
+}
+
+/** Same canvas treatment as Texas — white 1024 tile, crest incl. black shield on matte. */
+async function normalizeBlackMatteOnWhite(inputPath, outputPath, fill) {
+  const isBg = (r, g, b, a) => isPureBlackMatte(r, g, b, a);
+  const { data, info } = await sharp(inputPath)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const bounds = contentBoundsFromFn(data, info.width, info.height, info.channels, (r, g, b, a) =>
+    !isBg(r, g, b, a)
+  );
+  if (!bounds) throw new Error(`No logo content in ${inputPath}`);
+  let cropped = await sharp(inputPath).extract(bounds).png().toBuffer();
+  cropped = await tightenCrop(cropped, (r, g, b, a) => !isBg(r, g, b, a));
+  await compositeOnWhiteCanvas(cropped, outputPath, "png", fill);
+  const m = await sharp(outputPath).metadata();
+  console.log(path.basename(outputPath), `${m.width}x${m.height}`, `fill=${fill}`, "(black matte on white)");
+}
+
 const knightsOut = path.join(dir, "new-york-knights.png");
 const knightsIn = fs.existsSync(knightsAsset) ? knightsAsset : knightsOut;
 await normalizeColoredOnWhite(knightsIn, knightsOut, "png", 0.68);
@@ -184,4 +272,13 @@ try {
   fs.unlinkSync(path.join(dir, "texas-thunder.jpg"));
 } catch {
   // ignore
+}
+
+const lionsOut = path.join(dir, "norwin-atlanta-lions.png");
+const lionsIn = fs.existsSync(lionsAsset) ? lionsAsset : lionsOut;
+await normalizeBlackMatteOnWhite(lionsIn, lionsOut, 0.64);
+
+const rootFranchises = path.join(process.cwd(), "public", "franchises");
+for (const name of ["norwin-atlanta-lions.png", "texas-thunder.png"]) {
+  fs.copyFileSync(path.join(dir, name), path.join(rootFranchises, name));
 }
