@@ -896,6 +896,27 @@ router.patch("/registrations/:id/details", adminRequired, async (req, res) => {
     registration.company = company;
     registration.designation = designation;
     registration.role = role;
+
+    let amountInr = null;
+    if (req.body.amountInr !== undefined && req.body.amountInr !== null && String(req.body.amountInr).trim() !== "") {
+      const parsed = Math.round(Number(req.body.amountInr));
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        return res.status(400).json({ error: "Enter a valid payment amount in INR." });
+      }
+      amountInr = parsed;
+      if (!registration.payment || typeof registration.payment !== "object") {
+        registration.payment = {
+          provider: "offline",
+          status: String(registration.paymentStatus || "pending"),
+          amountInr: parsed,
+          currency: "INR",
+        };
+      } else {
+        registration.payment.amountInr = parsed;
+      }
+      registration.markModified("payment");
+    }
+
     await registration.save();
 
     if (registration.userId) {
@@ -916,7 +937,10 @@ router.patch("/registrations/:id/details", adminRequired, async (req, res) => {
       summary: `${adminName} (admin) updated details for ${fullName}`,
       actorName: adminName,
       actorRole: "admin",
-      details: { from: prev, to: { fullName, email, phone, company, designation, role } },
+      details: {
+        from: prev,
+        to: { fullName, email, phone, company, designation, role, amountInr },
+      },
     });
 
     await writeAudit(req, {
@@ -924,7 +948,10 @@ router.patch("/registrations/:id/details", adminRequired, async (req, res) => {
       targetType: "registration",
       targetId: registration._id,
       targetLabel: `${fullName} <${email}>`,
-      details: { from: prev, to: { fullName, email, phone, company, designation, role } },
+      details: {
+        from: prev,
+        to: { fullName, email, phone, company, designation, role, amountInr },
+      },
     });
 
     return res.json({ registration: await enrichRegistrationAsync(registration) });
@@ -1284,9 +1311,33 @@ router.patch("/registrations/:id/payment-details", adminRequired, (req, res) => 
       const utrChanged = Boolean(utrNumber) && utrNumber !== prevUtr;
       const shotChanged = Boolean(newShot);
 
-      if (!utrChanged && !shotChanged) {
+      let amountChanged = false;
+      const amountRaw = req.body.amountInr;
+      if (amountRaw !== undefined && amountRaw !== null && String(amountRaw).trim() !== "") {
+        const parsed = Math.round(Number(amountRaw));
+        if (!Number.isFinite(parsed) || parsed < 0) {
+          return res.status(400).json({ error: "Enter a valid payment amount in INR." });
+        }
+        const prevAmount = Math.round(Number(registration.payment?.amountInr) || 0);
+        if (parsed !== prevAmount) {
+          if (!registration.payment || typeof registration.payment !== "object") {
+            registration.payment = {
+              provider: "offline",
+              status: String(registration.paymentStatus || "pending"),
+              amountInr: parsed,
+              currency: "INR",
+            };
+          } else {
+            registration.payment.amountInr = parsed;
+          }
+          registration.markModified("payment");
+          amountChanged = true;
+        }
+      }
+
+      if (!utrChanged && !shotChanged && !amountChanged) {
         return res.status(400).json({
-          error: "No payment changes to save. Update UTR or upload a new screenshot.",
+          error: "No payment changes to save. Update amount, UTR, or upload a new screenshot.",
         });
       }
 
@@ -1306,18 +1357,25 @@ router.patch("/registrations/:id/payment-details", adminRequired, (req, res) => 
         registration.paymentScreenshot = newShot;
       }
 
-      if (!registration.utrNumber && !registration.paymentScreenshot) {
+      if (
+        (utrChanged || shotChanged) &&
+        !registration.utrNumber &&
+        !registration.paymentScreenshot
+      ) {
         return res.status(400).json({ error: "Please add a UTR number or payment screenshot." });
       }
 
       const addedAt = new Date();
       const adminName = req.user?.name || req.user?.email || "admin";
-      registration.paymentDetailsAddedBy = adminName;
-      registration.paymentDetailsAddedAt = addedAt;
+      if (utrChanged || shotChanged) {
+        registration.paymentDetailsAddedBy = adminName;
+        registration.paymentDetailsAddedAt = addedAt;
+      }
 
       await registration.save();
 
       const bits = [];
+      if (amountChanged) bits.push(`amount ₹${registration.payment?.amountInr ?? 0}`);
       if (utrChanged) bits.push(prevUtr ? "updated UTR" : "UTR");
       if (shotChanged) bits.push(prevShot ? "updated payment screenshot" : "payment screenshot");
       await recordPlayerActivity({
@@ -1330,6 +1388,8 @@ router.patch("/registrations/:id/payment-details", adminRequired, (req, res) => 
         details: {
           utrChanged,
           shotChanged,
+          amountChanged,
+          amountInr: registration.payment?.amountInr ?? 0,
           utrNumber: registration.utrNumber || "",
           paymentScreenshot: registration.paymentScreenshot || "",
         },
@@ -1343,6 +1403,7 @@ router.patch("/registrations/:id/payment-details", adminRequired, (req, res) => 
         details: {
           utrNumber: registration.utrNumber || "",
           paymentScreenshot: registration.paymentScreenshot || "",
+          amountInr: registration.payment?.amountInr ?? 0,
           addedBy: adminName,
           addedAt: addedAt.toISOString(),
         },
@@ -1381,9 +1442,13 @@ router.patch("/registrations/:id/mark-payment-paid", adminRequired, async (req, 
       });
     }
 
-    const feeInr =
+    let feeInr =
       Number(registration.payment?.amountInr) ||
       (await getRegistrationFeeInr(registration.interest || "player"));
+    if (req.body?.amountInr !== undefined && req.body?.amountInr !== null && String(req.body.amountInr).trim() !== "") {
+      const parsed = Math.round(Number(req.body.amountInr));
+      if (Number.isFinite(parsed) && parsed >= 0) feeInr = parsed;
+    }
     const adminName = req.user?.name || req.user?.email || "admin";
     const paidAt = new Date();
     const prevPayment = registration.payment?.toObject?.() || registration.payment || {};

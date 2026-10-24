@@ -45,9 +45,14 @@ export default function FranchiseSquad() {
               Players bought for your franchise. Click a profile to open their dashboard.
             </p>
           </div>
-          <Link to="/dashboard" className="btn-ghost !py-2 !text-xs">
-            Back to dashboard
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/dashboard/team" className="btn-primary !py-2 !text-xs">
+              Team squad
+            </Link>
+            <Link to="/dashboard" className="btn-ghost !py-2 !text-xs">
+              Back to dashboard
+            </Link>
+          </div>
         </div>
 
         {busy ? (

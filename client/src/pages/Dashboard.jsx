@@ -590,7 +590,8 @@ export default function Dashboard() {
                             </span>
                           </p>
                         ) : null}
-                        {(reg.utrNumber || paymentScreenshotUrl(reg)) && (
+                        {reg.interest !== "franchise" &&
+                        (reg.utrNumber || paymentScreenshotUrl(reg)) ? (
                           <p className="mt-3 text-sm text-[color:var(--text-muted)]">
                             {reg.utrNumber ? `UTR: ${reg.utrNumber}` : "UTR: —"}
                             {" · "}
@@ -607,7 +608,7 @@ export default function Dashboard() {
                               <span>No payment screenshot</span>
                             )}
                           </p>
-                        )}
+                        ) : null}
                         {((Number(reg.basePrice) > 0) || (Number(reg.soldPrice) > 0)) && (
                           <p className="mt-2 text-sm text-[color:var(--text-muted)]">
                             {Number(reg.basePrice) > 0 ? `Base ₹${reg.basePrice}` : ""}
@@ -654,9 +655,14 @@ export default function Dashboard() {
                     reg.status === "verified" &&
                     getPaymentStatus(reg) === "paid" &&
                     reg.franchiseId ? (
-                      <Link to="/dashboard/players" className="btn-primary !py-2 !text-xs">
-                        Players list
-                      </Link>
+                      <>
+                        <Link to="/dashboard/team" className="btn-primary !py-2 !text-xs">
+                          Team squad
+                        </Link>
+                        <Link to="/dashboard/players" className="btn-ghost !py-2 !text-xs">
+                          Players list
+                        </Link>
+                      </>
                     ) : null}
                     {needsPhoto ? (
                       <button
@@ -675,7 +681,7 @@ export default function Dashboard() {
                         Change profile picture
                       </button>
                     )}
-                    {canPayNow(reg) ? (
+                    {reg.interest !== "franchise" && canPayNow(reg) ? (
                       <button
                         type="button"
                         className="btn-primary !py-2 !text-xs"
@@ -685,7 +691,9 @@ export default function Dashboard() {
                         {payingRegId === String(reg._id) ? "Processing…" : "Pay now"}
                       </button>
                     ) : null}
-                    {!needsOnlinePayment(reg) && missingPaymentDetails(reg) ? (
+                    {reg.interest !== "franchise" &&
+                    !needsOnlinePayment(reg) &&
+                    missingPaymentDetails(reg) ? (
                       <button
                         type="button"
                         className="btn-ghost !py-2 !text-xs"

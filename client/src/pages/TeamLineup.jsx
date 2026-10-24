@@ -150,6 +150,11 @@ export default function TeamLineup() {
               {permissions.mySquadRole === "mentor" ? (
                 <span className="text-xs text-[color:var(--text-muted)]">Team mentor · full lineup access</span>
               ) : null}
+              {permissions.mySquadRole === "owner" ? (
+                <span className="text-xs text-[color:var(--text-muted)]">
+                  Franchise owner · view captain, mentor, and full squad
+                </span>
+              ) : null}
             </div>
           </div>
           <Link to="/dashboard" className="btn-ghost !py-1.5 !text-xs shrink-0">
@@ -187,9 +192,11 @@ export default function TeamLineup() {
               </>
             )}
           </div>
-        ) : permissions.mySquadRole === "vice_captain" ? (
+        ) : permissions.mySquadRole === "vice_captain" || permissions.mySquadRole === "owner" ? (
           <p className="mt-4 text-sm text-[color:var(--text-muted)]">
-            You can view the squad order. Only the team captain can make changes.
+            {permissions.mySquadRole === "owner"
+              ? "View-only access. Captain and mentor manage lineup changes."
+              : "You can view the squad order. Only the team captain can make changes."}
           </p>
         ) : null}
 

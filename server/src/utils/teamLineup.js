@@ -23,6 +23,24 @@ export async function fetchSoldSquadRegistrations(franchiseId) {
     .lean();
 }
 
+function isRegistrationPaid(reg) {
+  const top = String(reg?.paymentStatus || "").toLowerCase();
+  const nested = String(reg?.payment?.status || "").toLowerCase();
+  return top === "paid" || nested === "paid";
+}
+
+export async function getFranchiseOwnerForLineup(userId) {
+  const owner = await PlayerRegistration.findOne({
+    userId,
+    interest: "franchise",
+    status: "verified",
+  }).lean();
+  if (!owner || !isRegistrationPaid(owner)) return null;
+  const fid = resolveFranchiseId(owner.franchiseId);
+  if (!fid) return null;
+  return { ...owner, franchiseId: fid };
+}
+
 export async function getUserRegistrationForLineup(userId) {
   const rows = await PlayerRegistration.find({
     userId,
@@ -225,15 +243,23 @@ export async function buildLineupPayloadForUser(userId) {
   }
 
   const mentor = await findMentorByUserId(userId);
-  if (!mentor) {
-    return { error: "NO_SQUAD", status: 403, message: "You are not on a sold franchise squad yet." };
+  if (mentor) {
+    const fid = resolveFranchiseId(mentor.franchiseId);
+    return buildLineupPayloadForFranchise(fid, {
+      permissions: { canEdit: true, canView: true, mySquadRole: "mentor" },
+      myRegistrationId: null,
+    });
   }
 
-  const fid = resolveFranchiseId(mentor.franchiseId);
-  return buildLineupPayloadForFranchise(fid, {
-    permissions: { canEdit: true, canView: true, mySquadRole: "mentor" },
-    myRegistrationId: null,
-  });
+  const owner = await getFranchiseOwnerForLineup(userId);
+  if (owner) {
+    return buildLineupPayloadForFranchise(owner.franchiseId, {
+      permissions: { canEdit: false, canView: true, mySquadRole: "owner" },
+      myRegistrationId: String(owner._id),
+    });
+  }
+
+  return { error: "NO_SQUAD", status: 403, message: "You are not on a sold franchise squad yet." };
 }
 
 function normalizeIncomingEntries(raw, squadIds) {

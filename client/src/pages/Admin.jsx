@@ -522,6 +522,7 @@ function PlayersPage() {
   const [message, setMessage] = useState("");
   const [screenshotModal, setScreenshotModal] = useState(null);
   const [paymentModalReg, setPaymentModalReg] = useState(null);
+  const [paymentAmountInr, setPaymentAmountInr] = useState("");
   const [utrNumber, setUtrNumber] = useState("");
   const [screenshotFile, setScreenshotFile] = useState(null);
   const [screenshotPreview, setScreenshotPreview] = useState("");
@@ -551,6 +552,7 @@ function PlayersPage() {
     company: "",
     designation: "",
     role: "",
+    amountInr: "",
   });
   const [editError, setEditError] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
@@ -668,6 +670,7 @@ function PlayersPage() {
   function openEditModal(reg) {
     setEditReg(reg);
     setEditError("");
+    const amount = Number(reg.payment?.amountInr);
     setEditForm({
       fullName: reg.fullName || "",
       email: reg.email || "",
@@ -675,6 +678,7 @@ function PlayersPage() {
       company: reg.company || "",
       designation: reg.designation || "",
       role: reg.role || "",
+      amountInr: Number.isFinite(amount) && amount > 0 ? String(amount) : "",
     });
   }
 
@@ -690,6 +694,13 @@ function PlayersPage() {
     setSavingEdit(true);
     setEditError("");
     try {
+      const amountTrim = String(editForm.amountInr || "").trim();
+      if (amountTrim !== "") {
+        const parsed = Math.round(Number(amountTrim));
+        if (!Number.isFinite(parsed) || parsed < 0) {
+          throw new Error("Enter a valid payment amount in INR.");
+        }
+      }
       const payload =
         editReg.interest === "franchise"
           ? (({ phone: _p, ...rest }) => rest)(editForm)
@@ -701,6 +712,9 @@ function PlayersPage() {
       setRegs((prev) =>
         prev.map((r) => (String(r._id) === String(data.registration._id) ? data.registration : r))
       );
+      if (detailReg && String(detailReg._id) === String(data.registration._id)) {
+        setDetailReg(data.registration);
+      }
       setMessage(`Details updated for ${data.registration.fullName}.`);
       closeEditModal();
     } catch (err) {
@@ -817,11 +831,22 @@ function PlayersPage() {
     setMarkingPaid(true);
     setError("");
     try {
+      const amountTrim = String(markPaidConfirmReg.payment?.amountInr || "").trim();
+      const payload = {};
+      if (
+        paymentModalReg &&
+        String(paymentModalReg._id) === String(markPaidConfirmReg._id) &&
+        paymentAmountInr.trim()
+      ) {
+        payload.amountInr = paymentAmountInr.trim();
+      } else if (amountTrim) {
+        payload.amountInr = amountTrim;
+      }
       const data = await api(
         `/api/admin/registrations/${markPaidConfirmReg._id}/mark-payment-paid`,
         {
           method: "PATCH",
-          body: JSON.stringify({}),
+          body: JSON.stringify(payload),
         }
       );
       setRegs((prev) =>
@@ -891,7 +916,11 @@ function PlayersPage() {
 
   function openPaymentModal(reg) {
     const existingUtr = String(reg?.utrNumber || "").trim();
+    const existingAmount = Number(reg?.payment?.amountInr);
     setPaymentModalReg(reg);
+    setPaymentAmountInr(
+      Number.isFinite(existingAmount) && existingAmount > 0 ? String(existingAmount) : ""
+    );
     setUtrNumber(existingUtr);
     setScreenshotFile(null);
     if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
@@ -901,6 +930,7 @@ function PlayersPage() {
 
   function closePaymentModal() {
     setPaymentModalReg(null);
+    setPaymentAmountInr("");
     setUtrNumber("");
     setScreenshotFile(null);
     if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
@@ -917,21 +947,38 @@ function PlayersPage() {
       const prevUtr = String(paymentModalReg.utrNumber || "").trim().toUpperCase();
       const utrChanged = Boolean(nextUtr) && nextUtr !== prevUtr;
       const shotChanged = Boolean(screenshotFile);
+      const amountTrim = paymentAmountInr.trim();
+      const nextAmount = amountTrim === "" ? null : Math.round(Number(amountTrim));
+      const prevAmount = Math.round(Number(paymentModalReg.payment?.amountInr) || 0);
+      const amountChanged =
+        nextAmount !== null && Number.isFinite(nextAmount) && nextAmount >= 0 && nextAmount !== prevAmount;
 
-      if (!utrChanged && !shotChanged) {
+      if (!utrChanged && !shotChanged && !amountChanged) {
         if (closeOnSave) {
-          throw new Error("No payment changes to save. Update UTR or upload a new screenshot.");
+          throw new Error("No payment changes to save. Update amount, UTR, or upload a new screenshot.");
         }
         return paymentModalReg;
       }
 
-      if (!utrNumber.trim() && !screenshotFile && !paymentScreenshotUrl(paymentModalReg)) {
+      if (amountTrim !== "" && (!Number.isFinite(nextAmount) || nextAmount < 0)) {
+        throw new Error("Enter a valid payment amount in INR.");
+      }
+
+      if (
+        (utrChanged || shotChanged) &&
+        !utrNumber.trim() &&
+        !screenshotFile &&
+        !paymentScreenshotUrl(paymentModalReg)
+      ) {
         throw new Error("Please add a UTR number or payment screenshot.");
       }
 
       const formData = new FormData();
       formData.set("fullName", paymentModalReg.fullName || "player");
       formData.set("utrNumber", utrNumber.trim());
+      if (amountTrim !== "") {
+        formData.set("amountInr", String(nextAmount));
+      }
       if (screenshotFile) {
         formData.set("paymentScreenshot", screenshotFile);
       }
@@ -963,8 +1010,13 @@ function PlayersPage() {
       let reg = paymentModalReg;
       const nextUtr = utrNumber.trim().toUpperCase();
       const prevUtr = String(paymentModalReg.utrNumber || "").trim().toUpperCase();
+      const prevAmount = Math.round(Number(paymentModalReg.payment?.amountInr) || 0);
+      const amountTrim = paymentAmountInr.trim();
+      const nextAmount = amountTrim === "" ? null : Math.round(Number(amountTrim));
+      const amountChanged =
+        nextAmount !== null && Number.isFinite(nextAmount) && nextAmount >= 0 && nextAmount !== prevAmount;
       const needsSave =
-        (Boolean(nextUtr) && nextUtr !== prevUtr) || Boolean(screenshotFile);
+        (Boolean(nextUtr) && nextUtr !== prevUtr) || Boolean(screenshotFile) || amountChanged;
 
       if (needsSave) {
         reg = await saveAdminPaymentDetails({ closeOnSave: false });
@@ -1174,45 +1226,43 @@ function PlayersPage() {
                         : ""}
                     </p>
                   ) : null}
-                  {getPaymentStatus(reg) !== "paid" ? (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {canEnablePayNow(reg) ? (
-                        <button
-                          type="button"
-                          className="btn-primary !py-1.5 !text-xs"
-                          onClick={() => setPayNowConfirmReg(reg)}
-                        >
-                          Pay now
-                        </button>
-                      ) : null}
-                      {missingPaymentDetails(reg) ? (
-                        <button
-                          type="button"
-                          className="btn-primary !py-1.5 !text-xs"
-                          onClick={() => openPaymentModal(reg)}
-                        >
-                          Add payment details
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn-ghost !py-1.5 !text-xs"
-                          onClick={() => openPaymentModal(reg)}
-                        >
-                          Edit payment details
-                        </button>
-                      )}
-                      {canMarkPaymentPaid(reg) ? (
-                        <button
-                          type="button"
-                          className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110"
-                          onClick={() => setMarkPaidConfirmReg(reg)}
-                        >
-                          Mark as paid
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {getPaymentStatus(reg) !== "paid" ? (
+                      <>
+                        {canEnablePayNow(reg) ? (
+                          <button
+                            type="button"
+                            className="btn-primary !py-1.5 !text-xs"
+                            onClick={() => setPayNowConfirmReg(reg)}
+                          >
+                            Pay now
+                          </button>
+                        ) : null}
+                        {canMarkPaymentPaid(reg) ? (
+                          <button
+                            type="button"
+                            className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110"
+                            onClick={() => setMarkPaidConfirmReg(reg)}
+                          >
+                            Mark as paid
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
+                    <button
+                      type="button"
+                      className={
+                        missingPaymentDetails(reg) && getPaymentStatus(reg) !== "paid"
+                          ? "btn-primary !py-1.5 !text-xs"
+                          : "btn-ghost !py-1.5 !text-xs"
+                      }
+                      onClick={() => openPaymentModal(reg)}
+                    >
+                      {missingPaymentDetails(reg) && getPaymentStatus(reg) !== "paid"
+                        ? "Add payment details"
+                        : "Edit payment"}
+                    </button>
+                  </div>
                   {reg.payNowEnabled && getPaymentStatus(reg) !== "paid" ? (
                     <p className="mt-1 text-xs text-emerald-300">
                       Pay now enabled
@@ -1717,6 +1767,22 @@ function PlayersPage() {
                   placeholder="e.g. Software Engineer"
                 />
               </label>
+              <label className="block text-sm sm:col-span-2">
+                <span className="text-[color:var(--text-muted)]">Payment amount (₹)</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  className="input-dark mt-1.5"
+                  value={editForm.amountInr}
+                  onChange={(e) => setEditForm((f) => ({ ...f, amountInr: e.target.value }))}
+                  placeholder="Registration fee in INR"
+                />
+                <span className="mt-1 block text-xs text-[color:var(--text-muted)]">
+                  Current status: {paymentStatusLabel(getPaymentStatus(editReg))}
+                  {editReg.payment?.amountInr ? ` · saved ₹${editReg.payment.amountInr}` : ""}
+                </span>
+              </label>
               {editReg.interest === "player" || editReg.interest === "captain" ? (
                 <label className="block text-sm sm:col-span-2">
                   <span className="text-[color:var(--text-muted)]">Playing role</span>
@@ -1768,10 +1834,26 @@ function PlayersPage() {
               {paymentModalReg.fullName}
             </h3>
             <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-              Add UTR and payment screenshot for this player.
+              Set fee amount, UTR, and payment screenshot. Works for pending or already paid registrations.
             </p>
 
             <label className="mt-4 block text-sm">
+              <span className="text-[color:var(--text-muted)]">Payment amount (₹)</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={paymentAmountInr}
+                onChange={(e) => {
+                  setPaymentAmountInr(e.target.value);
+                  if (paymentModalError) setPaymentModalError("");
+                }}
+                className="input-dark mt-1.5"
+                placeholder="e.g. 2500"
+              />
+            </label>
+
+            <label className="mt-3 block text-sm">
               <span className="text-[color:var(--text-muted)]">UTR number</span>
               <input
                 type="text"
