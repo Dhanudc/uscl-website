@@ -23,12 +23,24 @@ export default function ZoomableImage({
   const useTopCrop =
     portraitCrop !== undefined ? portraitCrop : !/\bobject-contain\b/.test(className);
 
+  function closeLightbox() {
+    setOpen(false);
+    // Prevent the same click from activating controls under the overlay (e.g. profile upload).
+    const block = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      document.removeEventListener("click", block, true);
+    };
+    document.addEventListener("click", block, true);
+    window.setTimeout(() => document.removeEventListener("click", block, true), 400);
+  }
+
   useEffect(() => {
     if (!open) return undefined;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     function onKey(event) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") closeLightbox();
     }
     window.addEventListener("keydown", onKey);
     return () => {
@@ -79,12 +91,17 @@ export default function ZoomableImage({
               role="dialog"
               aria-modal="true"
               aria-label="Enlarged photo"
-              onClick={() => setOpen(false)}
+              onClick={(e) => {
+                if (e.target === e.currentTarget) closeLightbox();
+              }}
             >
               <button
                 type="button"
                 className="absolute right-4 top-4 z-10 rounded-full border border-white/25 bg-black/50 px-3 py-1.5 text-sm font-semibold text-white hover:bg-black/70"
-                onClick={() => setOpen(false)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeLightbox();
+                }}
               >
                 Close
               </button>

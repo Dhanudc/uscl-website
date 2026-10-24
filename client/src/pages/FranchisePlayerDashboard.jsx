@@ -52,13 +52,14 @@ export default function FranchisePlayerDashboard() {
         ) : error ? (
           <p className="mt-8 text-sm text-accent">{error}</p>
         ) : player ? (
-          <div className="panel mt-8 rounded-2xl p-5">
-            <div className="flex flex-wrap items-start gap-4">
+          <div className="panel mt-8 overflow-hidden rounded-2xl p-4 sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
               {photo ? (
                 <ZoomableImage
                   src={photo}
                   alt={player.fullName}
-                  buttonClassName="h-24 w-24 overflow-hidden rounded-lg border border-[color:var(--border)]"
+                  portraitCrop
+                  buttonClassName="franchise-squad-avatar-btn !h-24 !w-24 mx-auto sm:mx-0"
                   className="h-full w-full object-cover"
                 />
               ) : (
@@ -66,7 +67,7 @@ export default function FranchisePlayerDashboard() {
                   No photo
                 </span>
               )}
-              <div className="grid min-w-0 flex-1 gap-1.5 text-sm text-[color:var(--text)] sm:grid-cols-2">
+              <div className="grid min-w-0 flex-1 gap-1.5 break-words text-sm text-[color:var(--text)] sm:grid-cols-2">
                 <p>Name: {player.fullName}</p>
                 <p>Player ID: {player.playerCode || "—"}</p>
                 <p>Email: {player.email}</p>

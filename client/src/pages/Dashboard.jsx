@@ -528,22 +528,15 @@ export default function Dashboard() {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
                       {imgUrl && !brokenProfileIds.has(String(reg._id)) ? (
-                        <button
-                          type="button"
-                          className="shrink-0 rounded-lg border border-[color:var(--border)] p-0"
-                          title="Change profile picture"
-                          onClick={() => openProfileModal(reg)}
-                        >
-                          <ZoomableImage
-                            src={imgUrl}
-                            alt={reg.fullName}
-                            buttonClassName="h-14 w-14 overflow-hidden rounded-lg"
-                            className="h-full w-full object-cover"
-                            onError={() => {
-                              setBrokenProfileIds((prev) => new Set(prev).add(String(reg._id)));
-                            }}
-                          />
-                        </button>
+                        <ZoomableImage
+                          src={imgUrl}
+                          alt={reg.fullName}
+                          buttonClassName="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)]"
+                          className="h-full w-full object-cover"
+                          onError={() => {
+                            setBrokenProfileIds((prev) => new Set(prev).add(String(reg._id)));
+                          }}
+                        />
                       ) : (
                         <button
                           type="button"

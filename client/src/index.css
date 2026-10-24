@@ -1165,6 +1165,22 @@ video.object-cover {
   object-position: top center;
 }
 
+.franchise-squad-avatar-btn {
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 100%, transparent);
+  line-height: 0;
+  cursor: zoom-in;
+}
+
+.franchise-squad-avatar-btn img {
+  object-fit: cover;
+  object-position: top center;
+}
+
 .auction-top-sold__avatar {
   width: 3.5rem;
   height: 3.5rem;
