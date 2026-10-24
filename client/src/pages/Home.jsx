@@ -64,13 +64,15 @@ export default function Home() {
               <p className="mt-3 max-w-md text-base text-[color:var(--text)]">{current.text}</p>
             )}
             <div className="mt-7 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-              <RegisterCta className="btn-primary w-full justify-center sm:w-auto" openLabel="Register" />
+              <RegisterCta className="btn-primary w-full justify-center sm:w-auto" />
               <Link to="/player-journey" className="btn-ghost w-full justify-center sm:w-auto">
-                Player Journey
+                {navLabel("playerJourney") || "Player Journey"}
               </Link>
-              <Link to="/franchise" className="btn-ghost w-full justify-center sm:w-auto">
-                Own A Franchise
-              </Link>
+              {isModuleVisible("franchise") ? (
+                <Link to="/franchise" className="btn-ghost w-full justify-center sm:w-auto">
+                  {navLabel("franchise") || "Franchise Information"}
+                </Link>
+              ) : null}
             </div>
             <div className="mt-8">
               <p className="text-xs text-[color:var(--text-muted)]">Follow us for more updates – USCL T20</p>
@@ -127,18 +129,18 @@ export default function Home() {
         </div>
       </section>
 
+      <TeamsRibbon />
+
       <section className="arena border-b border-[color:var(--border)] px-4 py-14">
         <div className="mx-auto max-w-6xl text-center">
           <h2 className="font-display text-[clamp(2.15rem,6.5vw,3.5rem)] leading-none tracking-tight text-[color:var(--title)]">
-            AUCTION
+            AUCTION UPDATES
           </h2>
           <AuctionTopSoldStrip />
         </div>
       </section>
 
       {isModuleVisible("events") ? <UpcomingEventsStrip events={upcomingEvents} /> : null}
-
-      <TeamsRibbon />
 
       <section className="bg-ink px-4 py-12">
         <div className="mx-auto grid max-w-6xl gap-3 sm:grid-cols-2 lg:grid-cols-4">

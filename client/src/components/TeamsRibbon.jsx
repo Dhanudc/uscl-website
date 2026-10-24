@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { franchises } from "../data/franchises";
+import { franchises, franchiseLocationLabel } from "../data/franchises";
 import FranchiseLogoMark from "./FranchiseLogoMark";
 
 /** Full-bleed ribbon of every franchise, scrolling right to left. */
@@ -30,7 +30,7 @@ export default function TeamsRibbon() {
                     />
                   </span>
                   <span className="teams-ribbon__meta">
-                    <span className="teams-ribbon__name">{team.name}</span>
+                    <span className="teams-ribbon__name">{franchiseLocationLabel(team)}</span>
                   </span>
                 </Link>
               ))}

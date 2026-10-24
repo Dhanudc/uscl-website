@@ -1,4 +1,4 @@
-import { franchiseLogoPlateConfig } from "../utils/franchiseLogoDisplay";
+import { franchiseLogoDisplay, franchiseLogoPlateConfig } from "../utils/franchiseLogoDisplay";
 
 /**
  * Franchise logo with optional inner plate (e.g. Norwin Atlanta Lions on black matte, white surround).
@@ -17,6 +17,16 @@ export default function FranchiseLogoMark({
 }) {
   if (!team?.image) return null;
 
+  const display = franchiseLogoDisplay(team.id);
+  const surfaceScale =
+    variant === "ribbon"
+      ? display.ribbonScale ?? 1
+      : variant === "pennant"
+        ? display.pennantScale ?? 1
+        : 1;
+  const surfaceTransform =
+    surfaceScale !== 1 ? `scale(${surfaceScale})` : undefined;
+
   const plate = franchiseLogoPlateConfig(team, variant);
   if (!plate) {
     return (
@@ -24,7 +34,12 @@ export default function FranchiseLogoMark({
         src={team.image}
         alt={alt}
         className={imgClassName || className}
-        style={style || imgStyle}
+        style={{
+          ...(style || imgStyle),
+          transform: [style?.transform || imgStyle?.transform, surfaceTransform]
+            .filter(Boolean)
+            .join(" "),
+        }}
         loading={loading}
         decoding={decoding}
       />

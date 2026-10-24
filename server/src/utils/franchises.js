@@ -3,10 +3,10 @@ export const FRANCHISES = [
   { id: "california-chargers", name: "California Chargers" },
   { id: "chicago-crushers", name: "Chicago Centurions" },
   { id: "florida-falcons", name: "Florida Falcons" },
-  { id: "norwin-atlanta-lions", name: "Norwin Atlanta Lions" },
+  { id: "virginia-vikings", name: "Virginia Vikings" },
   { id: "new-york-knights", name: "Ceipal New York Knights" },
   { id: "texas-thunder", name: "Texas Thunders" },
-  { id: "virginia-vikings", name: "Virginia Vikings" },
+  { id: "norwin-atlanta-lions", name: "Norwin Atlanta Lions" },
 ];
 
 /** Legacy id kept for existing registrations assigned before the rename. */

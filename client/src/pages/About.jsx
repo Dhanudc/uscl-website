@@ -74,7 +74,7 @@ function FeaturedAboutBlock({ block, imageFirst = true }) {
 
 export default function About() {
   const [openMember, setOpenMember] = useState(null);
-  const { boardMembers, membersIntro } = useSiteSettings();
+  const { boardMembers, membersIntro, navLabel } = useSiteSettings();
 
   return (
     <PageShell
@@ -155,7 +155,7 @@ export default function About() {
       <div className="mt-8 flex flex-wrap gap-2">
         <RegisterCta openLabel="Register as Player" />
         <Link to="/franchise" className="btn-ghost">
-          Own a Franchise
+          {navLabel("franchise") || "Franchise Information"}
         </Link>
       </div>
 

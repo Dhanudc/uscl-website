@@ -1,10 +1,14 @@
 /** Optional per-franchise grid tuning; defaults match most teams after normalized assets. */
 const FRANCHISE_LOGO_DISPLAY = {
+  "texas-thunder": {
+    ribbonScale: 0.76,
+    pennantScale: 0.92,
+  },
   "norwin-atlanta-lions": {
     scale: 0.92,
     pad: 36,
     pennantScale: 1,
-    ribbonScale: 1,
+    ribbonScale: 0.88,
     teamCardLogoHeight: 132,
     teamCardLogoZoom: 1.85,
     teamCardPlateBackground: "#000000",

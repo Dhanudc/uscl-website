@@ -6,7 +6,12 @@ export const SITE_MODULES = [
   { key: "media", label: "Media", path: "/media", hint: "Gallery & videos page and Media button" },
   { key: "live", label: "Live", path: "/live", hint: "Live updates, fixtures, and points" },
   { key: "wesley", label: "Wesley", path: "/wesley", hint: "Wesley Elite Sports organizer page" },
-  { key: "franchise", label: "Own A Team", path: "/franchise", hint: "Franchise ownership offer page" },
+  {
+    key: "franchise",
+    label: "Franchise Information",
+    path: "/franchise",
+    hint: "Franchise page — nav, home hero, and footer use this name",
+  },
   { key: "register", label: "Register", path: "/register", hint: "Register / Registration button" },
   { key: "playerJourney", label: "Player Journey", path: "/player-journey", hint: "Player journey page and nav link" },
   { key: "referrals", label: "Rewards", path: "/referrals", hint: "Referrals and giveaways winners page" },

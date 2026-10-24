@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { franchises } from "../data/franchises";
+import { franchises, franchiseLocationLabel } from "../data/franchises";
 import { franchiseLogoDisplay } from "../utils/franchiseLogoDisplay";
 import FranchiseDetailsModal from "./FranchiseDetailsModal";
 
 /** Display order matching the hanging-banner artwork */
 const BANNER_ORDER = [
-  "norwin-atlanta-lions",
+  "virginia-vikings",
   "florida-falcons",
   "chicago-crushers",
-  "virginia-vikings",
+  "norwin-atlanta-lions",
   "california-chargers",
   "texas-thunder",
   "new-york-knights",
@@ -82,7 +82,7 @@ export default function HeroFranchiseBanners() {
                           />
                         </span>
                         <span className="font-display relative mt-1.5 max-w-full truncate px-0.5 text-[0.62rem] leading-tight tracking-wide text-white drop-shadow-sm sm:text-[0.7rem]">
-                          {team.shortName}
+                          {franchiseLocationLabel(team)}
                         </span>
                       </span>
                     </button>

@@ -15,7 +15,7 @@ const NAV_LINKS = [
   { to: "/media", label: "Media", module: "media" },
   { to: "/live", label: "Live", module: "live" },
   { to: "/wesley", label: "Wesley", module: "wesley" },
-  { to: "/franchise", label: "Own A Team", module: "franchise" },
+  { to: "/franchise", label: "Franchise Information", module: "franchise" },
   { to: "/register", label: "Register", module: "register", isRegister: true },
   { to: "/player-journey", label: "Player Journey", module: "playerJourney" },
   { to: "/referrals", label: "Rewards", module: "referrals" },

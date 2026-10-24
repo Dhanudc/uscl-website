@@ -56,7 +56,7 @@ const DEFAULTS = {
   registrationSeasonClosedCopy: {
     title: "Registrations are closed for this season",
     message:
-      "Get ready for next season — stay tuned for USCL T20 updates and see you at the auction.",
+      "Get ready for next season, stay tuned for USCL T20 updates. See you in season 2.",
   },
   playerPayNowEnabled: true,
   playerTeamCardEnabled: true,
@@ -83,7 +83,7 @@ const SiteSettingsContext = createContext({
   registrationSeasonClosedCopy: {
     title: "Registrations are closed for this season",
     message:
-      "Get ready for next season — stay tuned for USCL T20 updates and see you at the auction.",
+      "Get ready for next season, stay tuned for USCL T20 updates. See you in season 2.",
   },
   playerPayNowEnabled: true,
   playerTeamCardEnabled: true,

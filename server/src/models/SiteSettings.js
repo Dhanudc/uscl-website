@@ -587,7 +587,7 @@ export function getRegistrationSeasonClosedCopy(settings) {
     "Registrations are closed for this season";
   const message =
     String(settings?.registrationSeasonClosedMessage || "").trim() ||
-    "Get ready for next season — stay tuned for USCL T20 updates and see you at the auction.";
+    "Get ready for next season, stay tuned for USCL T20 updates. See you in season 2.";
   return { title, message };
 }
 

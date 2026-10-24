@@ -8,19 +8,25 @@ import { useSiteSettings } from "../context/SiteSettingsContext";
  */
 export default function RegisterCta({
   className = "btn-primary",
-  openLabel = "Register",
-  closedLabel = "Registrations closed",
-  seasonClosedLabel = "Registrations closed",
+  openLabel,
+  closedLabel,
+  seasonClosedLabel,
   children,
 }) {
-  const { registrationEnabled, registrationSeasonClosed, isModuleVisible } = useSiteSettings();
+  const { registrationEnabled, registrationSeasonClosed, isModuleVisible, navLabel } =
+    useSiteSettings();
 
   if (!isModuleVisible("register")) return null;
 
+  const registerNav = navLabel("register");
   const closed = registrationSeasonClosed || !registrationEnabled;
   const label =
     children ||
-    (registrationSeasonClosed ? seasonClosedLabel : registrationEnabled ? openLabel : closedLabel);
+    (registrationSeasonClosed
+      ? seasonClosedLabel || registerNav || "Registrations closed"
+      : registrationEnabled
+        ? openLabel || registerNav || "Register"
+        : closedLabel || registerNav || "Registrations closed");
 
   return (
     <Link

@@ -4193,7 +4193,7 @@ function SiteSettingsPage() {
                   <textarea
                     className="mt-1 w-full rounded-lg border border-[color:var(--border)] bg-ink px-3 py-2 text-sm"
                     rows={3}
-                    placeholder="Get ready for next season — stay tuned for USCL T20 updates and see you at the auction."
+                    placeholder="Get ready for next season, stay tuned for USCL T20 updates. See you in season 2."
                     value={registrationSeasonClosedMessage}
                     onChange={(e) => setRegistrationSeasonClosedMessage(e.target.value)}
                     maxLength={500}
@@ -4210,7 +4210,8 @@ function SiteSettingsPage() {
                 Header names
               </h2>
               <p className="mt-1 text-xs text-[color:var(--text-muted)]">
-                Change the header name, then show or hide the button. Hidden items leave the header and footer.
+                Change the header name, then show or hide the button. Names also apply on the home hero
+                (Register, Player Journey, Franchise) and footer. Hidden items leave the header and footer.
               </p>
             </div>
             <div className="divide-y divide-[color:var(--border)]">

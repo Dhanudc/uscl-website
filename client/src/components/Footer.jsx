@@ -56,7 +56,11 @@ export default function Footer() {
           <div className="mt-3 flex flex-col gap-1.5 text-sm text-[color:var(--text-muted)]">
             <span>USCL T20 2026</span>
             {isModuleVisible("wesley") ? <Link to="/wesley" onClick={() => window.scrollTo(0, 0)}>Past Tournaments</Link> : null}
-            {isModuleVisible("franchise") ? <Link to="/franchise" onClick={() => window.scrollTo(0, 0)}>Own a Franchise</Link> : null}
+            {isModuleVisible("franchise") ? (
+              <Link to="/franchise" onClick={() => window.scrollTo(0, 0)}>
+                {navLabel("franchise") || "Franchise Information"}
+              </Link>
+            ) : null}
             {isModuleVisible("live") ? <Link to="/live" onClick={() => window.scrollTo(0, 0)}>Fixtures & Results</Link> : null}
           </div>
         </div>

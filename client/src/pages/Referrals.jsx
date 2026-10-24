@@ -64,13 +64,12 @@ function WinnerCard({ winner, featured = false }) {
   );
 }
 
-function WinnerSection({ eyebrow, title, winners }) {
+function WinnerSection({ title, winners }) {
   const ranked = [...winners].sort((a, b) => Number(a.place) - Number(b.place));
   return (
     <section>
       <div className="mb-5">
-        <p className="eyebrow text-accent">{eyebrow}</p>
-        <h2 className="font-display mt-1 text-3xl text-[color:var(--title)]">{title}</h2>
+        <h2 className="font-display text-3xl text-[color:var(--title)]">{title}</h2>
       </div>
       {winners.length === 0 ? (
         <EmptyState title="Coming soon" description={`Winners for ${title.toLowerCase()} will appear here.`} />
@@ -147,8 +146,8 @@ export default function Referrals() {
         {error ? <p className="mt-6 text-center text-sm text-accent">{error}</p> : null}
 
         <div className="mt-12 space-y-14">
-          <WinnerSection eyebrow="Section 01" title="Referrals" winners={referrals} />
-          <WinnerSection eyebrow="Section 02" title="Giveaways" winners={giveaways} />
+          <WinnerSection title="Referrals" winners={referrals} />
+          <WinnerSection title="Giveaways" winners={giveaways} />
         </div>
 
         <div className="mt-14 border-t border-[color:var(--border)] pt-8 text-center">
