@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { franchises, franchiseLocationLabel } from "../data/franchises";
-import { franchiseLogoDisplay } from "../utils/franchiseLogoDisplay";
+import { franchiseLogoDisplay, franchiseLogoSrc } from "../utils/franchiseLogoDisplay";
 import FranchiseDetailsModal from "./FranchiseDetailsModal";
 
 /** Display order matching the hanging-banner artwork */
@@ -74,7 +74,7 @@ export default function HeroFranchiseBanners() {
                         <span className="pennant-sheen pointer-events-none absolute inset-0" />
                         <span className="relative mt-1 flex h-[52%] w-[82%] items-center justify-center overflow-hidden rounded-full bg-[#f7f3ea] shadow-[inset_0_1px_2px_rgba(0,0,0,.18)] ring-2 ring-white/35">
                           <img
-                            src={team.image}
+                            src={franchiseLogoSrc(team, "pennant")}
                             alt=""
                             className="h-[90%] w-[90%] object-contain object-center"
                             style={{ transform: `scale(${logoDisplay.pennantScale})` }}

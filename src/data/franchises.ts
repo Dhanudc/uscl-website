@@ -4,6 +4,7 @@ export type Franchise = {
   shortName: string;
   city: string;
   image: string;
+  imageSm?: string;
   accent: string;
   accentSecondary?: string;
 };
@@ -71,6 +72,7 @@ export const franchises: Franchise[] = [
     shortName: "Lions",
     city: "Atlanta",
     image: "/franchises/norwin-atlanta-lions.png",
+    imageSm: "/franchises/norwin-atlanta-lions-sm.png",
     accent: "#e5b820",
     accentSecondary: "#1e4fd6",
   },

@@ -12,7 +12,8 @@ const texasAsset =
   "C:\\Users\\admin\\.cursor\\projects\\c-Users-admin-projects-uscl-website\\assets\\c__Users_admin_AppData_Roaming_Cursor_User_workspaceStorage_f271bde0d2543c35e3999c9829d9dc89_images_image-bc75d807-c137-4b19-9422-4f4ac744e118.jpg";
 
 const lionsAsset =
-  "C:\\Users\\admin\\.cursor\\projects\\c-Users-admin-projects-uscl-website\\assets\\c__Users_admin_AppData_Roaming_Cursor_User_workspaceStorage_f271bde0d2543c35e3999c9829d9dc89_images_image-5eef05d5-ba5c-4a4e-b21f-3edf7484b426.png";
+  process.env.LIONS_LOGO_SOURCE ||
+  path.join(process.cwd(), "scripts", ".work", "atlanta-lions-from-pdf.png");
 
 function isWhitePixel(r, g, b, a = 255) {
   if (a < 12) return true;
@@ -94,6 +95,22 @@ function contentBoundsFromFn(data, width, height, channels, isBg) {
   };
 }
 
+function expandBounds(bounds, imgW, imgH, { padX = 0.03, padTop = 0.03, padBottom = 0.08 } = {}) {
+  const px = Math.round(bounds.width * padX);
+  const pt = Math.round(bounds.height * padTop);
+  const pb = Math.round(bounds.height * padBottom);
+  const left = Math.max(0, bounds.left - px);
+  const top = Math.max(0, bounds.top - pt);
+  const right = Math.min(imgW, bounds.left + bounds.width + px);
+  const bottom = Math.min(imgH, bounds.top + bounds.height + pb);
+  return {
+    left,
+    top,
+    width: Math.max(1, right - left),
+    height: Math.max(1, bottom - top),
+  };
+}
+
 /** Texas shield ink (skip outer matte black + white). */
 function isTexasInk(r, g, b, a = 255) {
   if (a < 12) return false;
@@ -142,6 +159,39 @@ function isLogoInk(r, g, b, a = 255) {
   if (isWhitePixel(r, g, b, a)) return false;
   if (r <= 80 && g <= 80 && b <= 80) return false;
   return true;
+}
+
+/** Lions PDF: full crest incl. white “LIONS” on black (not only yellow ink). */
+async function normalizeLionsFromPdfOnWhite(inputPath, outputPath, fill = 0.56) {
+  const { data, info } = await sharp(inputPath)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const isPageBg = (r, g, b, a) => isWhitePixel(r, g, b, a);
+  let bounds = contentBoundsFromFn(data, info.width, info.height, info.channels, isPageBg);
+  if (!bounds) throw new Error(`No logo content in ${inputPath}`);
+  bounds = expandBounds(bounds, info.width, info.height, {
+    padX: 0.04,
+    padTop: 0.04,
+    padBottom: 0.1,
+  });
+  let cropped = await sharp(inputPath).extract(bounds).png().toBuffer();
+  cropped = await tightenCrop(cropped, (r, g, b, a) => !isPageBg(r, g, b, a));
+  const meta = await sharp(cropped).metadata();
+  const pad = Math.round(Math.max(meta.width, meta.height) * 0.05);
+  cropped = await sharp(cropped)
+    .extend({
+      top: pad,
+      bottom: Math.round(pad * 1.75),
+      left: pad,
+      right: pad,
+      background: { r: 255, g: 255, b: 255, alpha: 1 },
+    })
+    .png()
+    .toBuffer();
+  await compositeOnWhiteCanvas(cropped, outputPath, "png", fill);
+  const m = await sharp(outputPath).metadata();
+  console.log(path.basename(outputPath), `${m.width}x${m.height}`, `fill=${fill}`, "(lions pdf)");
 }
 
 async function normalizeColoredOnWhite(inputPath, outputPath, format, fill) {
@@ -276,9 +326,35 @@ try {
 
 const lionsOut = path.join(dir, "norwin-atlanta-lions.png");
 const lionsIn = fs.existsSync(lionsAsset) ? lionsAsset : lionsOut;
-await normalizeBlackMatteOnWhite(lionsIn, lionsOut, 0.64);
+async function normalizeLionsOnWhite(inputPath, outputPath) {
+  const attempts = [
+    () => normalizeLionsFromPdfOnWhite(inputPath, outputPath, 0.56),
+    () => normalizeBlackMatteOnWhite(inputPath, outputPath, 0.58),
+    () => normalizeColoredOnWhite(inputPath, outputPath, "png", 0.58),
+    () => normalizeTexasOnWhite(inputPath, outputPath, 0.58),
+  ];
+  let lastErr;
+  for (const run of attempts) {
+    try {
+      await run();
+      return;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error("Unable to normalize Lions logo");
+}
+await normalizeLionsOnWhite(lionsIn, lionsOut);
+
+const lionsSmOut = path.join(dir, "norwin-atlanta-lions-sm.png");
+await sharp(lionsOut)
+  .resize(384, 384, { fit: "inside", background: { r: 255, g: 255, b: 255 } })
+  .png({ compressionLevel: 9 })
+  .toFile(lionsSmOut);
+console.log(path.basename(lionsSmOut), "384x384", "(lions thumb)");
 
 const rootFranchises = path.join(process.cwd(), "public", "franchises");
-for (const name of ["norwin-atlanta-lions.png", "texas-thunder.png"]) {
+fs.mkdirSync(rootFranchises, { recursive: true });
+for (const name of ["norwin-atlanta-lions.png", "norwin-atlanta-lions-sm.png", "texas-thunder.png"]) {
   fs.copyFileSync(path.join(dir, name), path.join(rootFranchises, name));
 }

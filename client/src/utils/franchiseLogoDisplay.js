@@ -5,13 +5,10 @@ const FRANCHISE_LOGO_DISPLAY = {
     pennantScale: 0.92,
   },
   "norwin-atlanta-lions": {
-    scale: 0.92,
-    pad: 36,
     pennantScale: 1,
-    ribbonScale: 0.88,
-    teamCardLogoHeight: 132,
-    teamCardLogoZoom: 1.85,
-    teamCardPlateBackground: "#000000",
+    ribbonScale: 1,
+    teamCardLogoHeight: 200,
+    teamCardLogoZoom: 1,
   },
 };
 
@@ -32,6 +29,15 @@ const DEFAULT = {
 
 export function franchiseLogoDisplay(franchiseId) {
   return FRANCHISE_LOGO_DISPLAY[franchiseId] || DEFAULT;
+}
+
+/** Full crest for large UI; optional `imageSm` for pennant, ribbon, and thumbs. */
+export function franchiseLogoSrc(team, variant = "inline") {
+  if (!team?.image) return "";
+  const compact =
+    team.imageSm &&
+    (variant === "ribbon" || variant === "thumb" || variant === "pennant");
+  return compact ? team.imageSm : team.image;
 }
 
 /** Centered black matte on white — Texas-style logo footprint per surface. */

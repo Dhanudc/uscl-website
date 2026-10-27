@@ -50,6 +50,7 @@ export const franchises = [
     shortName: "Lions",
     city: "Atlanta",
     image: "/franchises/norwin-atlanta-lions.png",
+    imageSm: "/franchises/norwin-atlanta-lions-sm.png",
     accent: "#e5b820",
     accentSecondary: "#1e4fd6",
   },

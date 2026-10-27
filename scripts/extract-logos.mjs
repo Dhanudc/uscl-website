@@ -15,6 +15,7 @@ const map = [
   { file: "Chicago Crushers.pdf", out: "chicago-crushers.jpg", dest: outFranchises },
   { file: "Florida Falcons.pdf", out: "florida-falcons.png", dest: outFranchises },
   { file: "Norwin Atlanta Lions.pdf", out: "norwin-atlanta-lions.png", dest: outFranchises },
+  { file: "atlanta-lions-final.pdf", out: "norwin-atlanta-lions.png", dest: outFranchises },
   { file: "New York Knight.pdf", out: "new-york-knights.png", dest: outFranchises },
   { file: "Texas Thunders.pdf", out: "texas-thunder.png", dest: outFranchises },
   { file: "Virginia Vikings.pdf", out: "virginia-vikings.png", dest: outFranchises },
