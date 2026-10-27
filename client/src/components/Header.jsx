@@ -127,10 +127,10 @@ export default function Header() {
       <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 lg:py-2.5">
         <Link
           to="/home"
-          className="flex min-w-0 max-w-[42%] shrink-0 items-center gap-2 sm:max-w-none sm:gap-2.5"
+          className="flex min-w-0 flex-1 items-center gap-1.5 pr-1 sm:flex-initial sm:gap-2.5 sm:pr-0"
           aria-label="USCL — US Staffing Champions League"
         >
-          <span className="inline-flex h-10 w-[4.5rem] shrink-0 items-center justify-center overflow-hidden rounded-md bg-white sm:h-11 sm:w-[5.25rem]">
+          <span className="inline-flex h-9 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white sm:h-11 sm:w-[5.25rem]">
             <img
               src="/brand/uscl-logo.png"
               alt=""
@@ -139,11 +139,11 @@ export default function Header() {
               height={44}
             />
           </span>
-          <span className="min-w-0">
-            <span className="font-display block truncate text-base leading-none text-[color:var(--title)]">
+          <span className="min-w-0 flex-1 leading-tight sm:flex-initial">
+            <span className="font-display block text-[0.68rem] leading-[1.2] text-[color:var(--title)] sm:text-base sm:leading-none">
               Champions League
             </span>
-            <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-accent">
+            <span className="mt-0.5 block text-[8px] font-semibold uppercase tracking-[0.12em] text-accent sm:text-[9px] sm:tracking-[0.14em]">
               Season 2026
             </span>
           </span>
