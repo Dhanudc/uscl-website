@@ -8,7 +8,9 @@
   },
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "seed:fixtures-2026": "node scripts/seed-league-fixtures-2026.mjs",
+    "seed:fixtures-2026:replace": "node scripts/seed-league-fixtures-2026.mjs --replace"
   },
   "dependencies": {
     "archiver": "^7.0.1",

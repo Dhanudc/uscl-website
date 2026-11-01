@@ -13,6 +13,11 @@ const texasAsset =
 
 const lionsAsset =
   process.env.LIONS_LOGO_SOURCE ||
+  [
+    path.join(process.cwd(), "scripts", "source", "norwin-atlanta-lions.jpg"),
+    path.join(process.cwd(), "scripts", "source", "norwin-atlanta-lions.png"),
+    path.join(process.cwd(), "scripts", ".work", "atlanta-lions-from-pdf.png"),
+  ].find((p) => fs.existsSync(p)) ||
   path.join(process.cwd(), "scripts", ".work", "atlanta-lions-from-pdf.png");
 
 function isWhitePixel(r, g, b, a = 255) {
@@ -326,7 +331,19 @@ try {
 
 const lionsOut = path.join(dir, "norwin-atlanta-lions.png");
 const lionsIn = fs.existsSync(lionsAsset) ? lionsAsset : lionsOut;
+const lionsIsRaster = /\.(jpe?g|png|webp)$/i.test(lionsIn);
+
+async function normalizeNorwinCrestOnWhite(inputPath, outputPath, fill = 0.64) {
+  await normalizeColoredOnWhite(inputPath, outputPath, "png", fill);
+  const m = await sharp(outputPath).metadata();
+  console.log(path.basename(outputPath), `${m.width}x${m.height}`, `fill=${fill}`, "(norwin crest)");
+}
+
 async function normalizeLionsOnWhite(inputPath, outputPath) {
+  if (lionsIsRaster) {
+    await normalizeNorwinCrestOnWhite(inputPath, outputPath, 0.64);
+    return;
+  }
   const attempts = [
     () => normalizeLionsFromPdfOnWhite(inputPath, outputPath, 0.56),
     () => normalizeBlackMatteOnWhite(inputPath, outputPath, 0.58),

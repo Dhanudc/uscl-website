@@ -29,6 +29,8 @@ export function franchiseLocationLabel(teamOrId) {
   return String(team.city || team.shortName || "").trim();
 }
 
+export const FRANCHISE_IMAGE_VERSION = "5";
+
 export const franchises = [
   { id: "arizona-avengers", name: "Arizona Avengers", shortName: "Avengers", city: "Arizona", image: "/franchises/arizona-avengers.png", accent: "#7a1f2b" },
   { id: "california-chargers", name: "California Chargers", shortName: "Chargers", city: "California", image: "/franchises/california-chargers.png", accent: "#d4a017" },
@@ -49,8 +51,8 @@ export const franchises = [
     name: "Norwin Atlanta Lions",
     shortName: "Lions",
     city: "Atlanta",
-    image: "/franchises/norwin-atlanta-lions.png",
-    imageSm: "/franchises/norwin-atlanta-lions-sm.png",
+    image: `/franchises/norwin-atlanta-lions.png?v=${FRANCHISE_IMAGE_VERSION}`,
+    imageSm: `/franchises/norwin-atlanta-lions-sm.png?v=${FRANCHISE_IMAGE_VERSION}`,
     accent: "#e5b820",
     accentSecondary: "#1e4fd6",
   },

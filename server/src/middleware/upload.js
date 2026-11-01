@@ -17,6 +17,7 @@ const socialRoot = path.join(serverRoot, "uploads", "social");
 const eventsRoot = path.join(serverRoot, "uploads", "events");
 const membersRoot = path.join(serverRoot, "uploads", "members");
 const rewardsRoot = path.join(serverRoot, "uploads", "rewards");
+const scorecardsRoot = path.join(serverRoot, "uploads", "scorecards");
 const playerDocumentsRoot = path.join(serverRoot, "private", "player-documents");
 
 fs.mkdirSync(registrationRoot, { recursive: true });
@@ -28,6 +29,7 @@ fs.mkdirSync(socialRoot, { recursive: true });
 fs.mkdirSync(eventsRoot, { recursive: true });
 fs.mkdirSync(membersRoot, { recursive: true });
 fs.mkdirSync(rewardsRoot, { recursive: true });
+fs.mkdirSync(scorecardsRoot, { recursive: true });
 fs.mkdirSync(playerDocumentsRoot, { recursive: true });
 
 export const PROFILE_IMAGES_DIR = profileImagesRoot;
@@ -351,4 +353,15 @@ export const rewardImageUpload = multer({
 export function toRewardImageUrl(file) {
   if (!file) return "";
   return `/uploads/rewards/${file.filename}`;
+}
+
+export const scorecardImageUpload = multer({
+  storage: makeStorage(scorecardsRoot),
+  fileFilter: imageFilter,
+  limits: { fileSize: 12 * 1024 * 1024 },
+}).single("image");
+
+export function toScorecardImageUrl(file) {
+  if (!file) return "";
+  return `/uploads/scorecards/${file.filename}`;
 }

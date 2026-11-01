@@ -2,7 +2,7 @@ import { Router } from "express";
 import { adminRequired, hashPassword } from "../middleware/auth.js";
 import { documentUploadAuth } from "../middleware/documentUploadAuth.js";
 import { getPublicApiBase, signDocumentUploadToken } from "../utils/documentUploadToken.js";
-import { socialIconUpload, toSocialIconUrl, eventImageUpload, toEventImageUrl, memberImageUpload, toMemberImageUrl, rewardImageUpload, toRewardImageUrl, mapWithProfileImageUrl, withProfileImageUrl, paymentScreenshotUpload, portalImageUpload, portalVideoUpload, profilePhotoUpload, playerRegistrationUpload, playerDocumentsUpload, toProfileImageMeta } from "../middleware/upload.js";
+import { socialIconUpload, toSocialIconUrl, eventImageUpload, toEventImageUrl, memberImageUpload, toMemberImageUrl, rewardImageUpload, toRewardImageUrl, scorecardImageUpload, toScorecardImageUrl, mapWithProfileImageUrl, withProfileImageUrl, paymentScreenshotUpload, portalImageUpload, portalVideoUpload, profilePhotoUpload, playerRegistrationUpload, playerDocumentsUpload, toProfileImageMeta } from "../middleware/upload.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
@@ -25,6 +25,7 @@ import {
 import { sendUserPasswordResetEmail } from "../utils/passwordReset.js";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { normalizeRegistrationFees, getRegistrationFeeInr } from "../utils/registrationFees.js";
 import { User } from "../models/User.js";
 import { PlayerActivity } from "../models/PlayerActivity.js";
@@ -58,8 +59,11 @@ import {
 } from "../utils/teamLineup.js";
 
 const SQUAD_REPLACE_PRICE_INR = 3000;
-import { buildPointsTable } from "../utils/points.js";
+import { buildPublicPointsTable, normalizeTeamNetRunRates } from "../utils/points.js";
+import { fixtureSlotToDate, LEAGUE_FIXTURES_2026 } from "../data/leagueFixtures2026.js";
 import { persistUploadedFile } from "../utils/mediaStore.js";
+import { scorecardSummaryLine } from "../utils/matchScorecard.js";
+import { extractScorecardFromImageFile } from "../utils/scorecardFromImage.js";
 import { isValidPlayerRole, playerRoleLabel } from "../constants/playerRoles.js";
 import { allocateNextPlayerCode, backfillMissingPlayerCodes } from "../utils/playerCode.js";
 import {
@@ -2862,6 +2866,10 @@ function parseMatchBody(body) {
       status,
       teamAScore: String(body.teamAScore || "").trim(),
       teamBScore: String(body.teamBScore || "").trim(),
+      teamAScorecard: parseOptionalScorecard(body.teamAScorecard),
+      teamBScorecard: parseOptionalScorecard(body.teamBScorecard),
+      teamAScorecardImage: String(body.teamAScorecardImage || "").trim(),
+      teamBScorecardImage: String(body.teamBScorecardImage || "").trim(),
       winnerId,
       winnerName: winnerId ? getFranchiseName(winnerId) : "",
       resultSummary: String(body.resultSummary || "").trim(),
@@ -2869,9 +2877,94 @@ function parseMatchBody(body) {
   };
 }
 
+function parseOptionalScorecard(value) {
+  if (value == null || value === "") return null;
+  if (typeof value === "object") return value;
+  try {
+    return JSON.parse(String(value));
+  } catch {
+    return null;
+  }
+}
+
 router.get("/matches", adminRequired, async (_req, res) => {
-  const matches = await Match.find().sort({ scheduledAt: 1 }).lean();
-  return res.json({ matches, points: buildPointsTable(matches), franchises: FRANCHISES });
+  const [matches, settings] = await Promise.all([Match.find().sort({ scheduledAt: 1 }).lean(), getSiteSettings()]);
+  const netRunRates = normalizeTeamNetRunRates(settings?.teamNetRunRates);
+  return res.json({
+    matches,
+    points: buildPublicPointsTable(matches, netRunRates),
+    netRunRates,
+    franchises: FRANCHISES,
+  });
+});
+
+router.put("/standings/net-run-rates", adminRequired, async (req, res) => {
+  try {
+    const netRunRates = normalizeTeamNetRunRates(req.body?.netRunRates);
+    const settings = await getSiteSettings();
+    settings.teamNetRunRates = netRunRates;
+    await settings.save();
+    const matches = await Match.find().sort({ scheduledAt: 1 }).lean();
+    await writeAudit(req, {
+      action: "standings.nrr_update",
+      targetType: "standings",
+      targetId: null,
+      targetLabel: "Points table NRR",
+      details: { summary: "Updated manual net run rates" },
+    });
+    return res.json({
+      netRunRates,
+      points: buildPublicPointsTable(matches, netRunRates),
+    });
+  } catch (error) {
+    console.error("standings nrr update", error);
+    return res.status(500).json({ error: "Unable to save net run rates." });
+  }
+});
+
+router.post("/matches/seed-league-2026", adminRequired, async (req, res) => {
+  try {
+    const replace = Boolean(req.body?.replace);
+    if (replace) {
+      await Match.deleteMany({
+        stage: "league",
+        scheduledAt: {
+          $gte: new Date("2026-11-01T00:00:00.000Z"),
+          $lte: new Date("2026-12-31T23:59:59.999Z"),
+        },
+      });
+    } else {
+      const existing = await Match.countDocuments({ matchNumber: { $gte: 1, $lte: 28 }, stage: "league" });
+      if (existing >= 28) {
+        return res.status(409).json({ error: "League fixtures already loaded. Send { \"replace\": true } to reload." });
+      }
+    }
+
+    const docs = LEAGUE_FIXTURES_2026.map((row) => ({
+      matchNumber: row.matchNumber,
+      stage: "league",
+      teamAId: row.teamAId,
+      teamAName: getFranchiseName(row.teamAId),
+      teamBId: row.teamBId,
+      teamBName: getFranchiseName(row.teamBId),
+      scheduledAt: fixtureSlotToDate(row.date, row.slot),
+      venue: "",
+      status: "upcoming",
+    }));
+
+    const inserted = await Match.insertMany(docs);
+    await writeAudit(req, {
+      action: "match.seed",
+      targetType: "match",
+      targetId: null,
+      targetLabel: "Season 2026 league fixtures",
+      details: { summary: `Loaded ${inserted.length} fixtures${replace ? " (replaced)" : ""}` },
+    });
+    return res.status(201).json({ count: inserted.length, replace });
+  } catch (error) {
+    console.error("match seed league 2026", error);
+    return res.status(500).json({ error: "Unable to load league fixtures." });
+  }
 });
 
 router.post("/matches", adminRequired, async (req, res) => {
@@ -2912,6 +3005,120 @@ router.patch("/matches/:id", adminRequired, async (req, res) => {
   } catch (error) {
     console.error("match update", error);
     return res.status(500).json({ error: "Unable to update match." });
+  }
+});
+
+router.post("/matches/:id/scorecard-image", adminRequired, (req, res) => {
+  scorecardImageUpload(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || "Image upload failed." });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: "Choose an image file (JPG, PNG, or WebP)." });
+    }
+    try {
+      const match = await Match.findById(req.params.id);
+      if (!match) return res.status(404).json({ error: "Match not found." });
+      const side = String(req.body?.side || "").toLowerCase() === "b" ? "b" : "a";
+      await persistUploadedFile(req.file, "scorecard");
+      const url = toScorecardImageUrl(req.file);
+      let scorecard = null;
+      let parseWarning = "";
+      try {
+        scorecard = await extractScorecardFromImageFile(req.file.path, req.file.mimetype);
+      } catch (parseErr) {
+        console.error("scorecard image parse", parseErr);
+        parseWarning = parseErr.message || "Image saved but scorecard could not be read.";
+      }
+      if (side === "b") {
+        match.teamBScorecardImage = url;
+        if (scorecard) match.teamBScorecard = scorecard;
+      } else {
+        match.teamAScorecardImage = url;
+        if (scorecard) match.teamAScorecard = scorecard;
+      }
+      const summary = scorecardSummaryLine(scorecard);
+      if (summary) {
+        if (side === "b" && !match.teamBScore) match.teamBScore = summary.split(" ")[0] || summary;
+        if (side === "a" && !match.teamAScore) match.teamAScore = summary.split(" ")[0] || summary;
+      }
+      await match.save();
+      await writeAudit(req, {
+        action: "match.scorecard_image",
+        targetType: "match",
+        targetId: match._id,
+        targetLabel: `${match.teamAName} vs ${match.teamBName}`,
+        details: {
+          summary: scorecard
+            ? `Uploaded & parsed Team ${side.toUpperCase()} scorecard`
+            : `Uploaded Team ${side.toUpperCase()} scorecard image (parse failed)`,
+        },
+      });
+      return res.json({
+        match: match.toObject(),
+        url,
+        side,
+        scorecard,
+        parseWarning: parseWarning || undefined,
+      });
+    } catch (error) {
+      console.error("match scorecard image upload", error);
+      return res.status(500).json({ error: "Unable to upload scorecard image." });
+    }
+  });
+});
+
+router.post("/matches/:id/scorecard-image/reparse", adminRequired, async (req, res) => {
+  try {
+    const match = await Match.findById(req.params.id);
+    if (!match) return res.status(404).json({ error: "Match not found." });
+    const side = String(req.body?.side || req.query?.side || "").toLowerCase() === "b" ? "b" : "a";
+    const imageUrl = side === "b" ? match.teamBScorecardImage : match.teamAScorecardImage;
+    if (!imageUrl) {
+      return res.status(400).json({ error: "Upload a scorecard image first." });
+    }
+    const filename = path.basename(String(imageUrl).replace(/\\/g, "/"));
+    const routesDir = path.dirname(fileURLToPath(import.meta.url));
+    const filePath = path.join(routesDir, "../../uploads/scorecards", filename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "Scorecard image file not found on server. Re-upload the image." });
+    }
+    const scorecard = await extractScorecardFromImageFile(filePath);
+    if (side === "b") {
+      match.teamBScorecard = scorecard;
+    } else {
+      match.teamAScorecard = scorecard;
+    }
+    const summary = scorecardSummaryLine(scorecard);
+    if (summary) {
+      if (side === "b") match.teamBScore = summary.split(" ")[0] || summary;
+      if (side === "a") match.teamAScore = summary.split(" ")[0] || summary;
+    }
+    await match.save();
+    return res.json({ match: match.toObject(), side, scorecard });
+  } catch (error) {
+    console.error("scorecard reparse", error);
+    return res.status(400).json({ error: error.message || "Unable to parse scorecard image." });
+  }
+});
+
+router.delete("/matches/:id/scorecard-image", adminRequired, async (req, res) => {
+  try {
+    const match = await Match.findById(req.params.id);
+    if (!match) return res.status(404).json({ error: "Match not found." });
+    const side = String(req.query.side || req.body?.side || "").toLowerCase() === "b" ? "b" : "a";
+    if (side === "b") {
+      match.teamBScorecardImage = "";
+      match.teamBScorecard = null;
+    } else {
+      match.teamAScorecardImage = "";
+      match.teamAScorecard = null;
+    }
+    await match.save();
+    return res.json({ match: match.toObject(), side });
+  } catch (error) {
+    console.error("match scorecard image delete", error);
+    return res.status(500).json({ error: "Unable to remove scorecard image." });
   }
 });
 

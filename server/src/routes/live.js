@@ -1,18 +1,24 @@
 import { Router } from "express";
 import { LeaderboardEntry } from "../models/LeaderboardEntry.js";
 import { Match } from "../models/Match.js";
-import { buildPointsTable } from "../utils/points.js";
+import { getSiteSettings } from "../models/SiteSettings.js";
+import { buildPublicPointsTable, normalizeTeamNetRunRates } from "../utils/points.js";
+import { findNextMatchId, pickUpcomingMatches } from "../utils/matchSchedule.js";
 
 const router = Router();
 
 router.get("/", async (_req, res) => {
   try {
-    const [matches, leaderboard] = await Promise.all([
+    const [matches, leaderboard, settings] = await Promise.all([
       Match.find().sort({ scheduledAt: 1 }).lean(),
       LeaderboardEntry.find().sort({ category: 1, sortOrder: 1, value: -1 }).lean(),
+      getSiteSettings(),
     ]);
 
-    const fixtures = matches.filter((m) => m.status === "upcoming" || m.status === "live");
+    const netRunRates = normalizeTeamNetRunRates(settings?.teamNetRunRates);
+
+    const fixtures = pickUpcomingMatches(matches, 2);
+    const nextMatchId = findNextMatchId(matches);
     const results = matches
       .filter((m) => m.status === "completed")
       .slice()
@@ -20,9 +26,10 @@ router.get("/", async (_req, res) => {
 
     return res.json({
       fixtures,
+      nextMatchId,
       schedule: matches,
       results,
-      points: buildPointsTable(matches),
+      points: buildPublicPointsTable(matches, netRunRates),
       leaderboard,
     });
   } catch (error) {

@@ -1,6 +1,6 @@
 /**
- * Import atlanta-lions-final.pdf → norwin-atlanta-lions.png (Texas-style white tile).
- * Usage: node scripts/update-atlanta-lions-logo.mjs [path-to.pdf]
+ * Build norwin-atlanta-lions.png from Norwin crest JPG/PNG (preferred) or legacy PDF.
+ * Usage: node scripts/update-atlanta-lions-logo.mjs [path-to.jpg|.png|.pdf]
  */
 import fs from "fs";
 import path from "path";
@@ -8,27 +8,47 @@ import { pdf } from "pdf-to-img";
 import { spawnSync } from "child_process";
 
 const repoRoot = process.cwd();
-const defaultCandidates = [
+const sourceDir = path.join(repoRoot, "scripts", "source");
+
+const RASTER_CANDIDATES = [
   process.argv[2],
-  path.join(
-    repoRoot,
-    "scripts",
-    "source",
-    "atlanta-lions-final.pdf"
-  ),
-  "C:\\Users\\admin\\.cursor\\projects\\c-Users-admin-projects-uscl-website\\attachments\\8e74c9e5-ce90-425a-bbe7-1bda03eb1e37\\atlanta-lions-final.pdf",
-  "C:\\Users\\admin\\Downloads\\atlanta-lions-final.pdf",
+  path.join(sourceDir, "norwin-atlanta-lions.jpg"),
+  path.join(sourceDir, "norwin-atlanta-lions.png"),
+  path.join(sourceDir, "norwin-atlanta-lions.jpeg"),
+  path.join(sourceDir, "atlanta-lions.jpg"),
+  path.join(sourceDir, "atlanta-lions.png"),
+].filter(Boolean);
+
+const rasterPath = RASTER_CANDIDATES.find((p) => p && fs.existsSync(p));
+if (rasterPath) {
+  fs.mkdirSync(sourceDir, { recursive: true });
+  const canonical = path.join(sourceDir, "norwin-atlanta-lions.jpg");
+  if (path.resolve(rasterPath) !== path.resolve(canonical)) {
+    fs.copyFileSync(rasterPath, canonical);
+  }
+  console.log("Source image:", rasterPath);
+  const proc = spawnSync(process.execPath, ["scripts/process-franchise-logos.mjs"], {
+    cwd: repoRoot,
+    env: { ...process.env, LIONS_LOGO_SOURCE: canonical },
+    stdio: "inherit",
+  });
+  process.exit(proc.status ?? 1);
+}
+
+const defaultCandidates = [
+  "C:\\Users\\admin\\Downloads\\Norwin Atlanta Lions.pdf",
 ].filter(Boolean);
 
 const pdfPath = defaultCandidates.find((p) => p && fs.existsSync(p));
 if (!pdfPath) {
-  console.error("atlanta-lions-final.pdf not found. Pass path as first argument.");
+  console.error(
+    "Norwin Atlanta Lions logo not found. Add scripts/source/norwin-atlanta-lions.jpg (Norwin crest on white) or pass a JPG/PNG path.\nThe old atlanta-lions-final.pdf is not the Norwin crest."
+  );
   process.exit(1);
 }
 
 const workDir = path.join(repoRoot, "scripts", ".work");
 fs.mkdirSync(workDir, { recursive: true });
-const sourceDir = path.join(repoRoot, "scripts", "source");
 fs.mkdirSync(sourceDir, { recursive: true });
 
 if (path.resolve(pdfPath) !== path.join(sourceDir, "atlanta-lions-final.pdf")) {

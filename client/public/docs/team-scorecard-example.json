@@ -1,0 +1,53 @@
+{
+  "inningsSummary": "137/3 (13.2 Ov)",
+  "batting": [
+    {
+      "name": "Example Batter",
+      "dismissal": "c Fielder b Bowler",
+      "runs": 45,
+      "balls": 38,
+      "fours": 5,
+      "sixes": 1,
+      "strikeRate": 118.42,
+      "minutes": 52
+    },
+    {
+      "name": "Not Out Player",
+      "dismissal": "not out",
+      "runs": 30,
+      "balls": 22,
+      "fours": 2,
+      "sixes": 2,
+      "strikeRate": 136.36,
+      "minutes": 28
+    }
+  ],
+  "extras": {
+    "total": 20,
+    "detail": "wd 12, nb 6, b 2"
+  },
+  "total": {
+    "label": "137/3",
+    "overs": "13.2 Ov",
+    "crr": "10.28"
+  },
+  "toBat": ["Player One", "Player Two"],
+  "bowling": [
+    {
+      "name": "Example Bowler",
+      "overs": "4",
+      "maidens": 0,
+      "runs": 28,
+      "wickets": 2,
+      "economy": 7.0
+    }
+  ],
+  "fallOfWickets": [
+    {
+      "wicket": 1,
+      "batter": "Example Batter",
+      "score": "60",
+      "over": "4.6 Ov"
+    }
+  ]
+}

@@ -214,23 +214,6 @@ function CardArt({
         </p>
 
         <CardSquadRoleBadge role={squadRole} accent={accent} />
-
-        {Number(registration?.soldPrice) > 0 ? (
-          <div
-            style={{
-              display: "inline-block",
-              marginTop: 24,
-              padding: "14px 36px",
-              borderRadius: 999,
-              background: `linear-gradient(90deg, ${accent}, ${accent}99)`,
-              fontSize: 32,
-              fontWeight: 800,
-              boxShadow: `0 8px 32px ${accent}66`,
-            }}
-          >
-            SOLD · ₹{Number(registration.soldPrice).toLocaleString("en-IN")}
-          </div>
-        ) : null}
       </div>
 
       <div

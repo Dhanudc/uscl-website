@@ -9,6 +9,8 @@ export type Franchise = {
   accentSecondary?: string;
 };
 
+export const FRANCHISE_IMAGE_VERSION = "5";
+
 export const franchises: Franchise[] = [
   {
     id: "arizona-avengers",
@@ -71,8 +73,8 @@ export const franchises: Franchise[] = [
     name: "Norwin Atlanta Lions",
     shortName: "Lions",
     city: "Atlanta",
-    image: "/franchises/norwin-atlanta-lions.png",
-    imageSm: "/franchises/norwin-atlanta-lions-sm.png",
+    image: `/franchises/norwin-atlanta-lions.png?v=${FRANCHISE_IMAGE_VERSION}`,
+    imageSm: `/franchises/norwin-atlanta-lions-sm.png?v=${FRANCHISE_IMAGE_VERSION}`,
     accent: "#e5b820",
     accentSecondary: "#1e4fd6",
   },

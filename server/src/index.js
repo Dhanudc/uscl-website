@@ -19,6 +19,7 @@ import { backfillProfileImageColumn } from "./utils/backfillProfileImage.js";
 import { backfillPaymentStatusColumn } from "./utils/backfillPaymentStatus.js";
 import { backfillMissingPlayerCodes } from "./utils/playerCode.js";
 import { backfillNorwinAtlantaLionsTeam } from "./utils/backfillNorwinAtlantaLions.js";
+import { ensureLeagueFixtures2026 } from "./utils/ensureLeagueFixtures.js";
 import { serveMediaFromDb } from "./utils/mediaStore.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -79,6 +80,7 @@ app.use(cookieParser());
 app.get("/profile-images/:filename", serveMediaFromDb("profile"));
 app.get("/payments/:filename", serveMediaFromDb("payment"));
 app.get("/payment-screenshots/:filename", serveMediaFromDb("payment"));
+app.get("/uploads/scorecards/:filename", serveMediaFromDb("scorecard"));
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -135,6 +137,14 @@ async function start() {
 
   await connectDB();
   await ensureAdminUser();
+  try {
+    const seeded = await ensureLeagueFixtures2026();
+    if (seeded > 0) {
+      console.log(`[server] League fixtures: seeded ${seeded} match(es)`);
+    }
+  } catch (err) {
+    console.error("[server] League fixtures seed failed (server will still start):", err);
+  }
   await backfillProfileImageColumn();
   await backfillPaymentStatusColumn();
   const playerCodesAssigned = await backfillMissingPlayerCodes();

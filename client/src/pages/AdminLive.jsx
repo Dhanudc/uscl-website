@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { compressImageForUpload } from "../utils/media";
+import { formatNetRunRate } from "../utils/pointsDisplay";
+import { hasScorecardData } from "../utils/matchScorecard";
 
 const emptyMatch = {
   matchNumber: "",
@@ -11,6 +14,10 @@ const emptyMatch = {
   status: "upcoming",
   teamAScore: "",
   teamBScore: "",
+  teamAScorecardImage: "",
+  teamBScorecardImage: "",
+  teamAScorecard: null,
+  teamBScorecard: null,
   winnerId: "",
   resultSummary: "",
 };
@@ -38,6 +45,7 @@ export default function AdminLivePage({ AdminShell }) {
   const [matches, setMatches] = useState([]);
   const [points, setPoints] = useState([]);
   const [entries, setEntries] = useState([]);
+  const [netRunRates, setNetRunRates] = useState({});
   const [form, setForm] = useState(emptyMatch);
   const [editId, setEditId] = useState("");
   const [leaderForm, setLeaderForm] = useState(emptyLeader);
@@ -49,7 +57,31 @@ export default function AdminLivePage({ AdminShell }) {
     const data = await api("/api/admin/matches");
     setMatches(data.matches || []);
     setPoints(data.points || []);
+    setNetRunRates(data.netRunRates || {});
     setFranchises(data.franchises || []);
+  }
+
+  async function saveNetRunRates() {
+    setError("");
+    setOk("");
+    setBusy(true);
+    try {
+      const res = await api("/api/admin/standings/net-run-rates", {
+        method: "PUT",
+        body: JSON.stringify({ netRunRates }),
+      });
+      setNetRunRates(res.netRunRates || {});
+      setPoints(res.points || []);
+      setOk("Net run rates saved.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function setTeamNrr(franchiseId, value) {
+    setNetRunRates((prev) => ({ ...prev, [franchiseId]: value }));
   }
 
   async function loadLeaderboard() {
@@ -79,15 +111,26 @@ export default function AdminLivePage({ AdminShell }) {
           body: JSON.stringify(payload),
         });
         setOk("Match updated.");
+        setForm(emptyMatch);
+        setEditId("");
       } else {
-        await api("/api/admin/matches", {
+        const created = await api("/api/admin/matches", {
           method: "POST",
           body: JSON.stringify(payload),
         });
-        setOk("Match created.");
+        const id = created.match?._id;
+        if (id) {
+          setEditId(id);
+          setForm((f) => ({
+            ...f,
+            ...payload,
+            scheduledAt: form.scheduledAt,
+            teamAScorecardImage: created.match?.teamAScorecardImage || "",
+            teamBScorecardImage: created.match?.teamBScorecardImage || "",
+          }));
+        }
+        setOk("Match created. You can upload scorecard images below.");
       }
-      setForm(emptyMatch);
-      setEditId("");
       await loadMatches();
     } catch (err) {
       setError(err.message);
@@ -108,11 +151,110 @@ export default function AdminLivePage({ AdminShell }) {
       status: match.status || "upcoming",
       teamAScore: match.teamAScore || "",
       teamBScore: match.teamBScore || "",
+      teamAScorecardImage: match.teamAScorecardImage || "",
+      teamBScorecardImage: match.teamBScorecardImage || "",
+      teamAScorecard: match.teamAScorecard || null,
+      teamBScorecard: match.teamBScorecard || null,
       winnerId: match.winnerId || "",
       resultSummary: match.resultSummary || "",
     });
     setTab("matches");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function uploadScorecardImage(side, file) {
+    if (!file) return;
+    if (!editId) {
+      setError("Save the match first, then upload scorecard images.");
+      return;
+    }
+    setError("");
+    setOk("");
+    setBusy(true);
+    try {
+      const compressed = await compressImageForUpload(file);
+      const body = new FormData();
+      body.append("image", compressed);
+      body.append("side", side);
+      const data = await api(`/api/admin/matches/${editId}/scorecard-image`, {
+        method: "POST",
+        body,
+      });
+      const match = data.match || {};
+      setForm((f) => ({
+        ...f,
+        teamAScorecardImage: match.teamAScorecardImage ?? f.teamAScorecardImage,
+        teamBScorecardImage: match.teamBScorecardImage ?? f.teamBScorecardImage,
+        teamAScorecard: match.teamAScorecard ?? f.teamAScorecard,
+        teamBScorecard: match.teamBScorecard ?? f.teamBScorecard,
+        teamAScore: match.teamAScore ?? f.teamAScore,
+        teamBScore: match.teamBScore ?? f.teamBScore,
+      }));
+      if (data.parseWarning) {
+        setError(data.parseWarning);
+        setOk("Image saved. Fix parsing (see error) or use Re-read image.");
+      } else {
+        setOk(`${side === "a" ? "Team A" : "Team B"} scorecard image parsed and saved.`);
+      }
+      await loadMatches();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reparseScorecardImage(side) {
+    if (!editId) return;
+    setError("");
+    setOk("");
+    setBusy(true);
+    try {
+      const data = await api(`/api/admin/matches/${editId}/scorecard-image/reparse`, {
+        method: "POST",
+        body: JSON.stringify({ side }),
+      });
+      const match = data.match || {};
+      setForm((f) => ({
+        ...f,
+        teamAScorecard: match.teamAScorecard ?? f.teamAScorecard,
+        teamBScorecard: match.teamBScorecard ?? f.teamBScorecard,
+        teamAScore: match.teamAScore ?? f.teamAScore,
+        teamBScore: match.teamBScore ?? f.teamBScore,
+      }));
+      setOk("Scorecard re-read from image.");
+      await loadMatches();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeScorecardImage(side) {
+    if (!editId) return;
+    setError("");
+    setOk("");
+    setBusy(true);
+    try {
+      const data = await api(`/api/admin/matches/${editId}/scorecard-image?side=${side}`, {
+        method: "DELETE",
+      });
+      const match = data.match || {};
+      setForm((f) => ({
+        ...f,
+        teamAScorecardImage: match.teamAScorecardImage ?? "",
+        teamBScorecardImage: match.teamBScorecardImage ?? "",
+        teamAScorecard: match.teamAScorecard ?? null,
+        teamBScorecard: match.teamBScorecard ?? null,
+      }));
+      setOk("Scorecard image removed.");
+      await loadMatches();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function removeMatch(id) {
@@ -122,6 +264,28 @@ export default function AdminLivePage({ AdminShell }) {
       await api(`/api/admin/matches/${id}`, { method: "DELETE" });
       await loadMatches();
       setOk("Match deleted.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function seedLeagueFixtures(replace = false) {
+    const msg = replace
+      ? "Replace all Nov–Dec 2026 league fixtures with the official 28-match schedule?"
+      : "Load the official 28-match Season 2026 league schedule?";
+    if (!window.confirm(msg)) return;
+    setError("");
+    setOk("");
+    setBusy(true);
+    try {
+      const res = await api("/api/admin/matches/seed-league-2026", {
+        method: "POST",
+        body: JSON.stringify({ replace }),
+      });
+      await loadMatches();
+      setOk(`Loaded ${res.count} league fixtures.`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -189,6 +353,27 @@ export default function AdminLivePage({ AdminShell }) {
 
       {error && <p className="mb-3 text-sm text-accent">{error}</p>}
       {ok && <p className="mb-3 text-sm text-emerald-500">{ok}</p>}
+
+      {tab === "matches" && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            className="btn-ghost !py-1.5 !text-xs"
+            onClick={() => seedLeagueFixtures(false)}
+          >
+            Load 28 league fixtures
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            className="btn-ghost !py-1.5 !text-xs"
+            onClick={() => seedLeagueFixtures(true)}
+          >
+            Reload fixtures (replace)
+          </button>
+        </div>
+      )}
 
       {tab === "matches" && (
         <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
@@ -323,6 +508,68 @@ export default function AdminLivePage({ AdminShell }) {
                   onChange={(e) => setForm((f) => ({ ...f, resultSummary: e.target.value }))}
                 />
               </label>
+
+              <div className="sm:col-span-2 rounded-lg border border-[color:var(--border)] bg-ink-soft/40 p-3">
+                <p className="text-xs font-semibold text-[color:var(--title)]">Team scorecards (image → data)</p>
+                <p className="mt-1 text-[11px] text-[color:var(--text-muted)]">
+                  Upload a Cricbuzz-style scorecard screenshot. The server reads the image and saves structured
+                  batting/bowling data for Live Updates. Requires{" "}
+                  <code className="text-[10px]">OPENAI_API_KEY</code> on the API.{" "}
+                  {!editId ? "Save the match first, then upload." : null}
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {[
+                    ["a", "Team A scorecard", form.teamAScorecardImage, form.teamAScorecard],
+                    ["b", "Team B scorecard", form.teamBScorecardImage, form.teamBScorecard],
+                  ].map(([side, label, imagePath, parsed]) => (
+                    <div key={side} className="rounded-md border border-[color:var(--border)] bg-ink-card p-2">
+                      <p className="text-[11px] font-semibold text-[color:var(--title)]">{label}</p>
+                      <p className="mt-0.5 text-[10px] text-[color:var(--text-muted)]">
+                        {hasScorecardData(parsed, "")
+                          ? "Parsed for live display ✓"
+                          : imagePath
+                            ? "Image saved — parsing failed or pending"
+                            : "No scorecard yet"}
+                      </p>
+                      <label
+                        className={`btn-ghost mt-2 inline-flex cursor-pointer !py-1.5 !text-xs ${!editId || busy ? "pointer-events-none opacity-50" : ""}`}
+                      >
+                        Upload image
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          disabled={!editId || busy}
+                          onChange={(e) => {
+                            uploadScorecardImage(side, e.target.files?.[0]);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      {imagePath ? (
+                        <button
+                          type="button"
+                          className="ml-2 text-[10px] text-accent hover:underline disabled:opacity-50"
+                          disabled={busy}
+                          onClick={() => reparseScorecardImage(side)}
+                        >
+                          Re-read image
+                        </button>
+                      ) : null}
+                      {imagePath ? (
+                        <button
+                          type="button"
+                          className="ml-2 text-[10px] text-accent hover:underline disabled:opacity-50"
+                          disabled={busy}
+                          onClick={() => removeScorecardImage(side)}
+                        >
+                          Remove
+                        </button>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <button type="submit" disabled={busy} className="btn-primary">
@@ -392,31 +639,56 @@ export default function AdminLivePage({ AdminShell }) {
       )}
 
       {tab === "points" && (
-        <div className="overflow-x-auto rounded-xl border border-[color:var(--border)]">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-ink-soft text-[color:var(--text-muted)]">
-              <tr>
-                <th className="px-3 py-2">Team</th>
-                <th className="px-3 py-2">P</th>
-                <th className="px-3 py-2">W</th>
-                <th className="px-3 py-2">L</th>
-                <th className="px-3 py-2">NR</th>
-                <th className="px-3 py-2">Pts</th>
-              </tr>
-            </thead>
-            <tbody>
-              {points.map((row) => (
-                <tr key={row.id} className="border-t border-[color:var(--border)]">
-                  <td className="px-3 py-2 text-[color:var(--title)]">{row.name}</td>
-                  <td className="px-3 py-2">{row.played}</td>
-                  <td className="px-3 py-2">{row.won}</td>
-                  <td className="px-3 py-2">{row.lost}</td>
-                  <td className="px-3 py-2">{row.noResult}</td>
-                  <td className="px-3 py-2 font-semibold text-accent">{row.points}</td>
+        <div className="space-y-4">
+          <p className="text-sm text-[color:var(--text-muted)]">
+            Match wins and points update from completed fixtures. Enter net run rate (NRR) manually for each team,
+            then save.
+          </p>
+          <div className="overflow-x-auto rounded-xl border border-[color:var(--border)]">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-ink-soft text-[color:var(--text-muted)]">
+                <tr>
+                  <th className="px-3 py-2">Team</th>
+                  <th className="px-3 py-2">P</th>
+                  <th className="px-3 py-2">W</th>
+                  <th className="px-3 py-2">L</th>
+                  <th className="px-3 py-2">NR</th>
+                  <th className="px-3 py-2">NRR</th>
+                  <th className="px-3 py-2">Pts</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {points.map((row) => (
+                  <tr key={row.id} className="border-t border-[color:var(--border)]">
+                    <td className="px-3 py-2 text-[color:var(--title)]">{row.name}</td>
+                    <td className="px-3 py-2">{row.played}</td>
+                    <td className="px-3 py-2">{row.won}</td>
+                    <td className="px-3 py-2">{row.lost}</td>
+                    <td className="px-3 py-2">{row.noResult}</td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        step="0.001"
+                        className="input-dark !w-24 !py-1 !text-xs tabular-nums"
+                        value={netRunRates[row.id] ?? row.netRunRate ?? 0}
+                        onChange={(e) => setTeamNrr(row.id, e.target.value)}
+                        aria-label={`NRR for ${row.name}`}
+                      />
+                    </td>
+                    <td className="px-3 py-2 font-semibold text-accent">{row.points}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" disabled={busy} className="btn-primary !py-2 !text-xs" onClick={saveNetRunRates}>
+              {busy ? "Saving…" : "Save net run rates"}
+            </button>
+            <p className="text-xs text-[color:var(--text-muted)]">
+              Public table shows {formatNetRunRate(0.45)} style (3 decimals).
+            </p>
+          </div>
         </div>
       )}
 

@@ -12,6 +12,7 @@ export function buildPointsTable(matches) {
         lost: 0,
         noResult: 0,
         points: 0,
+        netRunRate: 0,
       },
     ])
   );
@@ -43,9 +44,47 @@ export function buildPointsTable(matches) {
     }
   }
 
-  return Object.values(table).sort((x, y) => {
+  return Object.values(table);
+}
+
+/** Normalize admin/manual NRR map keyed by franchise id. */
+export function normalizeTeamNetRunRates(input) {
+  const out = {};
+  const src = input && typeof input === "object" ? input : {};
+  for (const f of FRANCHISES) {
+    const raw = src[f.id];
+    if (raw === "" || raw == null) {
+      out[f.id] = 0;
+      continue;
+    }
+    const n = Number(raw);
+    out[f.id] = Number.isFinite(n) ? n : 0;
+  }
+  return out;
+}
+
+export function mergeNetRunRatesIntoPointsTable(rows, netRunRates) {
+  const rates = normalizeTeamNetRunRates(netRunRates);
+  const merged = rows.map((row) => ({
+    ...row,
+    netRunRate: rates[row.id] ?? 0,
+  }));
+
+  return merged.sort((x, y) => {
     if (y.points !== x.points) return y.points - x.points;
+    if (y.netRunRate !== x.netRunRate) return y.netRunRate - x.netRunRate;
     if (y.won !== x.won) return y.won - x.won;
     return x.name.localeCompare(y.name);
   });
+}
+
+export function buildPublicPointsTable(matches, netRunRates) {
+  return mergeNetRunRatesIntoPointsTable(buildPointsTable(matches), netRunRates);
+}
+
+export function formatNetRunRate(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "0.000";
+  const sign = n > 0 ? "+" : "";
+  return `${sign}${n.toFixed(3)}`;
 }

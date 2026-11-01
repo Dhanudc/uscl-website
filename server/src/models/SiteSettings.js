@@ -218,6 +218,11 @@ const siteSettingsSchema = new mongoose.Schema(
       type: [boardMemberSchema],
       default: () => [],
     },
+    /** Manual net run rate per franchise id (updated from admin live standings). */
+    teamNetRunRates: {
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({}),
+    },
   },
   { timestamps: true }
 );
@@ -322,6 +327,7 @@ export const DEFAULT_SITE_SETTINGS = {
   keyDates: DEFAULT_KEY_DATES,
   membersIntro: { ...DEFAULT_MEMBERS_INTRO },
   boardMembers: DEFAULT_BOARD_MEMBERS,
+  teamNetRunRates: {},
 };
 
 export function normalizeReferralChallenge(input) {
