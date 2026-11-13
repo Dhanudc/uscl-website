@@ -14,13 +14,14 @@ import liveRoutes from "./routes/live.js";
 import teamsRoutes from "./routes/teams.js";
 import auctionRoutes from "./routes/auction.js";
 import sponsorRoutes from "./routes/sponsors.js";
-import storeRoutes from "./routes/store.js";
+import storeRoutes from "./routes/store/index.js";
 import { backfillProfileImageColumn } from "./utils/backfillProfileImage.js";
 import { backfillPaymentStatusColumn } from "./utils/backfillPaymentStatus.js";
 import { backfillMissingPlayerCodes } from "./utils/playerCode.js";
 import { backfillNorwinAtlantaLionsTeam } from "./utils/backfillNorwinAtlantaLions.js";
 import { ensureLeagueFixtures2026 } from "./utils/ensureLeagueFixtures.js";
 import { serveMediaFromDb } from "./utils/mediaStore.js";
+import { ensureStoreBootstrap } from "./utils/store/ensureStoreBootstrap.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, "../.env") });
@@ -41,6 +42,9 @@ function getAllowedOrigins() {
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
     "http://127.0.0.1:5175",
+    "http://store.localhost:5173",
+    "http://store.localhost:5174",
+    "http://store.localhost:5175",
   ];
 
   // Production domain (www + apex) + current Vercel frontend
@@ -99,6 +103,13 @@ app.use(
 );
 app.use("/media/images", express.static(path.join(__dirname, "../public/media/images")));
 app.use("/media/videos", express.static(path.join(__dirname, "../public/media/videos")));
+app.use(
+  "/storedata",
+  express.static(path.join(__dirname, "../public/storedata"), {
+    dotfiles: "deny",
+    index: false,
+  })
+);
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "uscl-server", env: isProd ? "production" : "development" });
@@ -156,6 +167,12 @@ async function start() {
     }
   } catch (err) {
     console.error("[server] Norwin Atlanta Lions backfill failed (server will still start):", err);
+  }
+  try {
+    await ensureStoreBootstrap();
+    console.log("[server] Store module: categories/brands bootstrapped");
+  } catch (err) {
+    console.error("[server] Store bootstrap failed:", err);
   }
   const razorpayReady = Boolean(
     String(process.env.RAZORPAY_KEY_ID || "").trim() &&

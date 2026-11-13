@@ -1,9 +1,10 @@
 import { squadRoleLabel } from "./SquadRoleBadge";
 import { playerRoleLabel } from "../data/playerRoles";
+import { USCL_PRIMARY_LOGO } from "../data/brandAssets";
 import { franchiseLogoDisplay } from "../utils/franchiseLogoDisplay";
 import { profileImageUrl } from "../utils/media";
 
-const USCL_WORDMARK = "/brand/uscl-wordmark.png";
+const USCL_WORDMARK = USCL_PRIMARY_LOGO;
 export const CARD_WIDTH = 1080;
 export const CARD_HEIGHT = 1350;
 /** Matches decorative frame `inset`. */
@@ -124,8 +125,8 @@ function CardArt({
         src={absoluteUrl(USCL_WORDMARK)}
         alt="USCL"
         side="left"
-        height={148}
-        maxWidth={420}
+        height={104}
+        maxWidth={88}
       />
       <CardCornerLogoPlate
         src={absoluteUrl(franchise?.image)}

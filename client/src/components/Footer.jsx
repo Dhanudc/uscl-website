@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useSiteSettings } from "../context/SiteSettingsContext";
+import { LEAGUE_ORGANISER_LINE, TITLE_SPONSOR_LINE } from "../data/brandAssets";
 import LeagueTagline from "./LeagueTagline";
 import RegisterCta from "./RegisterCta";
-import { wesleyContent } from "../data/siteContent";
 import { phoneToWhatsAppHref } from "../utils/whatsapp";
 
 export default function Footer() {
@@ -13,12 +13,15 @@ export default function Footer() {
 
   return (
     <footer className="border-t border-[color:var(--border)] bg-ink pb-[env(safe-area-inset-bottom)]">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:py-10 md:grid-cols-2 lg:grid-cols-4">
+      <div className="mx-auto grid max-w-6xl items-start gap-8 px-4 py-8 sm:py-10 md:grid-cols-2 lg:grid-cols-4">
         <div>
           <p className="font-display text-2xl text-accent">USCL T20</p>
-          <LeagueTagline as="p" variant="compact" className="mt-2" />
+          <LeagueTagline as="p" variant="compact" className="mt-2 max-w-xs" />
           <p className="mt-3 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
-            Organized by {wesleyContent.title}
+            {TITLE_SPONSOR_LINE}
+          </p>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+            {LEAGUE_ORGANISER_LINE}
           </p>
         </div>
 

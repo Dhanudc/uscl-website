@@ -1,4 +1,5 @@
 import { PLAYER_DOCUMENT_UPLOAD_SIZE_HINT } from "./utils/playerDocumentUpload.js";
+import { apiUnreachableMessage, fetchWithTimeout } from "./utils/fetchWithTimeout.js";
 
 // Same-origin in production so Vercel rewrites proxy /api → Render.
 // Calling Render directly breaks the session cookie (third-party blocked).
@@ -19,11 +20,16 @@ export async function api(path, options = {}) {
   const { portal, ...fetchOptions } = options;
   if (portal) headers["X-USCL-Portal"] = portal;
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    credentials: "include",
-    ...fetchOptions,
-    headers,
-  });
+  let res;
+  try {
+    res = await fetchWithTimeout(`${API_BASE}${path}`, {
+      credentials: "include",
+      ...fetchOptions,
+      headers,
+    });
+  } catch (err) {
+    throw new Error(err.message || apiUnreachableMessage(API_BASE));
+  }
 
   const raw = await res.text();
   let data = {};
@@ -42,11 +48,19 @@ export async function api(path, options = {}) {
       raw && !raw.startsWith("{")
         ? raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200)
         : "";
-    const fallback =
+    let fallback =
       data.error ||
       rawSnippet ||
       res.statusText ||
       `HTTP ${res.status}`;
+    if (
+      res.status >= 500 &&
+      (/internal server error/i.test(fallback) || !data.error) &&
+      !API_BASE
+    ) {
+      fallback =
+        apiUnreachableMessage(API_BASE);
+    }
     if (res.status === 404) {
       throw new Error(
         data.error ||

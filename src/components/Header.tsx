@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { UsclLogoMark } from "@/components/UsclLogoMark";
 
 const links = [
   { href: "/", label: "Home" },
@@ -23,11 +24,9 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-ink/95 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 md:px-6">
-        <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
-          <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-accent font-display text-xl text-white">
-            USCL
-          </span>
-          <span className="leading-none">
+        <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3" onClick={() => setOpen(false)}>
+          <UsclLogoMark variant="header" />
+          <span className="min-w-0 leading-none">
             <span className="font-display block text-2xl text-white">Champions League</span>
             <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-accent">
               Season 2026

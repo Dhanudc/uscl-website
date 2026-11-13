@@ -66,6 +66,9 @@ export default function AdminLogin() {
             Separate from player login. Use this to view stats and approve or reject players.
           </p>
 
+          {loading ? (
+            <p className="text-sm text-[color:var(--text-muted)]">Checking session…</p>
+          ) : null}
           <form
             onSubmit={onSubmit}
             className="mt-5 space-y-3 rounded-lg border border-[color:var(--border)] bg-ink-card p-5"

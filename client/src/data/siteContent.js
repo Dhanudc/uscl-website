@@ -312,27 +312,7 @@ export const liveSections = [
   {
     id: "fixtures",
     title: "Fixtures",
-    body: "Upcoming USCL T20 match pairings across the league stage and finals.",
-  },
-  {
-    id: "schedule",
-    title: "Schedule",
-    body: "Day-by-day timeline for 31 matches over 16 days.",
-  },
-  {
-    id: "points",
-    title: "Points Table",
-    body: "Live standing of all 8 franchises during the league stage.",
-  },
-  {
-    id: "results",
-    title: "Results",
-    body: "Completed match outcomes, margins, and match awards.",
-  },
-  {
-    id: "leaderboard",
-    title: "Leaderboard",
-    body: "Top batters, bowlers, and impact players across the season.",
+    body: "Upcoming USCL T20 match pairings across the league stage and finals (CricHeroes).",
   },
 ];
 

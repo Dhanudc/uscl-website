@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { SiteSettingsProvider } from "./context/SiteSettingsContext";
@@ -27,7 +27,7 @@ import Admin from "./pages/Admin";
 import AdminLogin from "./pages/AdminLogin";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
-import Store from "./store_app/Store";
+import StoreApp from "./store_app/StoreApp";
 import { isStoreHostname } from "./store_app/host";
 
 function ApprovedOnly({ children }) {
@@ -59,7 +59,10 @@ function PublicShell({ children }) {
 function AppRoutes() {
   const location = useLocation();
   const { refresh } = useAuth();
-  const isAdminArea = location.pathname.startsWith("/admin");
+  const onStoreHost = isStoreHostname();
+  const isLeagueAdminArea = !onStoreHost && location.pathname.startsWith("/admin");
+
+  const wasLeagueAdminArea = useRef(isLeagueAdminArea);
 
   useLayoutEffect(() => {
     if ("scrollRestoration" in window.history) {
@@ -71,10 +74,21 @@ function AppRoutes() {
   }, [location.pathname, location.key]);
 
   useEffect(() => {
-    refresh();
-  }, [isAdminArea, refresh]);
+    if (isLeagueAdminArea && !wasLeagueAdminArea.current) {
+      refresh();
+    }
+    wasLeagueAdminArea.current = isLeagueAdminArea;
+  }, [isLeagueAdminArea, refresh]);
 
-  if (isAdminArea) {
+  if (onStoreHost) {
+    return (
+      <Routes>
+        <Route path="/*" element={<StoreApp />} />
+      </Routes>
+    );
+  }
+
+  if (isLeagueAdminArea) {
     return (
       <Routes>
         <Route path="/admin/login" element={<AdminLogin />} />
@@ -86,20 +100,11 @@ function AppRoutes() {
   const isStorePath =
     location.pathname === "/store" || location.pathname.startsWith("/store/");
 
-  if (isStoreHostname()) {
-    return (
-      <Routes>
-        <Route path="/" element={<Store />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    );
-  }
-
   if (isStorePath) {
     return (
       <Routes>
-        <Route path="/store" element={<Store />} />
-        <Route path="*" element={<Navigate to="/store" replace />} />
+        <Route path="/store/*" element={<StoreApp />} />
+        <Route path="/store" element={<Navigate to="/store/" replace />} />
       </Routes>
     );
   }

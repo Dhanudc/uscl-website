@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import HeroFranchiseBanners from "../components/HeroFranchiseBanners";
 import LeagueTagline from "../components/LeagueTagline";
 import RegisterCta from "../components/RegisterCta";
+import { TITLE_SPONSOR_LINE } from "../data/brandAssets";
 import AuctionTopSoldStrip from "../components/AuctionTopSoldStrip";
 import TeamsRibbon from "../components/TeamsRibbon";
 import { UpcomingEventsStrip } from "../components/UpcomingEvents";
@@ -59,7 +60,12 @@ export default function Home() {
               {current.line}
             </p>
             {current.tagline ? (
-              <LeagueTagline as="p" variant="hero" className="mt-3 max-w-md" />
+              <>
+                <LeagueTagline as="p" variant="hero" className="mt-3 max-w-md" />
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+                  {TITLE_SPONSOR_LINE}
+                </p>
+              </>
             ) : (
               <p className="mt-3 max-w-md text-base text-[color:var(--text)]">{current.text}</p>
             )}
@@ -112,20 +118,25 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="stats-marquee border-b border-[color:var(--border)] bg-ink-soft py-8" aria-label="USCL season stats">
-        <div className="stats-marquee-track">
-          {[0, 1].map((copy) => (
-            <div key={copy} className="stats-marquee-group" aria-hidden={copy === 1}>
-              {siteStats.map((stat) => (
-                <div key={`${copy}-${stat.label}`} className="stats-marquee-item">
-                  <p className="font-display text-3xl text-accent md:text-4xl">{stat.value}</p>
-                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
-                    {stat.label}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ))}
+      <section
+        className="stats-banner border-b border-[color:var(--border)] bg-ink-soft py-6 sm:py-8"
+        aria-label="USCL season highlights"
+      >
+        <div className="stats-marquee" aria-label="USCL season stats">
+          <div className="stats-marquee-track">
+            {[0, 1].map((copy) => (
+              <div key={copy} className="stats-marquee-group" aria-hidden={copy === 1}>
+                {siteStats.map((stat) => (
+                  <div key={`${copy}-${stat.label}`} className="stats-marquee-item">
+                    <p className="font-display text-3xl text-accent md:text-4xl">{stat.value}</p>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+                      {stat.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -157,7 +168,7 @@ export default function Home() {
                 : ["/signin", "Sponsors", "Sign in to view sponsor packages"]
               : null,
             isModuleVisible("live")
-              ? ["/live", "Live Updates", "Fixtures, points & results"]
+              ? ["/live", "Live Updates", "Fixtures & results on CricHeroes"]
               : null,
             isModuleVisible("media")
               ? ["/media", "Media", "Gallery photos and season videos"]

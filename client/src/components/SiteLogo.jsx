@@ -1,58 +1,53 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
-
-const LOGO_PRIMARY = "/brand/uscl-logo.png";
-const LOGO_SVG = "/brand/uscl-logo.svg";
-const LOGO_FALLBACK = "/favicon.svg";
+import UsclLogoMark from "./UsclLogoMark";
 
 /**
- * @param {{ to?: string, variant?: "public" | "admin" | "mark", className?: string, onDark?: boolean }} props
+ * @param {{ to?: string, variant?: "public" | "admin" | "mark", className?: string, linkClassName?: string }} props
  */
-export default function SiteLogo({ to, variant = "public", className = "", onDark = false }) {
-  const [src, setSrc] = useState(LOGO_PRIMARY);
+export default function SiteLogo({
+  to,
+  variant = "public",
+  className = "",
+  linkClassName = "",
+}) {
+  const rowClass = `flex min-w-0 items-center gap-2 sm:gap-2.5 ${className}`.trim();
 
-  const markClass =
-    variant === "mark"
-      ? "site-logo__mark site-logo__mark--sm"
-      : variant === "admin"
-        ? "site-logo__mark site-logo__mark--admin"
-        : "site-logo__mark";
-
-  const content = (
-    <span className={`site-logo site-logo--${variant} ${className}`.trim()}>
-      <span className={`${markClass} ${onDark ? "site-logo__mark--on-dark" : ""}`}>
-        <img
-          src={src}
-          alt=""
-          className="site-logo__img"
-          width={84}
-          height={44}
-          onError={() => {
-            if (src === LOGO_PRIMARY) setSrc(LOGO_SVG);
-            else if (src !== LOGO_FALLBACK) setSrc(LOGO_FALLBACK);
-          }}
-        />
+  const inner =
+    variant === "mark" ? (
+      <UsclLogoMark variant="mark" />
+    ) : (
+      <span className={rowClass}>
+        <UsclLogoMark variant={variant === "admin" ? "admin" : "header"} />
+        {variant === "public" ? (
+          <span className="min-w-0 flex-1 leading-tight sm:flex-initial">
+            <span className="font-display block text-[0.68rem] leading-[1.2] text-[color:var(--title)] sm:text-base sm:leading-none">
+              Champions League
+            </span>
+            <span className="mt-0.5 block text-[8px] font-semibold uppercase tracking-[0.12em] text-accent sm:text-[9px] sm:tracking-[0.14em]">
+              Season 2026
+            </span>
+          </span>
+        ) : null}
+        {variant === "admin" ? (
+          <span className="min-w-0 leading-tight">
+            <span className="font-display block text-base text-[color:var(--title)] sm:text-lg">USCL Admin</span>
+            <span className="mt-0.5 block text-[10px] font-medium uppercase tracking-[0.14em] text-[color:var(--text-muted)]">
+              Staff portal
+            </span>
+          </span>
+        ) : null}
       </span>
-      {variant === "public" ? (
-        <span className="site-logo__text min-w-0">
-          <span className="site-logo__title font-display">Champions League</span>
-          <span className="site-logo__tag">Season 2026</span>
-        </span>
-      ) : null}
-      {variant === "admin" ? (
-        <span className="site-logo__text min-w-0">
-          <span className="site-logo__title font-display">USCL Admin</span>
-          <span className="site-logo__subtitle site-logo__subtitle--admin">Staff portal</span>
-        </span>
-      ) : null}
-    </span>
-  );
+    );
 
-  if (!to) return content;
+  if (!to) return inner;
 
   return (
-    <Link to={to} className="site-logo-link min-w-0 shrink-0" aria-label="USCL — home">
-      {content}
+    <Link
+      to={to}
+      className={`flex min-w-0 items-center no-underline ${linkClassName}`.trim()}
+      aria-label="USCL — home"
+    >
+      {inner}
     </Link>
   );
 }

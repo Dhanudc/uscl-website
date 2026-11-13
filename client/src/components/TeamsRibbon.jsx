@@ -6,7 +6,7 @@ import FranchiseLogoMark from "./FranchiseLogoMark";
 export default function TeamsRibbon() {
   return (
     <section className="teams-ribbon" aria-label="USCL franchises">
-      <div className="teams-ribbon__viewport">
+      <div className="teams-ribbon__viewport mx-auto max-w-6xl sm:px-4">
         <div className="teams-ribbon__track">
           {[0, 1].map((copy) => (
             <div key={copy} className="teams-ribbon__group" aria-hidden={copy === 1}>

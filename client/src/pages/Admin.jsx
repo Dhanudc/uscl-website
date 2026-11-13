@@ -4107,6 +4107,7 @@ function SiteSettingsPage() {
   const [registrationSeasonClosedTitle, setRegistrationSeasonClosedTitle] = useState("");
   const [registrationSeasonClosedMessage, setRegistrationSeasonClosedMessage] = useState("");
   const [moduleVisibility, setModuleVisibility] = useState({ ...DEFAULT_MODULE_VISIBILITY });
+  const [storeCatalogEnabled, setStoreCatalogEnabled] = useState(true);
   const [navLabels, setNavLabels] = useState(() => normalizeNavLabels({}));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -4142,6 +4143,7 @@ function SiteSettingsPage() {
           String(data.settings?.registrationSeasonClosedMessage || "")
         );
         setModuleVisibility(normalizeModuleVisibility(data.settings?.moduleVisibility));
+        setStoreCatalogEnabled(data.settings?.storeCatalogEnabled !== false);
         setNavLabels(normalizeNavLabels(data.settings?.navLabels));
       })
       .catch((err) => setError(err.message))
@@ -4166,6 +4168,7 @@ function SiteSettingsPage() {
           registrationSeasonClosedTitle,
           registrationSeasonClosedMessage,
           moduleVisibility,
+          storeCatalogEnabled,
           navLabels,
         }),
       });
@@ -4177,6 +4180,7 @@ function SiteSettingsPage() {
       );
       setModuleVisibility(normalizeModuleVisibility(data.settings?.moduleVisibility));
       setNavLabels(normalizeNavLabels(data.settings?.navLabels));
+      setStoreCatalogEnabled(data.settings?.storeCatalogEnabled !== false);
       await refresh();
       setOk("Settings saved. Header names and show/hide updates apply site-wide immediately.");
     } catch (err) {
@@ -4282,6 +4286,49 @@ function SiteSettingsPage() {
                   />
                 </label>
               </div>
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-ink-card">
+            <div className="border-b border-[color:var(--border)] px-5 py-4">
+              <p className="eyebrow text-accent">Merchandise</p>
+              <h2 className="font-display mt-1 text-xl text-[color:var(--title)]">USCL Store</h2>
+              <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                Controls the public store at store.usclt20.com (and /store on the main site). Store admin
+                at /admin on the store host is always available for catalog work.
+              </p>
+            </div>
+            <div className="space-y-3 p-5">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[color:var(--border)] px-4 py-3 hover:border-accent/40">
+                <input
+                  type="radio"
+                  name="storeCatalogEnabled"
+                  className="mt-1"
+                  checked={storeCatalogEnabled === true}
+                  onChange={() => setStoreCatalogEnabled(true)}
+                />
+                <span>
+                  <span className="block font-medium text-[color:var(--title)]">Show product catalog</span>
+                  <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                    Shoppers can browse products, cart, and checkout.
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[color:var(--border)] px-4 py-3 hover:border-accent/40">
+                <input
+                  type="radio"
+                  name="storeCatalogEnabled"
+                  className="mt-1"
+                  checked={storeCatalogEnabled === false}
+                  onChange={() => setStoreCatalogEnabled(false)}
+                />
+                <span>
+                  <span className="block font-medium text-[color:var(--title)]">Coming soon page</span>
+                  <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                    Store home, product URLs, cart, and checkout show the launch teaser instead of the shop.
+                  </span>
+                </span>
+              </label>
             </div>
           </section>
 

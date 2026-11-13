@@ -125,29 +125,11 @@ export default function Header() {
   return (
     <header className="site-header sticky top-0 z-50 overflow-x-clip backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 lg:py-2.5">
-        <Link
+        <SiteLogo
           to="/home"
-          className="flex min-w-0 flex-1 items-center gap-1.5 pr-1 sm:flex-initial sm:gap-2.5 sm:pr-0"
-          aria-label="USCL — US Staffing Champions League"
-        >
-          <span className="inline-flex h-9 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white sm:h-11 sm:w-[5.25rem]">
-            <img
-              src="/brand/uscl-logo.png"
-              alt=""
-              className="max-h-full max-w-full object-contain"
-              width={84}
-              height={44}
-            />
-          </span>
-          <span className="min-w-0 flex-1 leading-tight sm:flex-initial">
-            <span className="font-display block text-[0.68rem] leading-[1.2] text-[color:var(--title)] sm:text-base sm:leading-none">
-              Champions League
-            </span>
-            <span className="mt-0.5 block text-[8px] font-semibold uppercase tracking-[0.12em] text-accent sm:text-[9px] sm:tracking-[0.14em]">
-              Season 2026
-            </span>
-          </span>
-        </Link>
+          variant="public"
+          linkClassName="min-w-0 flex-1 pr-1 sm:flex-initial sm:pr-0"
+        />
 
         <nav
           className="site-header__nav hidden min-w-0 flex-1 items-center justify-center gap-0 xl:flex"

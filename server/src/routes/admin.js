@@ -95,6 +95,7 @@ import {
   normalizeSponsorPackagesInput,
   getSponsorPackageById,
 } from "../utils/sponsorPackages.js";
+import { getStoreSettings } from "../models/store/StoreSettings.js";
 
 function statusLabel(status) {
   if (status === "verified") return "accepted";
@@ -2218,6 +2219,7 @@ router.get("/player-lookup", adminRequired, async (req, res) => {
 router.get("/settings", adminRequired, async (_req, res) => {
   try {
     const settings = await getSiteSettings();
+    const storeSettings = await getStoreSettings();
     return res.json({
       settings: {
         contact: settings.contact,
@@ -2246,6 +2248,7 @@ router.get("/settings", adminRequired, async (_req, res) => {
         keyDates: publicKeyDates(settings.keyDates),
         membersIntro: normalizeMembersIntro(settings.membersIntro),
         boardMembers: publicBoardMembers(settings.boardMembers),
+        storeCatalogEnabled: storeSettings.enabled !== false,
       },
     });
   } catch (error) {
@@ -2425,6 +2428,15 @@ router.put("/settings", adminRequired, async (req, res) => {
       }
     }
 
+    if (typeof req.body.storeCatalogEnabled === "boolean") {
+      const storeSettings = await getStoreSettings();
+      storeSettings.enabled = req.body.storeCatalogEnabled;
+      await storeSettings.save();
+      auditBits.push(
+        req.body.storeCatalogEnabled ? "USCL Store catalog live" : "USCL Store coming soon"
+      );
+    }
+
     await settings.save();
 
     await writeAudit(req, {
@@ -2438,6 +2450,8 @@ router.put("/settings", adminRequired, async (req, res) => {
           : "Updated site settings",
       },
     });
+
+    const storeSettings = await getStoreSettings();
 
     return res.json({
       settings: {
@@ -2467,6 +2481,7 @@ router.put("/settings", adminRequired, async (req, res) => {
         keyDates: publicKeyDates(settings.keyDates),
         membersIntro: normalizeMembersIntro(settings.membersIntro),
         boardMembers: publicBoardMembers(settings.boardMembers),
+        storeCatalogEnabled: storeSettings.enabled !== false,
       },
     });
   } catch (error) {

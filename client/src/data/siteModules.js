@@ -4,7 +4,7 @@ export const SITE_MODULES = [
   { key: "teams", label: "Teams", path: "/franchises", hint: "Franchise teams page and nav link" },
   { key: "sponsors", label: "Sponsors", path: "/sponsorship", hint: "Sponsor packages (signed-in users)" },
   { key: "media", label: "Media", path: "/media", hint: "Gallery & videos page and Media button" },
-  { key: "live", label: "Live", path: "/live", hint: "Live updates, fixtures, and points" },
+  { key: "live", label: "Live", path: "/live", hint: "Fixtures and results via CricHeroes" },
   { key: "wesley", label: "Wesley", path: "/wesley", hint: "Wesley Elite Sports organizer page" },
   {
     key: "franchise",

@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { franchises, franchiseLocationLabel } from "../data/franchises";
+import {
+  SPONSOR_PENNANT_INTERVAL_MS,
+  TITLE_SPONSOR_NAME,
+  USCL_PRIMARY_LOGO,
+} from "../data/brandAssets";
 import { franchiseLogoDisplay, franchiseLogoSrc } from "../utils/franchiseLogoDisplay";
 import FranchiseDetailsModal from "./FranchiseDetailsModal";
+import SponsorDetailsModal from "./SponsorDetailsModal";
+import ZoomableImage from "./ZoomableImage";
 
 /** Display order matching the hanging-banner artwork */
 const BANNER_ORDER = [
@@ -23,6 +30,16 @@ export default function HeroFranchiseBanners() {
   const rows = [banners.slice(0, 4), banners.slice(4, 8)];
   const [ownersByTeam, setOwnersByTeam] = useState({});
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [sponsorOpen, setSponsorOpen] = useState(false);
+  const [spotlight, setSpotlight] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(
+      () => setSpotlight((i) => (i + 1) % banners.length),
+      SPONSOR_PENNANT_INTERVAL_MS
+    );
+    return () => clearInterval(id);
+  }, [banners.length]);
 
   useEffect(() => {
     api("/api/teams")
@@ -36,6 +53,14 @@ export default function HeroFranchiseBanners() {
       .catch(() => {});
   }, []);
 
+  function onPennantActivate(team, owner, isSponsorView) {
+    if (isSponsorView) {
+      setSponsorOpen(true);
+      return;
+    }
+    setSelectedTeam({ ...team, owner });
+  }
+
   return (
     <>
       <div className="hero-banners relative w-full" aria-label="USCL franchises">
@@ -48,51 +73,96 @@ export default function HeroFranchiseBanners() {
                   const index = rowIndex * 4 + colIndex;
                   const owner = ownersByTeam[team.id];
                   const logoDisplay = franchiseLogoDisplay(team.id);
+                  const isSpotlight = index === spotlight;
+                  const isSponsorView = isSpotlight;
+                  const pennantClass = `hero-pennant group relative mx-auto w-full max-w-[5.5rem] origin-top transition-[transform,opacity] duration-300 sm:max-w-[6.5rem] md:max-w-[7.5rem] ${
+                    isSpotlight
+                      ? "hero-pennant--spotlight z-[2] scale-[1.06] opacity-100"
+                      : "scale-[0.94] opacity-[0.55]"
+                  }`;
+                  const clothStyle = {
+                    background: `linear-gradient(180deg, color-mix(in srgb, ${team.accent} 92%, #fff) 0%, ${team.accent} 42%, color-mix(in srgb, ${team.accent} 62%, #000) 100%)`,
+                    clipPath: "polygon(0 0, 100% 0, 100% 84%, 50% 100%, 0 84%)",
+                  };
+
                   return (
-                    <button
+                    <div
                       key={team.id}
-                      type="button"
-                      className="hero-pennant group relative mx-auto block w-full max-w-[5.5rem] origin-top sm:max-w-[6.5rem] md:max-w-[7.5rem]"
+                      className={pennantClass}
                       style={{
                         animationDelay: `${index * 70}ms`,
                         "--pennant-tilt": `${TILTS[index]}deg`,
                       }}
-                      title={`${team.name} details`}
-                      aria-label={`${team.name} franchise details`}
-                      onClick={() => setSelectedTeam({ ...team, owner })}
                     >
                       <span className="absolute left-[38%] top-[7px] z-0 h-3 w-px bg-[#6a6a6a]" />
                       <span className="absolute right-[38%] top-[7px] z-0 h-3 w-px bg-[#6a6a6a]" />
                       <span className="pennant-pin absolute left-1/2 top-0 z-10 h-2.5 w-2.5 -translate-x-1/2 rounded-full" />
-                      <span
-                        className="pennant-cloth relative mt-3 flex aspect-[3/5] w-full flex-col items-center overflow-hidden px-1.5 pb-5 pt-3"
-                        style={{
-                          background: `linear-gradient(180deg, color-mix(in srgb, ${team.accent} 92%, #fff) 0%, ${team.accent} 42%, color-mix(in srgb, ${team.accent} 62%, #000) 100%)`,
-                          clipPath: "polygon(0 0, 100% 0, 100% 84%, 50% 100%, 0 84%)",
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="pennant-cloth relative mt-3 flex aspect-[3/5] w-full cursor-pointer flex-col items-center overflow-hidden px-1.5 pb-5 pt-3"
+                        style={clothStyle}
+                        title={isSponsorView ? `${TITLE_SPONSOR_NAME} details` : `${team.name} details`}
+                        aria-label={
+                          isSponsorView
+                            ? `${TITLE_SPONSOR_NAME} title sponsor details`
+                            : `${team.name} franchise details`
+                        }
+                        onClick={() => onPennantActivate(team, owner, isSponsorView)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onPennantActivate(team, owner, isSponsorView);
+                          }
                         }}
                       >
                         <span className="pennant-sheen pointer-events-none absolute inset-0" />
-                        <span className="relative mt-1 flex h-[52%] w-[82%] items-center justify-center overflow-hidden rounded-full bg-[#f7f3ea] shadow-[inset_0_1px_2px_rgba(0,0,0,.18)] ring-2 ring-white/35">
-                          <img
-                            src={franchiseLogoSrc(team, "pennant")}
-                            alt=""
-                            className="h-[90%] w-[90%] object-contain object-center"
-                            style={{ transform: `scale(${logoDisplay.pennantScale})` }}
-                            loading="lazy"
-                          />
+                        <span
+                          className="relative mt-1 flex h-[52%] w-[82%] items-center justify-center overflow-hidden rounded-full bg-[#f7f3ea] shadow-[inset_0_1px_2px_rgba(0,0,0,.18)] ring-2 ring-white/35"
+                          onClick={isSponsorView ? (e) => e.stopPropagation() : undefined}
+                        >
+                          {isSponsorView ? (
+                            <ZoomableImage
+                              src={USCL_PRIMARY_LOGO}
+                              alt={TITLE_SPONSOR_NAME}
+                              portraitCrop={false}
+                              buttonClassName="flex h-[88%] w-[88%] items-center justify-center rounded-full"
+                              className="h-full w-full object-contain object-center"
+                              sizeClass="max-h-[min(92vh,720px)] max-w-[min(94vw,420px)]"
+                            />
+                          ) : (
+                            <img
+                              src={franchiseLogoSrc(team, "pennant")}
+                              alt=""
+                              className="h-[90%] w-[90%] object-contain object-center"
+                              style={{ transform: `scale(${logoDisplay.pennantScale})` }}
+                              loading={index < 4 ? "eager" : "lazy"}
+                            />
+                          )}
                         </span>
-                        <span className="font-display relative mt-1.5 max-w-full truncate px-0.5 text-[0.62rem] leading-tight tracking-wide text-white drop-shadow-sm sm:text-[0.7rem]">
-                          {franchiseLocationLabel(team)}
+                        <span className="font-display relative mt-1.5 max-w-full truncate px-0.5 text-[0.62rem] leading-tight tracking-wide text-white drop-shadow-sm transition-opacity duration-200 sm:text-[0.7rem]">
+                          {isSponsorView ? TITLE_SPONSOR_NAME : franchiseLocationLabel(team)}
                         </span>
-                      </span>
-                    </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
             </div>
           ))}
         </div>
+        <div className="mt-4 flex justify-center gap-1.5" aria-hidden="true">
+          {banners.map((team, i) => (
+            <span
+              key={team.id}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === spotlight ? "w-6 bg-accent" : "w-1.5 bg-[color:var(--border-strong)]"
+              }`}
+            />
+          ))}
+        </div>
       </div>
+      {sponsorOpen ? <SponsorDetailsModal onClose={() => setSponsorOpen(false)} /> : null}
       {selectedTeam ? (
         <FranchiseDetailsModal
           team={selectedTeam}

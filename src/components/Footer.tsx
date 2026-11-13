@@ -1,23 +1,21 @@
-import Image from "next/image";
 import Link from "next/link";
+import { UsclLogoFooterZoom } from "@/components/UsclLogoFooterZoom";
 
 export function Footer() {
   return (
     <footer className="border-t border-white/10 bg-ink text-white">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 md:grid-cols-3 md:px-6">
-        <div>
-          <p className="font-display text-4xl text-accent">USCL</p>
-          <p className="mt-3 text-sm text-white/55">
+        <div className="flex flex-col items-start">
+          <UsclLogoFooterZoom />
+          <p className="mt-4 text-sm text-white/55">
             India’s first franchise cricket league for the US Staffing industry.
           </p>
-          <div className="relative mt-5 h-14 w-44 overflow-hidden rounded-md bg-white p-2">
-            <Image
-              src="/brand/wesley-elite-sports.png"
-              alt="Wesley Elite Sports"
-              fill
-              className="object-contain"
-            />
-          </div>
+          <p className="mt-3 text-xs font-bold uppercase tracking-[0.12em] text-white/45">
+            Sponsored by Somireddy Group
+          </p>
+          <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-white/45">
+            Organised by Wesley Elite Sports
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-6 text-sm">
           <div>
@@ -72,7 +70,7 @@ export function Footer() {
           </div>
         </div>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">Organized by</p>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">Organised by</p>
           <p className="font-display mt-3 text-2xl">Wesley Elite Sports</p>
           <Link href="/wesley" className="mt-2 inline-block text-sm text-accent hover:underline">
             Our journey →
